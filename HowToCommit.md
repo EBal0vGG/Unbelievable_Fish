@@ -39,13 +39,13 @@ git merge dev
 
 ```bash
 git push origin dev
-git push origin main
+git push origin main # если решил в main тоже добавлять и перед этим сделал merge
 ```
 
 или один раз с `-u`, если ветки новые:
 
 ```bash
 git push -u origin dev
-git push -u origin main
+git push -u origin main # если решил в main тоже добавлять и перед этим сделал merge
 ```
 
