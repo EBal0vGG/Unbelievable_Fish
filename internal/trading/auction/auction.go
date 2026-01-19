@@ -65,10 +65,15 @@ func (a *Auction) Close() ([]Event, error) {
 	if a.state != StatePublished {
 		return nil, ErrCannotCloseAuction
 	}
-	winner, ok := determineWinner(a.bids)
-	if !ok {
-		return nil, ErrNoBids
+	if len(a.bids) == 0 {
+		if err := a.transitionTo(StateCancelled); err != nil {
+			return nil, err
+		}
+		return []Event{
+			AuctionCancelled{AuctionID: a.ID},
+		}, nil
 	}
+	winner, _ := determineWinner(a.bids)
 	if err := a.transitionTo(StateClosed); err != nil {
 		return nil, err
 	}
