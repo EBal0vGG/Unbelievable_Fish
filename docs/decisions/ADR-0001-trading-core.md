@@ -3,7 +3,7 @@
 ## Context
 Trading (auctions, bids, winner selection) is the core business domain
 of the platform.
-
+---
 Торговля (аукционы, ставки, выбор победителя) является основной бизнес-областью
 платформы.
 
@@ -13,8 +13,7 @@ of the platform.
 - Explicit state machine
 - Domain events emitted by aggregates
 - API and persistence are adapters
-
-
+---
 - Торговая область реализована как чистая доменная модель Go
 - Отсутствие зависимостей от фреймворков
 - Явный конечный автомат
@@ -24,7 +23,6 @@ of the platform.
 ## Consequences
 - OpenAPI defined after domain model
 - Trading logic isolated from infrastructure
-
-
+---
 - OpenAPI определен после доменной модели
 - Логика торговли изолирована от инфраструктуры

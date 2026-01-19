@@ -34,41 +34,71 @@ func NewAuction(id string) *Auction {
 	}
 }
 
-func (a *Auction) Publish() error {
-	return a.transitionTo(StatePublished)
+func (a *Auction) Publish() ([]Event, error) {
+	if a.state != StateDraft {
+		return nil, ErrAuctionCannotBePublished
+	}
+	if err := a.transitionTo(StatePublished); err != nil {
+		return nil, err
+	}
+	return []Event{
+		AuctionPublished{AuctionID: a.ID},
+	}, nil
 }
 
-func (a *Auction) PlaceBid(b Bid) error {
+func (a *Auction) PlaceBid(b Bid) ([]Event, error) {
 	if a.state != StatePublished {
-		return ErrAuctionNotActive
+		return nil, ErrAuctionNotActive
 	}
 	a.bids = append(a.bids, b)
-	return nil
+	return []Event{
+		BidPlaced{
+			AuctionID:       a.ID,
+			BidderCompanyID: b.BidderCompanyID(),
+			Amount:          b.Amount(),
+			PlacedAt:        b.PlacedAt(),
+		},
+	}, nil
 }
 
-func (a *Auction) Close() error {
+func (a *Auction) Close() ([]Event, error) {
 	if a.state != StatePublished {
-		return ErrCannotCloseAuction
+		return nil, ErrCannotCloseAuction
 	}
 	winner, ok := determineWinner(a.bids)
 	if !ok {
-		return ErrNoBids
+		return nil, ErrNoBids
 	}
 	if err := a.transitionTo(StateClosed); err != nil {
-		return err
+		return nil, err
 	}
 	a.winner = &winner
-	return a.transitionTo(StateWon)
+	if err := a.transitionTo(StateWon); err != nil {
+		return nil, err
+	}
+	return []Event{
+		AuctionClosed{AuctionID: a.ID},
+		AuctionWon{
+			AuctionID:       a.ID,
+			WinnerCompanyID: winner.BidderCompanyID(),
+			FinalPrice:      winner.Amount(),
+		},
+	}, nil
 }
 
-func (a *Auction) Cancel() error {
+func (a *Auction) Cancel() ([]Event, error) {
 	if a.state != StatePublished {
-		return ErrInvalidStateTransition
+		return nil, ErrInvalidStateTransition
 	}
 	if len(a.bids) > 0 {
-		return ErrCannotCancelWithBids
+		return nil, ErrCannotCancelWithBids
 	}
-	return a.transitionTo(StateCancelled)
+	if err := a.transitionTo(StateCancelled); err != nil {
+		return nil, err
+	}
+	return []Event{
+		AuctionCancelled{AuctionID: a.ID},
+	}, nil
 }
 
 func (a *Auction) State() State {

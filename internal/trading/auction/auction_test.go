@@ -7,11 +7,11 @@ import (
 
 func TestCannotBidAfterClose(t *testing.T) {
 	a := NewAuction("1")
-	_ = a.Publish()
-	_ = a.PlaceBid(mustBid(t, "x", 100, time.Now()))
-	_ = a.Close()
+	_, _ = a.Publish()
+	_, _ = a.PlaceBid(mustBid(t, "x", 100, time.Now()))
+	_, _ = a.Close()
 
-	err := a.PlaceBid(mustBid(t, "x", 100, time.Now()))
+	_, err := a.PlaceBid(mustBid(t, "x", 100, time.Now()))
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -19,9 +19,9 @@ func TestCannotBidAfterClose(t *testing.T) {
 
 func TestCloseWithNoBidsReturnsError(t *testing.T) {
 	a := NewAuction("1")
-	_ = a.Publish()
+	_, _ = a.Publish()
 
-	err := a.Close()
+	_, err := a.Close()
 	if err == nil {
 		t.Fatal("expected error")
 	}
@@ -29,12 +29,12 @@ func TestCloseWithNoBidsReturnsError(t *testing.T) {
 
 func TestCloseSetsWinnerAndState(t *testing.T) {
 	a := NewAuction("1")
-	_ = a.Publish()
+	_, _ = a.Publish()
 	now := time.Now()
-	_ = a.PlaceBid(mustBid(t, "a", 100, now))
-	_ = a.PlaceBid(mustBid(t, "b", 200, now.Add(time.Second)))
+	_, _ = a.PlaceBid(mustBid(t, "a", 100, now))
+	_, _ = a.PlaceBid(mustBid(t, "b", 200, now.Add(time.Second)))
 
-	err := a.Close()
+	_, err := a.Close()
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
