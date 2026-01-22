@@ -1,0 +1,509 @@
+openapi: 3.0.3
+info:
+  title: Trading / Auction API
+  version: 0.1.0
+  description: |
+    EN
+    ---
+    Trading / Auction API.
+
+    This API contains no business logic. It is an entry point to the application layer.
+    All state transitions happen exclusively via use cases.
+    Direct access to the domain layer is impossible.
+
+    Responsibilities:
+    - auction lifecycle management
+    - bid submission
+    - winner determination
+    - domain event generation
+
+    Not responsible for:
+    - users and identity
+    - companies
+    - products and catalog
+    - money, balances, or payments
+    - UI-specific formatting
+
+    Consistency model:
+    - Commands may be eventually consistent.
+    - Queries are read-only and may be cached.
+
+    Idempotency and retries:
+    - Command requests may be retried safely.
+    - Idempotency is achieved via CorrelationID provided by the client.
+
+    Finality:
+    - Auction state becomes final only after successful command execution
+      and domain event publication.
+
+    Security context:
+    - Trading trusts upstream identity and authorization.
+    - The API expects `company_id` and `user_id` to be provided via request headers.
+    - Trading does not validate users or companies.
+
+    ---
+    RU
+    ---
+    Trading / Auction API.
+
+    Данный API не содержит бизнес-логики. Он является точкой входа в application layer.
+    Все изменения состояния происходят исключительно через use case’ы.
+    Прямой доступ к доменному слою невозможен.
+
+    Зона ответственности:
+    - жизненный цикл аукционов
+    - прием и обработка ставок
+    - определение победителя
+    - генерация доменных событий
+
+    Не входит в ответственность:
+    - пользователи и идентификация
+    - компании
+    - товары и каталог
+    - деньги, балансы и платежи
+    - форматирование данных для UI
+
+    Модель согласованности:
+    - Командные операции могут быть eventually consistent.
+    - Запросы (queries) являются read-only и могут кэшироваться.
+
+    Идемпотентность и повторы:
+    - Командные запросы могут безопасно повторяться.
+    - Идемпотентность обеспечивается через CorrelationID,
+      передаваемый клиентом.
+
+    Финальность состояния:
+    - Состояние аукциона считается финальным только после
+      успешного выполнения команды и публикации доменных событий.
+
+    Контекст безопасности:
+    - Trading доверяет upstream-системе аутентификации и авторизации.
+    - API ожидает, что `company_id` и `user_id` передаются в HTTP-заголовках.
+    - Trading не валидирует пользователей и компании.
+
+x-boundaries:
+  trading_responsibilities:
+    - auction lifecycle
+    - bids
+    - winner determination
+    - domain event generation
+  out_of_scope:
+    - users
+    - companies
+    - products
+    - money / balances
+    - UI formatting
+x-domain-events:
+  delivery: best-effort
+  publication_moment: after successful use case execution
+  subscription: |
+    Consumers may subscribe via event bus / outbox / message broker.
+    Exact transport is an infrastructure concern.
+  events:
+    - name: AuctionPublished
+      payload: AuctionPublished
+    - name: BidPlaced
+      payload: BidPlaced
+    - name: AuctionClosed
+      payload: AuctionClosed
+    - name: AuctionCancelled
+      payload: AuctionCancelled
+    - name: AuctionWon
+      payload: AuctionWon
+
+servers:
+  - url: /api
+
+tags:
+  - name: Commands
+    description: State-changing use cases (write).
+  - name: Queries
+    description: Read-only operations (read).
+
+paths:
+  /auctions:
+    post:
+      tags: [Commands]
+      summary: CreateAuction
+      operationId: CreateAuction
+      parameters:
+        - $ref: '#/components/parameters/XCompanyID'
+        - $ref: '#/components/parameters/XUserID'
+        - $ref: '#/components/parameters/XCorrelationID'
+        - $ref: '#/components/parameters/XCausationID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAuctionCommand'
+      responses:
+        '202':
+          description: Command accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuctionCommandResult'
+        '400':
+          description: Invalid command
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                invalid_state:
+                  value:
+                    code: INVALID_STATE_TRANSITION
+                    message: invalid state transition
+                    correlation_id: "corr-1"
+  /auctions/{id}/publish:
+    post:
+      tags: [Commands]
+      summary: PublishAuction
+      operationId: PublishAuction
+      parameters:
+        - $ref: '#/components/parameters/AuctionID'
+        - $ref: '#/components/parameters/XCompanyID'
+        - $ref: '#/components/parameters/XUserID'
+        - $ref: '#/components/parameters/XCorrelationID'
+        - $ref: '#/components/parameters/XCausationID'
+      responses:
+        '202':
+          description: Command accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuctionCommandResult'
+        '404':
+          description: Auction not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                not_found:
+                  value:
+                    code: AUCTION_NOT_FOUND
+                    message: auction not found
+        '409':
+          description: Invalid state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                not_published:
+                  value:
+                    code: AUCTION_NOT_PUBLISHED
+                    message: auction not in draft state
+  /auctions/{id}/bids:
+    post:
+      tags: [Commands]
+      summary: PlaceBid
+      operationId: PlaceBid
+      parameters:
+        - $ref: '#/components/parameters/AuctionID'
+        - $ref: '#/components/parameters/XCompanyID'
+        - $ref: '#/components/parameters/XUserID'
+        - $ref: '#/components/parameters/XCorrelationID'
+        - $ref: '#/components/parameters/XCausationID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlaceBidCommand'
+      responses:
+        '202':
+          description: Command accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuctionCommandResult'
+        '404':
+          description: Auction not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                not_found:
+                  value:
+                    code: AUCTION_NOT_FOUND
+                    message: auction not found
+        '409':
+          description: Invalid state or bid
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                not_active:
+                  value:
+                    code: AUCTION_NOT_ACTIVE
+                    message: auction not active
+                invalid_bid:
+                  value:
+                    code: INVALID_BID
+                    message: invalid bid
+  /auctions/{id}/close:
+    post:
+      tags: [Commands]
+      summary: CloseAuction
+      operationId: CloseAuction
+      parameters:
+        - $ref: '#/components/parameters/AuctionID'
+        - $ref: '#/components/parameters/XCompanyID'
+        - $ref: '#/components/parameters/XUserID'
+        - $ref: '#/components/parameters/XCorrelationID'
+        - $ref: '#/components/parameters/XCausationID'
+      responses:
+        '202':
+          description: Command accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuctionCommandResult'
+        '404':
+          description: Auction not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                not_found:
+                  value:
+                    code: AUCTION_NOT_FOUND
+                    message: auction not found
+        '409':
+          description: Invalid state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                already_closed:
+                  value:
+                    code: AUCTION_ALREADY_CLOSED
+                    message: auction already closed
+  /auctions/{id}/cancel:
+    post:
+      tags: [Commands]
+      summary: CancelAuction
+      operationId: CancelAuction
+      parameters:
+        - $ref: '#/components/parameters/AuctionID'
+        - $ref: '#/components/parameters/XCompanyID'
+        - $ref: '#/components/parameters/XUserID'
+        - $ref: '#/components/parameters/XCorrelationID'
+        - $ref: '#/components/parameters/XCausationID'
+      responses:
+        '202':
+          description: Command accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuctionCommandResult'
+        '404':
+          description: Auction not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                not_found:
+                  value:
+                    code: AUCTION_NOT_FOUND
+                    message: auction not found
+        '409':
+          description: Invalid state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                has_bids:
+                  value:
+                    code: AUCTION_HAS_BIDS
+                    message: auction has bids
+  /auctions/{id}:
+    get:
+      tags: [Queries]
+      summary: GetAuction
+      operationId: GetAuction
+      parameters:
+        - $ref: '#/components/parameters/AuctionID'
+        - $ref: '#/components/parameters/XCompanyID'
+        - $ref: '#/components/parameters/XUserID'
+        - $ref: '#/components/parameters/XCorrelationID'
+        - $ref: '#/components/parameters/XCausationID'
+      responses:
+        '200':
+          description: Auction summary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuctionSummary'
+        '404':
+          description: Auction not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                not_found:
+                  value:
+                    code: AUCTION_NOT_FOUND
+                    message: auction not found
+
+components:
+  parameters:
+    AuctionID:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+      description: AuctionID is the source of truth for Trading.
+    XCompanyID:
+      name: X-Company-ID
+      in: header
+      required: true
+      schema:
+        type: string
+      description: Company identifier from upstream identity.
+    XUserID:
+      name: X-User-ID
+      in: header
+      required: true
+      schema:
+        type: string
+      description: User identifier from upstream identity.
+    XCorrelationID:
+      name: X-Correlation-ID
+      in: header
+      required: false
+      schema:
+        type: string
+      description: Correlation ID for tracing across services.
+    XCausationID:
+      name: X-Causation-ID
+      in: header
+      required: false
+      schema:
+        type: string
+      description: Causation ID for tracing event chains.
+  schemas:
+    CreateAuctionCommand:
+      type: object
+      required: [auction_id]
+      properties:
+        auction_id:
+          type: string
+    PlaceBidCommand:
+      type: object
+      required: [bidder_company_id, amount, placed_at]
+      properties:
+        bidder_company_id:
+          type: string
+        amount:
+          type: integer
+          format: int64
+          description: Amount in rubles.
+        placed_at:
+          type: string
+          format: date-time
+    AuctionCommandResult:
+      type: object
+      required: [auction_id, state]
+      properties:
+        auction_id:
+          type: string
+        state:
+          $ref: '#/components/schemas/AuctionState'
+    AuctionSummary:
+      type: object
+      required: [auction_id, state]
+      properties:
+        auction_id:
+          type: string
+        state:
+          $ref: '#/components/schemas/AuctionState'
+        winner_company_id:
+          type: string
+          nullable: true
+        final_price:
+          type: integer
+          format: int64
+          nullable: true
+    AuctionState:
+      type: string
+      enum: [DRAFT, PUBLISHED, CLOSED, WON, CANCELLED]
+    ErrorResponse:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          $ref: '#/components/schemas/ErrorCode'
+        message:
+          type: string
+        correlation_id:
+          type: string
+          nullable: true
+        causation_id:
+          type: string
+          nullable: true
+    ErrorCode:
+      type: string
+      enum:
+        - AUCTION_NOT_FOUND
+        - AUCTION_NOT_PUBLISHED
+        - AUCTION_NOT_ACTIVE
+        - AUCTION_ALREADY_CLOSED
+        - AUCTION_HAS_BIDS
+        - INVALID_BID
+        - INVALID_STATE_TRANSITION
+    AuctionPublished:
+      type: object
+      required: [auction_id]
+      properties:
+        auction_id:
+          type: string
+    BidPlaced:
+      type: object
+      required: [auction_id, bidder_company_id, amount, placed_at]
+      properties:
+        auction_id:
+          type: string
+        bidder_company_id:
+          type: string
+        amount:
+          type: integer
+          format: int64
+          description: Amount in rubles.
+        placed_at:
+          type: string
+          format: date-time
+    AuctionClosed:
+      type: object
+      required: [auction_id]
+      properties:
+        auction_id:
+          type: string
+    AuctionCancelled:
+      type: object
+      required: [auction_id]
+      properties:
+        auction_id:
+          type: string
+    AuctionWon:
+      type: object
+      required: [auction_id, winner_company_id, final_price]
+      properties:
+        auction_id:
+          type: string
+        winner_company_id:
+          type: string
+        final_price:
+          type: integer
+          format: int64
