@@ -80,7 +80,7 @@ func TestPlaceBidOrchestratesLoadSavePublish(t *testing.T) {
 	publisher := &spyPublisher{calls: &calls}
 
 	uc := NewPlaceBid(repo, publisher)
-	if err := uc.Execute(context.Background(), testMeta(), "1", "bidder-1", 100, time.Now()); err != nil {
+	if err := uc.Execute(context.Background(), testMeta(), "1", 100, time.Now()); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	assertCalls(t, calls, []string{"load", "save", "publish"})

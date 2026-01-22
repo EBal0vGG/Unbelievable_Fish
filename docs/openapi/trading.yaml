@@ -140,10 +140,6 @@ paths:
       responses:
         '202':
           description: Command accepted
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AuctionCommandResult'
         '400':
           description: Invalid command
           content:
@@ -170,10 +166,6 @@ paths:
       responses:
         '202':
           description: Command accepted
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AuctionCommandResult'
         '404':
           description: Auction not found
           content:
@@ -216,10 +208,6 @@ paths:
       responses:
         '202':
           description: Command accepted
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AuctionCommandResult'
         '404':
           description: Auction not found
           content:
@@ -260,10 +248,6 @@ paths:
       responses:
         '202':
           description: Command accepted
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AuctionCommandResult'
         '404':
           description: Auction not found
           content:
@@ -300,10 +284,6 @@ paths:
       responses:
         '202':
           description: Command accepted
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AuctionCommandResult'
         '404':
           description: Auction not found
           content:
@@ -400,12 +380,13 @@ components:
       properties:
         auction_id:
           type: string
+          description: |
+            AuctionID is provided by the client and must be globally unique.
+            Trading does not generate identifiers.
     PlaceBidCommand:
       type: object
-      required: [bidder_company_id, amount, placed_at]
+      required: [amount, placed_at]
       properties:
-        bidder_company_id:
-          type: string
         amount:
           type: integer
           format: int64
@@ -413,14 +394,6 @@ components:
         placed_at:
           type: string
           format: date-time
-    AuctionCommandResult:
-      type: object
-      required: [auction_id, state]
-      properties:
-        auction_id:
-          type: string
-        state:
-          $ref: '#/components/schemas/AuctionState'
     AuctionSummary:
       type: object
       required: [auction_id, state]

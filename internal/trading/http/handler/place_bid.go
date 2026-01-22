@@ -22,28 +22,30 @@ func (h *PlaceBidHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	meta, err := readCommandMeta(r)
 	if err != nil {
-		status, code, message := mapError(err)
-		writeError(w, status, code, message, meta)
+		httpErr := httpapi.MapError(err)
+		writeError(w, httpErr.Status, httpErr.Code, httpErr.Message, meta)
 		return
 	}
 	auctionID, err := readAuctionIDFromPath(r.URL.Path, "bids")
 	if err != nil {
-		status, code, message := mapError(err)
-		writeError(w, status, code, message, meta)
+		httpErr := httpapi.MapError(err)
+		writeError(w, httpErr.Status, httpErr.Code, httpErr.Message, meta)
 		return
 	}
 	var req httpapi.PlaceBidRequest
 	if err := decodeJSON(r, &req); err != nil {
-		writeError(w, http.StatusBadRequest, "INVALID_BODY", "invalid request body", meta)
+		httpErr := httpapi.BadRequest("INVALID_BODY", "invalid request body")
+		writeError(w, httpErr.Status, httpErr.Code, httpErr.Message, meta)
 		return
 	}
-	if req.BidderCompanyID == "" || req.Amount == 0 || req.PlacedAt.IsZero() {
-		writeError(w, http.StatusBadRequest, "INVALID_BODY", "bidder_company_id, amount and placed_at are required", meta)
+	if req.Amount == 0 || req.PlacedAt.IsZero() {
+		httpErr := httpapi.BadRequest("INVALID_BODY", "amount and placed_at are required")
+		writeError(w, httpErr.Status, httpErr.Code, httpErr.Message, meta)
 		return
 	}
-	if err := h.uc.Execute(r.Context(), meta, auctionID, req.BidderCompanyID, req.Amount, req.PlacedAt); err != nil {
-		status, code, message := mapError(err)
-		writeError(w, status, code, message, meta)
+	if err := h.uc.Execute(r.Context(), meta, auctionID, req.Amount, req.PlacedAt); err != nil {
+		httpErr := httpapi.MapError(err)
+		writeError(w, httpErr.Status, httpErr.Code, httpErr.Message, meta)
 		return
 	}
 	w.WriteHeader(http.StatusAccepted)

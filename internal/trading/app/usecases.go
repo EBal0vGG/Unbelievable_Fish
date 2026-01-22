@@ -72,16 +72,14 @@ func (uc *PlaceBid) Execute(
 	ctx context.Context,
 	meta CommandMeta,
 	id AuctionID,
-	bidderCompanyID string,
 	amount int64,
 	placedAt time.Time,
 ) error {
-	_ = meta
 	a, err := uc.repo.Load(ctx, id)
 	if err != nil {
 		return err
 	}
-	bid, err := auction.NewBid(bidderCompanyID, amount, placedAt)
+	bid, err := auction.NewBid(meta.CompanyID, amount, placedAt)
 	if err != nil {
 		return err
 	}

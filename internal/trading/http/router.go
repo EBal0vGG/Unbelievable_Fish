@@ -3,32 +3,29 @@ package httpapi
 import (
 	"net/http"
 	"strings"
-
-	"github.com/EBal0vGG/Unbelievable_Fish/internal/trading/app"
-	"github.com/EBal0vGG/Unbelievable_Fish/internal/trading/http/handler"
 )
 
 type Router struct {
-	create *handler.CreateAuctionHandler
-	publish *handler.PublishAuctionHandler
-	placeBid *handler.PlaceBidHandler
-	closeAuction *handler.CloseAuctionHandler
-	cancel *handler.CancelAuctionHandler
+	create       http.Handler
+	publish      http.Handler
+	placeBid     http.Handler
+	closeAuction http.Handler
+	cancel       http.Handler
 }
 
 func NewRouter(
-	create *app.CreateAuction,
-	publish *app.PublishAuction,
-	placeBid *app.PlaceBid,
-	closeAuction *app.CloseAuction,
-	cancel *app.CancelAuction,
+	create http.Handler,
+	publish http.Handler,
+	placeBid http.Handler,
+	closeAuction http.Handler,
+	cancel http.Handler,
 ) *Router {
 	return &Router{
-		create:       handler.NewCreateAuctionHandler(create),
-		publish:      handler.NewPublishAuctionHandler(publish),
-		placeBid:     handler.NewPlaceBidHandler(placeBid),
-		closeAuction: handler.NewCloseAuctionHandler(closeAuction),
-		cancel:       handler.NewCancelAuctionHandler(cancel),
+		create:       create,
+		publish:      publish,
+		placeBid:     placeBid,
+		closeAuction: closeAuction,
+		cancel:       cancel,
 	}
 }
 
