@@ -47,7 +47,7 @@ func TestCreateAuctionSavesAggregate(t *testing.T) {
 	publisher := &spyPublisher{calls: &calls}
 
 	uc := NewCreateAuction(repo, publisher)
-	if err := uc.Execute(context.Background(), "1"); err != nil {
+	if err := uc.Execute(context.Background(), testMeta(), "1"); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	assertCalls(t, calls, []string{"save"})
@@ -64,7 +64,7 @@ func TestPublishAuctionOrchestratesLoadSavePublish(t *testing.T) {
 	publisher := &spyPublisher{calls: &calls}
 
 	uc := NewPublishAuction(repo, publisher)
-	if err := uc.Execute(context.Background(), "1"); err != nil {
+	if err := uc.Execute(context.Background(), testMeta(), "1"); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	assertCalls(t, calls, []string{"load", "save", "publish"})
@@ -80,7 +80,7 @@ func TestPlaceBidOrchestratesLoadSavePublish(t *testing.T) {
 	publisher := &spyPublisher{calls: &calls}
 
 	uc := NewPlaceBid(repo, publisher)
-	if err := uc.Execute(context.Background(), "1", "bidder-1", 100, time.Now()); err != nil {
+	if err := uc.Execute(context.Background(), testMeta(), "1", "bidder-1", 100, time.Now()); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	assertCalls(t, calls, []string{"load", "save", "publish"})
@@ -98,7 +98,7 @@ func TestCloseAuctionOrchestratesLoadSavePublish(t *testing.T) {
 	publisher := &spyPublisher{calls: &calls}
 
 	uc := NewCloseAuction(repo, publisher)
-	if err := uc.Execute(context.Background(), "1"); err != nil {
+	if err := uc.Execute(context.Background(), testMeta(), "1"); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	assertCalls(t, calls, []string{"load", "save", "publish"})
@@ -114,7 +114,7 @@ func TestCancelAuctionOrchestratesLoadSavePublish(t *testing.T) {
 	publisher := &spyPublisher{calls: &calls}
 
 	uc := NewCancelAuction(repo, publisher)
-	if err := uc.Execute(context.Background(), "1"); err != nil {
+	if err := uc.Execute(context.Background(), testMeta(), "1"); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	assertCalls(t, calls, []string{"load", "save", "publish"})
@@ -159,5 +159,14 @@ func assertCreatedAggregate(t *testing.T, repo *spyRepo, id AuctionID) {
 	}
 	if repo.lastSaved.ID != string(id) {
 		t.Fatalf("expected saved auction id %s, got %s", id, repo.lastSaved.ID)
+	}
+}
+
+func testMeta() CommandMeta {
+	return CommandMeta{
+		CompanyID:     "company-1",
+		UserID:        "user-1",
+		CorrelationID: "corr-1",
+		CausationID:   "cause-1",
 	}
 }

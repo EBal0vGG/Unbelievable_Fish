@@ -19,7 +19,8 @@ func NewCreateAuction(repo AuctionRepository, publisher EventPublisher) *CreateA
 	}
 }
 
-func (uc *CreateAuction) Execute(ctx context.Context, id AuctionID) error {
+func (uc *CreateAuction) Execute(ctx context.Context, meta CommandMeta, id AuctionID) error {
+	_ = meta
 	a := auction.NewAuction(string(id))
 	if err := uc.repo.Save(ctx, a); err != nil {
 		return err
@@ -39,7 +40,8 @@ func NewPublishAuction(repo AuctionRepository, publisher EventPublisher) *Publis
 	}
 }
 
-func (uc *PublishAuction) Execute(ctx context.Context, id AuctionID) error {
+func (uc *PublishAuction) Execute(ctx context.Context, meta CommandMeta, id AuctionID) error {
+	_ = meta
 	a, err := uc.repo.Load(ctx, id)
 	if err != nil {
 		return err
@@ -68,11 +70,13 @@ func NewPlaceBid(repo AuctionRepository, publisher EventPublisher) *PlaceBid {
 
 func (uc *PlaceBid) Execute(
 	ctx context.Context,
+	meta CommandMeta,
 	id AuctionID,
 	bidderCompanyID string,
 	amount int64,
 	placedAt time.Time,
 ) error {
+	_ = meta
 	a, err := uc.repo.Load(ctx, id)
 	if err != nil {
 		return err
@@ -103,7 +107,8 @@ func NewCloseAuction(repo AuctionRepository, publisher EventPublisher) *CloseAuc
 	}
 }
 
-func (uc *CloseAuction) Execute(ctx context.Context, id AuctionID) error {
+func (uc *CloseAuction) Execute(ctx context.Context, meta CommandMeta, id AuctionID) error {
+	_ = meta
 	a, err := uc.repo.Load(ctx, id)
 	if err != nil {
 		return err
@@ -130,7 +135,8 @@ func NewCancelAuction(repo AuctionRepository, publisher EventPublisher) *CancelA
 	}
 }
 
-func (uc *CancelAuction) Execute(ctx context.Context, id AuctionID) error {
+func (uc *CancelAuction) Execute(ctx context.Context, meta CommandMeta, id AuctionID) error {
+	_ = meta
 	a, err := uc.repo.Load(ctx, id)
 	if err != nil {
 		return err
