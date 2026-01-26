@@ -22,9 +22,6 @@ func NewLot(lotID, productID, sellerCompanyID string, quantity int64, unit Unit,
 	if !unit.IsValid() {
 		return nil, nil, ErrInvalidEnum
 	}
-	if isBlank(deliveryTerms) || isBlank(storageTerms) {
-		return nil, nil, ErrPublishingRuleViolation
-	}
 
 	lot := &Lot{
 		lotID:           lotID,
@@ -39,14 +36,9 @@ func NewLot(lotID, productID, sellerCompanyID string, quantity int64, unit Unit,
 	}
 
 	event := LotCreated{
-		LotID:           lot.lotID,
-		ProductID:       lot.productID,
-		SellerCompanyID: lot.sellerCompanyID,
-		Quantity:        lot.quantity,
-		Unit:            lot.unit,
-		DeliveryTerms:   lot.deliveryTerms,
-		StorageTerms:    lot.storageTerms,
-		Status:          lot.status,
+		LotID:     lot.lotID,
+		ProductID: lot.productID,
+		Status:    lot.status,
 	}
 
 	return lot, []Event{event}, nil
@@ -87,6 +79,15 @@ func (l *Lot) Status() LotStatus {
 func (l *Lot) DealID() string {
 	return l.dealID
 }
+func (l *Lot) UpdateTerms(deliveryTerms, storageTerms string) error {
+	if l.status != LotStatusDraft {
+		return ErrModificationNotAllowed
+	}
+
+	l.deliveryTerms = deliveryTerms
+	l.storageTerms = storageTerms
+	return nil
+}
 
 func (l *Lot) Publish(productIsPublished bool) ([]Event, error) {
 	if !l.canTransition(LotStatusPublished) {
@@ -95,7 +96,9 @@ func (l *Lot) Publish(productIsPublished bool) ([]Event, error) {
 	if !productIsPublished {
 		return nil, ErrPublishingRuleViolation
 	}
-
+	if isBlank(l.deliveryTerms) || isBlank(l.storageTerms) {
+		return nil, ErrPublishingRuleViolation
+	}
 	l.status = LotStatusPublished
 	event := LotPublished{
 		LotID:     l.lotID,
