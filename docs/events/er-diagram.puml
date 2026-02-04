@@ -1,0 +1,108 @@
+@startuml
+left to right direction
+hide circle
+
+entity User {
+  +id : int
+  --
+  company_id : int
+  name : string
+  role : string
+}
+
+entity Company {
+  +id : int
+  --
+  name : string
+}
+
+entity Lot {
+  +id : int
+  --
+  company_id : int
+  product_id : int
+  auction_id : int
+  start_price : decimal
+  price : decimal
+  auction_start_date : datetime
+  status : string
+}
+
+entity Product {
+  +id : int
+  --
+  weight : decimal
+  size : string
+  processing_method : string
+  fish_id : int
+}
+
+entity Auction {
+  +id : int
+  --
+  start_date : datetime
+  status : string
+  winner_bid_id : int
+}
+
+entity Fish {
+  +id : int
+  --
+  name : string
+  description : string
+}
+
+entity Bid {
+  +id : int
+  --
+  auction_id : int
+  company_id : int
+  price : decimal
+  placed_at : datetime
+
+}
+
+entity Deal {
+  +id : int
+  --
+  auction_id : int
+  company_seller_id : int
+  company_buyer_id : int
+  product_snapshot : json
+  price : decimal
+  status : string
+}
+
+entity Contract {
+  +id : int
+}
+
+entity Logistic {
+  +id : int
+}
+
+entity Payment {
+  +id : int
+}
+
+' --------- Связи ---------
+
+Company ||--o{ User : employs
+Company ||--o{ Lot : owns
+
+Lot ||--|| Product : contains
+Lot ||--|| Auction : starts
+Lot ||--|| Deal : creates
+
+Fish ||--o{ Product : used_in
+
+Auction ||--o{ Bid : has
+Company ||--o{ Bid : places
+
+Deal ||--o{ Contract : has
+Deal ||--o| Logistic : has
+Deal ||--o| Payment : has
+
+
+
+@enduml
