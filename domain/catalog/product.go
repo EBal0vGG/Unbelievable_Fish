@@ -7,6 +7,7 @@ type Product struct {
 	species         string
 	processingType  ProcessingType
 	packagingType   PackagingType
+	quantity        int64
 	size            string
 	status          ProductStatus
 }

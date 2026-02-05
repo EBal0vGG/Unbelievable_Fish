@@ -3,6 +3,12 @@ package catalog
 type Event interface {
 	isCatalogEvent()
 }
+type LotAuctionLinked struct {
+	LotID     string
+	AuctionID string
+}
+
+func (LotAuctionLinked) isCatalogEvent() {}
 
 type ProductCreated struct {
 	ProductID       string
@@ -64,11 +70,11 @@ type LotSold struct {
 	Status LotStatus
 }
 
-func (ProductCreated) isCatalogEvent() {}
-func (ProductUpdated) isCatalogEvent() {}
-func (ProductPublished) isCatalogEvent() {}
+func (ProductCreated) isCatalogEvent()     {}
+func (ProductUpdated) isCatalogEvent()     {}
+func (ProductPublished) isCatalogEvent()   {}
 func (ProductUnpublished) isCatalogEvent() {}
-func (LotCreated) isCatalogEvent() {}
-func (LotPublished) isCatalogEvent() {}
-func (LotUnpublished) isCatalogEvent() {}
-func (LotSold) isCatalogEvent() {}
+func (LotCreated) isCatalogEvent()         {}
+func (LotPublished) isCatalogEvent()       {}
+func (LotUnpublished) isCatalogEvent()     {}
+func (LotSold) isCatalogEvent()            {}
