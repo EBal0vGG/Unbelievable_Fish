@@ -59,7 +59,6 @@ entity Bid {
   company_id : int
   price : decimal
   placed_at : datetime
-
 }
 
 entity Deal {
@@ -92,11 +91,11 @@ Company ||--o{ Lot : owns
 
 Lot ||--|| Product : contains
 Lot ||--|| Auction : starts
-Lot ||--|| Deal : creates
 
 Fish ||--o{ Product : used_in
 
 Auction ||--o{ Bid : has
+Auction ||--o| Deal : results_in
 Company ||--o{ Bid : places
 
 Deal ||--o{ Contract : has
