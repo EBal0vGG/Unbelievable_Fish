@@ -2,69 +2,48 @@ package deal
 
 import "errors"
 
-// многие добавлены на будущее
 var (
-	// Общие ошибки
-	ErrDealNotFound     = errors.New("deal not found")
-	ErrInvalidDealState = errors.New("invalid deal state")
-	ErrInvalidDealType  = errors.New("invalid deal type")
+	// Ошибки валидации
+	ErrDealIDRequired        = errors.New("deal: ID is required")
+	ErrCustomerIDRequired    = errors.New("deal: customer ID is required")
+	ErrSupplierIDRequired    = errors.New("deal: supplier ID is required")
+	ErrSellerCompanyRequired = errors.New("deal: seller company ID is required")
+	ErrWinnerCompanyRequired = errors.New("deal: winner company ID is required")
+	ErrAuctionIDRequired     = errors.New("deal: auction ID is required for auction deals")
+	ErrQuantityPositive      = errors.New("deal: quantity must be positive")
+	ErrUnitPricePositive     = errors.New("deal: unit price must be positive")
+	ErrPriceMustBePositive   = errors.New("deal: price must be positive")
+	ErrFinalPricePositive    = errors.New("deal: final price must be positive")
+	ErrProductNameRequired   = errors.New("deal: product name is required")
+	ErrCreatedAtRequired     = errors.New("deal: created at time is required")
+	ErrSnapshotMissingFields = errors.New("deal: product snapshot missing required fields")
 
-	// Создание сделки
-	ErrAuctionIDRequired       = errors.New("auction ID is required")
-	ErrSellerCompanyRequired   = errors.New("seller company ID is required")
-	ErrProductNameRequired     = errors.New("product name is required")
-	ErrWinnerCompanyRequired   = errors.New("winner company ID is required")
-	ErrFinalPricePositive      = errors.New("final price must be positive")
-	ErrDraftDealRequired       = errors.New("draft deal is required")
-	ErrOnlyDraftCanBeCompleted = errors.New("only drafted deals can be completed")
+	// Ошибки состояния
+	ErrCannotConfirmDeal        = errors.New("deal: cannot confirm deal in current status")
+	ErrCannotPrepareContract    = errors.New("deal: cannot prepare contract in current status")
+	ErrContractAlreadyPrepared  = errors.New("deal: contract already prepared")
+	ErrCannotSignContract       = errors.New("deal: cannot sign contract in current status")
+	ErrContractAlreadySigned    = errors.New("deal: contract already signed")
+	ErrContractNumberRequired   = errors.New("deal: contract number is required")
+	ErrCannotRequestPayment     = errors.New("deal: cannot request payment in current status")
+	ErrPaymentAlreadyRequested  = errors.New("deal: payment already requested")
+	ErrCannotMarkAsPaid         = errors.New("deal: cannot mark as paid in current status")
+	ErrCannotRequestShipment    = errors.New("deal: cannot request shipment in current status")
+	ErrShipmentAlreadyRequested = errors.New("deal: shipment already requested")
+	ErrCannotMarkAsShipped      = errors.New("deal: cannot mark as shipped in current status")
+	ErrCannotCompleteDeal       = errors.New("deal: cannot complete deal in current status")
+	ErrCannotCancelDeal         = errors.New("deal: cannot cancel deal in current status")
+	ErrCannotUpdatePrice        = errors.New("deal: cannot update price in current status")
 
-	// Статусные ошибки
-	ErrCannotConfirmDeal = errors.New("deal cannot be confirmed in current status")
-	ErrCannotCancelDeal  = errors.New("cannot cancel already completed or cancelled deal")
-	ErrCannotModifyDeal  = errors.New("cannot modify deal in current status")
-	ErrCannotUpdatePrice = errors.New("cannot update price in current status")
+	// Ошибки контракта
+	ErrContractNotPrepared = errors.New("deal: contract not prepared")
+	ErrContractNotSigned   = errors.New("deal: contract not signed")
 
-	// Валидация данных
-	ErrDealIDRequired     = errors.New("deal ID is required")
-	ErrCustomerIDRequired = errors.New("customer ID is required for non-draft deals")
-	ErrSupplierIDRequired = errors.New("supplier ID is required")
-	ErrQuantityPositive   = errors.New("quantity must be positive")
-	ErrUnitPricePositive  = errors.New("unit price must be positive")
-	ErrCreatedAtRequired  = errors.New("created at time is required")
+	ErrProjectionRequired  = errors.New("deal: projection is required")
+	ErrProjectionNotActive = errors.New("deal: projection is not active")
+	ErrProjectionNotFound  = errors.New("deal: projection not found")
 
-	// Ошибки подтверждения
-	ErrDealNotConfirmed     = errors.New("deal is not confirmed")
-	ErrDealAlreadyConfirmed = errors.New("deal is already confirmed")
-
-	// Ошибки оплаты
-	ErrCannotRequestPayment    = errors.New("cannot request payment in current status")
-	ErrDealNotPaid             = errors.New("deal is not paid")
-	ErrCannotMarkAsPaid        = errors.New("deal cannot be marked as paid in current status")
-	ErrPaymentAlreadyRequested = errors.New("payment is already requested")
-
-	// Ошибки доставки
-	ErrCannotRequestShipment    = errors.New("cannot request shipment in current status")
-	ErrCannotMarkAsShipped      = errors.New("deal cannot be marked as shipped in current status")
-	ErrDealNotShipped           = errors.New("deal is not shipped")
-	ErrShipmentAlreadyRequested = errors.New("shipment is already requested")
-
-	// Ошибки завершения
-	ErrCannotCompleteDeal = errors.New("deal cannot be completed in current status")
-
-	// Цены
-	ErrPriceMustBePositive = errors.New("price must be positive")
-	ErrInvalidPriceUpdate  = errors.New("invalid price update")
-
-	// Проекции/снапшоты
-	ErrProductSnapshotInvalid = errors.New("product snapshot is invalid")
-	ErrSnapshotMissingFields  = errors.New("product snapshot missing required fields")
-
-	// Бизнес-логика
-	ErrDealAlreadyActive    = errors.New("deal is already active")
-	ErrDealAlreadyCompleted = errors.New("deal is already completed")
-	ErrDealAlreadyCancelled = errors.New("deal is already cancelled")
-	ErrInvalidTotalAmount   = errors.New("invalid total amount")
-	ErrCurrencyMismatch     = errors.New("currency mismatch")
-	ErrAuctionDealRequired  = errors.New("auction deal type required")
-	ErrDirectDealRequired   = errors.New("direct deal type required")
+	// Удаленные ошибки
+	// ErrOnlyDraftCanBeCompleted    = errors.New("deal: only draft deals can be completed from auction")
+	// ErrDraftDealRequired          = errors.New("deal: draft deal is required")
 )

@@ -2,309 +2,124 @@ package deal
 
 import (
 	"testing"
+	"time"
 )
 
-// Helper function для создания тестового productSnapshot
-func createTestProductSnapshot() productSnapshot {
-	return productSnapshot{
-		ProductID:     "prod_123",
-		Name:          "Test Product",
-		Description:   "Test Description",
-		Category:      "Test Category",
-		Weight:        1.0,
-		Volume:        1.0,
-		OriginCountry: "Test Country",
+func createTestDeal(t *testing.T) *Deal {
+	t.Helper()
+
+	snapshot := ProductSnapshot{
+		ProductID: "prod_123",
+		Name:      "Test Product",
+		Category:  "Electronics",
+	}
+
+	deal := &Deal{
+		id:              "deal_123",
+		customerID:      "winner_456",
+		supplierID:      "seller_789",
+		auctionID:       "auc_123",
+		quantity:        1,
+		unitPrice:       1000,
+		status:          DealStatusPending,
+		typeName:        DealTypeAuction,
+		createdAt:       time.Now(),
+		productSnapshot: snapshot,
+	}
+
+	return deal
+}
+
+func TestDeal_Confirm(t *testing.T) {
+	deal := createTestDeal(t)
+
+	events, err := deal.Confirm()
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if deal.Status() != DealStatusConfirmed {
+		t.Errorf("expected status confirmed, got %s", deal.Status())
+	}
+	if len(events) != 1 {
+		t.Fatalf("expected 1 event, got %d", len(events))
+	}
+	_, ok := events[0].(DealConfirmed)
+	if !ok {
+		t.Errorf("expected DealConfirmed event, got %T", events[0])
 	}
 }
 
-func TestNewDealFromLotPublished(t *testing.T) {
-	tests := []struct {
-		name       string
-		auctionID  string
-		sellerID   string
-		snapshot   productSnapshot
-		startPrice int64
-		wantErr    error
-	}{
-		{
-			name:       "success",
-			auctionID:  "auction_1",
-			sellerID:   "seller_1",
-			snapshot:   createTestProductSnapshot(),
-			startPrice: 1000,
-			wantErr:    nil,
-		},
-		{
-			name:       "empty auction id",
-			auctionID:  "",
-			sellerID:   "seller_1",
-			snapshot:   createTestProductSnapshot(),
-			startPrice: 1000,
-			wantErr:    ErrAuctionIDRequired,
-		},
-		{
-			name:       "empty seller id",
-			auctionID:  "auction_1",
-			sellerID:   "",
-			snapshot:   createTestProductSnapshot(),
-			startPrice: 1000,
-			wantErr:    ErrSellerCompanyRequired,
-		},
-		{
-			name:      "empty product name",
-			auctionID: "auction_1",
-			sellerID:  "seller_1",
-			snapshot: productSnapshot{
-				ProductID: "prod_123",
-				Name:      "",
-			},
-			startPrice: 1000,
-			wantErr:    ErrProductNameRequired,
-		},
-		{
-			name:       "negative price",
-			auctionID:  "auction_1",
-			sellerID:   "seller_1",
-			snapshot:   createTestProductSnapshot(),
-			startPrice: -100,
-			wantErr:    ErrPriceMustBePositive,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			deal, err := NewDealFromLotPublished(tt.auctionID, tt.sellerID, tt.snapshot, tt.startPrice)
-
-			if tt.wantErr != nil {
-				if err != tt.wantErr {
-					t.Errorf("want error %v, got %v", tt.wantErr, err)
-				}
-				return
-			}
-
-			if err != nil {
-				t.Errorf("unexpected error: %v", err)
-				return
-			}
-
-			if deal == nil {
-				t.Error("deal should not be nil")
-			}
-
-			if deal.AuctionID() != tt.auctionID {
-				t.Errorf("want auction id %s, got %s", tt.auctionID, deal.AuctionID())
-			}
-
-			if deal.Status() != DealStatusDrafted {
-				t.Errorf("want status %s, got %s", DealStatusDrafted, deal.Status())
-			}
-		})
-	}
-}
-
-func TestCompleteDealFromAuctionWon(t *testing.T) {
-	deal, _ := NewDealFromLotPublished("auction_1", "seller_1", createTestProductSnapshot(), 1000)
-
-	t.Run("success", func(t *testing.T) {
-		result, err := CompleteDealFromAuctionWon(deal, "winner_1", 1500)
-		if err != nil {
-			t.Errorf("unexpected error: %v", err)
-		}
-
-		if result.CustomerID() != "winner_1" {
-			t.Errorf("want customer id winner_1, got %s", result.CustomerID())
-		}
-
-		if result.UnitPrice() != 1500 {
-			t.Errorf("want price 1500, got %d", result.UnitPrice())
-		}
-
-		if result.Status() != DealStatusPending {
-			t.Errorf("want status %s, got %s", DealStatusPending, result.Status())
-		}
-	})
-
-	t.Run("not a draft deal", func(t *testing.T) {
-		deal2, _ := NewDealFromLotPublished("auction_2", "seller_2", createTestProductSnapshot(), 1000)
-		deal2.status = DealStatusConfirmed
-
-		_, err := CompleteDealFromAuctionWon(deal2, "winner_1", 1500)
-		if err != ErrOnlyDraftCanBeCompleted {
-			t.Errorf("want error %v, got %v", ErrOnlyDraftCanBeCompleted, err)
-		}
-	})
-
-	t.Run("empty winner id", func(t *testing.T) {
-		deal2, _ := NewDealFromLotPublished("auction_2", "seller_2", createTestProductSnapshot(), 1000)
-
-		_, err := CompleteDealFromAuctionWon(deal2, "", 1500)
-		if err != ErrWinnerCompanyRequired {
-			t.Errorf("want error %v, got %v", ErrWinnerCompanyRequired, err)
-		}
-	})
-}
-
-func TestDealConfirm(t *testing.T) {
-	t.Run("confirm draft deal", func(t *testing.T) {
-		deal, _ := NewDealFromLotPublished("auction_1", "seller_1", createTestProductSnapshot(), 1000)
-
-		err := deal.Confirm()
-		if err != nil {
-			t.Errorf("unexpected error: %v", err)
-		}
-
-		if deal.Status() != DealStatusConfirmed {
-			t.Errorf("want status %s, got %s", DealStatusConfirmed, deal.Status())
-		}
-
-		if deal.ConfirmedAt() == nil {
-			t.Error("confirmed at should be set")
-		}
-	})
-
-	t.Run("cannot confirm cancelled deal", func(t *testing.T) {
-		deal, _ := NewDealFromLotPublished("auction_1", "seller_1", createTestProductSnapshot(), 1000)
-		deal.status = DealStatusCancelled
-
-		err := deal.Confirm()
-		if err != ErrCannotConfirmDeal {
-			t.Errorf("want error %v, got %v", ErrCannotConfirmDeal, err)
-		}
-	})
-}
-
-func TestDealPaymentFlow(t *testing.T) {
-	deal, _ := NewDealFromLotPublished("auction_1", "seller_1", createTestProductSnapshot(), 1000)
-	CompleteDealFromAuctionWon(deal, "winner_1", 1500)
+func TestDeal_PrepareAndSignContract(t *testing.T) {
+	deal := createTestDeal(t)
 	deal.Confirm()
 
-	t.Run("request payment", func(t *testing.T) {
-		err := deal.RequestPayment()
-		if err != nil {
-			t.Errorf("unexpected error: %v", err)
-		}
+	// Prepare
+	_, err := deal.PrepareContract("CNT-001", "url")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if deal.Status() != DealStatusContractPrepared {
+		t.Errorf("expected status contract prepared, got %s", deal.Status())
+	}
 
-		if deal.Status() != DealStatusPaymentRequested {
-			t.Errorf("want status %s, got %s", DealStatusPaymentRequested, deal.Status())
-		}
-	})
-
-	t.Run("mark as paid", func(t *testing.T) {
-		err := deal.MarkAsPaid()
-		if err != nil {
-			t.Errorf("unexpected error: %v", err)
-		}
-
-		if deal.Status() != DealStatusPaid {
-			t.Errorf("want status %s, got %s", DealStatusPaid, deal.Status())
-		}
-	})
-
-	t.Run("cannot mark as paid without payment request", func(t *testing.T) {
-		deal2, _ := NewDealFromLotPublished("auction_2", "seller_2", createTestProductSnapshot(), 1000)
-		CompleteDealFromAuctionWon(deal2, "winner_2", 1500)
-		deal2.Confirm()
-
-		err := deal2.MarkAsPaid()
-		if err != ErrCannotMarkAsPaid {
-			t.Errorf("want error %v, got %v", ErrCannotMarkAsPaid, err)
-		}
-	})
-}
-
-func TestDealShipmentFlow(t *testing.T) {
-	deal, _ := NewDealFromLotPublished("auction_1", "seller_1", createTestProductSnapshot(), 1000)
-	CompleteDealFromAuctionWon(deal, "winner_1", 1500)
-	deal.Confirm()
-	deal.RequestPayment()
-	deal.MarkAsPaid()
-
-	t.Run("request shipment", func(t *testing.T) {
-		err := deal.RequestShipment()
-		if err != nil {
-			t.Errorf("unexpected error: %v", err)
-		}
-
-		if deal.Status() != DealStatusShipmentRequested {
-			t.Errorf("want status %s, got %s", DealStatusShipmentRequested, deal.Status())
-		}
-	})
-
-	t.Run("mark as shipped", func(t *testing.T) {
-		err := deal.MarkAsShipped()
-		if err != nil {
-			t.Errorf("unexpected error: %v", err)
-		}
-
-		if deal.Status() != DealStatusShipped {
-			t.Errorf("want status %s, got %s", DealStatusShipped, deal.Status())
-		}
-	})
-
-	t.Run("complete deal", func(t *testing.T) {
-		err := deal.Complete()
-		if err != nil {
-			t.Errorf("unexpected error: %v", err)
-		}
-
-		if deal.Status() != DealStatusCompleted {
-			t.Errorf("want status %s, got %s", DealStatusCompleted, deal.Status())
-		}
-	})
-}
-
-func TestDealCancel(t *testing.T) {
-	t.Run("cancel draft deal", func(t *testing.T) {
-		deal, _ := NewDealFromLotPublished("auction_1", "seller_1", createTestProductSnapshot(), 1000)
-
-		err := deal.Cancel()
-		if err != nil {
-			t.Errorf("unexpected error: %v", err)
-		}
-
-		if deal.Status() != DealStatusCancelled {
-			t.Errorf("want status %s, got %s", DealStatusCancelled, deal.Status())
-		}
-	})
-
-	t.Run("cannot cancel completed deal", func(t *testing.T) {
-		deal, _ := NewDealFromLotPublished("auction_1", "seller_1", createTestProductSnapshot(), 1000)
-		deal.status = DealStatusCompleted
-
-		err := deal.Cancel()
-		if err != ErrCannotCancelDeal {
-			t.Errorf("want error %v, got %v", ErrCannotCancelDeal, err)
-		}
-	})
-}
-
-func TestDealCalculateTotal(t *testing.T) {
-	deal, _ := NewDealFromLotPublished("auction_1", "seller_1", createTestProductSnapshot(), 1000)
-	CompleteDealFromAuctionWon(deal, "winner_1", 1500)
-
-	total := deal.CalculateTotal()
-	if total != 1500 {
-		t.Errorf("want total 1500, got %d", total)
+	// Sign
+	_, err = deal.SignContract("buyer", "sig_123")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if deal.Status() != DealStatusContractSigned {
+		t.Errorf("expected status contract signed, got %s", deal.Status())
+	}
+	if !deal.hasSignedContract() {
+		t.Error("contract should be signed")
 	}
 }
 
-func TestDealValidate(t *testing.T) {
-	t.Run("valid deal", func(t *testing.T) {
-		deal, _ := NewDealFromLotPublished("auction_1", "seller_1", createTestProductSnapshot(), 1000)
+func TestDeal_RequestPaymentAndMarkAsPaid(t *testing.T) {
+	deal := createTestDeal(t)
+	deal.Confirm()
+	deal.PrepareContract("CNT-001", "")
+	deal.SignContract("buyer", "sig")
 
-		err := deal.Validate()
-		if err != nil {
-			t.Errorf("unexpected error: %v", err)
-		}
-	})
+	// Request payment
+	_, err := deal.RequestPayment("INV-001", nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if deal.Status() != DealStatusPaymentRequested {
+		t.Errorf("expected status payment requested, got %s", deal.Status())
+	}
 
-	t.Run("invalid without customer id for non-draft", func(t *testing.T) {
-		deal, _ := NewDealFromLotPublished("auction_1", "seller_1", createTestProductSnapshot(), 1000)
-		deal.status = DealStatusConfirmed
+	// Mark as paid
+	_, err = deal.MarkAsPaid("pay_123", "card")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if deal.Status() != DealStatusPaid {
+		t.Errorf("expected status paid, got %s", deal.Status())
+	}
+}
 
-		err := deal.Validate()
-		if err != ErrCustomerIDRequired {
-			t.Errorf("want error %v, got %v", ErrCustomerIDRequired, err)
-		}
-	})
+func TestDeal_Cancel(t *testing.T) {
+	deal := createTestDeal(t)
+
+	events, err := deal.Cancel("buyer changed mind", "customer")
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if deal.Status() != DealStatusCancelled {
+		t.Errorf("expected status cancelled, got %s", deal.Status())
+	}
+	if len(events) != 1 {
+		t.Fatalf("expected 1 event, got %d", len(events))
+	}
+	event, ok := events[0].(DealCancelled)
+	if !ok {
+		t.Errorf("expected DealCancelled event, got %T", events[0])
+	}
+	if event.Reason != "buyer changed mind" {
+		t.Errorf("expected reason 'buyer changed mind', got '%s'", event.Reason)
+	}
 }

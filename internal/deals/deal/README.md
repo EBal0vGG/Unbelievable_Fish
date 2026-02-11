@@ -1,57 +1,54 @@
-# Deal Domain API  
-Deal является агрегатом домена сделок, фиксирующим факт совершения сделки после аукциона. Создается только через конструкторы на основе событий.
+# Deal Domain
+
+Deal — агрегат домена сделок, фиксирующий факт совершения сделки после аукциона.
 
 ## Конструкторы
-- `NewDealFromLotPublished()` - драфт при публикации лота (только продавец)
-- `CompleteDealFromAuctionWon()` - завершение при выигрыше (покупатель + цена)
+- `NewDealFromAuctionWon()` — создание сделки при выигрыше аукциона (покупатель + цена + снапшот продукта)
+- `NewDealFromProjection()` — создание сделки из проекции (альтернативный вариант)
 
-## Операции  
-- `Confirm()` - подтверждение сделки (DRAFTED/PENDING → CONFIRMED)
-- `RequestPayment()` - создание контракта для оплаты
-- `MarkAsPaid()` - фиксация оплаты
-- `RequestShipment()` - запрос доставки
-- `MarkAsShipped()` - фиксация отправки
-- `Complete()` - завершение сделки
-- `Cancel()` - отмена
+## Операции
+- `Confirm()` — подтверждение сделки (PENDING → CONFIRMED)
+- `PrepareContract()` — подготовка контракта
+- `SignContract()` — подписание контракта
+- `RequestPayment()` — запрос оплаты
+- `MarkAsPaid()` — фиксация оплаты
+- `RequestShipment()` — запрос доставки
+- `MarkAsShipped()` — фиксация отправки
+- `Complete()` — завершение сделки
+- `Cancel()` — отмена
+- `UpdatePrice()` — обновление цены (только в PENDING)
 
-## Статусы  
-- `DRAFTED` - создан при LotPublished (нет покупателя)
-- `PENDING` - заполнен при AuctionWon (есть покупатель)
-- `CONFIRMED` - подтвержден
-- `PAYMENT_REQUESTED` - запрос оплаты
-- `PAID` - оплачено
-- `SHIPMENT_REQUESTED` - запрос доставки
-- `SHIPPED` - отправлено
-- `COMPLETED` - доставлено
-- `CANCELLED` - отменено
+## Статусы
+```
+PENDING → CONFIRMED → CONTRACT_PREPARED → CONTRACT_SIGNED → 
+PAYMENT_REQUESTED → PAID → SHIPMENT_REQUESTED → SHIPPED → COMPLETED
+↘ CANCELLED
+```
 
-## Геттеры  
-- `ID()`, `CustomerID()`, `SupplierID()`, `AuctionID()`
-- `UnitPrice()`, `Quantity()`, `Status()`, `Type()`
-- `ProductName()`, `ProductDescription()`, `ProductID()`
+### Геттеры
+`ID()`, `CustomerID()`, `SupplierID()`, `AuctionID()`, `UnitPrice()`, 
+`Quantity()`, `Status()`, `Type()`, `Contract()`, `ProductName()`, 
+`ProductDescription()`, `ProductID()`, `ProductCategory()`, и др.
 
-## События (application layer)  
-- `DealCreated` (при создании драфта)
-- `DealConfirmed` (при подтверждении)
-- `PaymentRequested` (при запросе оплаты)
-- `DealPaid` (при оплате)
-- `ShipmentRequested` (при запросе доставки)
-- `DealShipped` (при отправке)
-- `DealCompleted` (при завершении)
-- `DealCancelled` (при отмене)
+### События
+- `DealCreated` — сделка создана (при AuctionWon)
+- `DealConfirmed` — подтверждена
+- `ContractPrepared` — контракт подготовлен
+- `ContractSigned` — контракт подписан
+- `PaymentRequested` — запрос оплаты
+- `DealPaid` — оплачена
+- `ShipmentRequested` — запрос доставки
+- `DealShipped` — отправлена
+- `DealCompleted` — завершена
+- `DealCancelled` — отменена
+- `PriceUpdated` — цена обновлена
 
-**Ошибки**  
-- `ErrAuctionIDRequired` - требуется auctionID
-- `ErrSellerCompanyRequired` - требуется продавец
-- `ErrProductNameRequired` - требуется название продукта
-- `ErrWinnerCompanyRequired` - требуется победитель
-- `ErrFinalPricePositive` - цена должна быть > 0
-- `ErrOnlyDraftCanBeCompleted` - можно завершить только драфт
-- `ErrCannotConfirmDeal` - нельзя подтвердить в текущем статусе
-- `ErrCannotRequestPayment` - нельзя запросить оплату
-- `ErrCannotMarkAsPaid` - нельзя отметить как оплаченную
-- `ErrCannotRequestShipment` - нельзя запросить доставку
-- `ErrCannotMarkAsShipped` - нельзя отметить как отправленную
-- `ErrCannotCompleteDeal` - нельзя завершить сделку
-- `ErrCannotCancelDeal` - нельзя отменить сделку
-- `ErrPriceMustBePositive` - цена должна быть положительной
+### Проекция сделки
+- `DealProjection` — read model, создаётся из `LotPublished`
+- Хранит снапшот продукта из Catalog Domain
+- Превращается в сделку при `AuctionWon`
+
+### Factory
+- `Factory.CreateFromProjection()` — создаёт сделку из проекции
+
+---
