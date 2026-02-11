@@ -11,25 +11,23 @@ type LotAuctionLinked struct {
 func (LotAuctionLinked) isCatalogEvent() {}
 
 type ProductCreated struct {
-	ProductID       string
-	SellerCompanyID string
-	Title           string
-	Species         string
-	ProcessingType  ProcessingType
-	PackagingType   PackagingType
-	Size            string
-	Status          ProductStatus
+	ProductID      string
+	FishID         string
+	Weight         int64
+	Unit           string
+	Size           string
+	ProcessingType ProcessingType
+	Status         ProductStatus
 }
 
 type ProductUpdated struct {
-	ProductID       string
-	SellerCompanyID string
-	Title           string
-	Species         string
-	ProcessingType  ProcessingType
-	PackagingType   PackagingType
-	Size            string
-	Status          ProductStatus
+	ProductID      string
+	FishID         string
+	Weight         int64
+	Unit           string
+	Size           string
+	ProcessingType ProcessingType
+	Status         ProductStatus
 }
 
 type ProductPublished struct {

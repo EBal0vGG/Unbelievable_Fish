@@ -5,10 +5,12 @@ import (
 	"time"
 )
 
-func TestLotPublishRequiresProductPublished(t *testing.T) {
-	schedule := &AuctionSchedule{startsAt: NewInstant(time.Now().Add(time.Hour))}
+func newSchedule() *AuctionSchedule {
+	return &AuctionSchedule{startsAt: NewInstant(time.Now().Add(time.Hour))}
+}
 
-	lot, _, err := NewLot("lot-1", "prod-1", "seller-1", int64(100), schedule)
+func TestLotPublishRequiresProductPublished(t *testing.T) {
+	lot, _, err := NewLot("lot-1", "prod-1", "seller-1", int64(100), newSchedule())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -28,9 +30,7 @@ func TestLotPublishRequiresProductPublished(t *testing.T) {
 }
 
 func TestLotPublishRequiresAuctionID(t *testing.T) {
-	schedule := &AuctionSchedule{startsAt: NewInstant(time.Now().Add(time.Hour))}
-
-	lot, _, err := NewLot("lot-0", "prod-0", "seller-0", int64(100), schedule)
+	lot, _, err := NewLot("lot-0", "prod-0", "seller-0", int64(100), newSchedule())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -45,23 +45,36 @@ func TestLotPublishRequiresAuctionID(t *testing.T) {
 }
 
 func TestLotStartPriceValidation(t *testing.T) {
-	schedule := &AuctionSchedule{startsAt: NewInstant(time.Now().Add(time.Hour))}
-
-	_, _, err := NewLot("lot-2", "prod-2", "seller-2", int64(0), schedule)
+	_, _, err := NewLot("lot-2", "prod-2", "seller-2", int64(0), newSchedule())
 	if err != ErrInvalidPrice {
 		t.Fatalf("expected ErrInvalidPrice, got %v", err)
 	}
 }
 
-func TestLotSoldRules(t *testing.T) {
-	schedule := &AuctionSchedule{startsAt: NewInstant(time.Now().Add(time.Hour))}
-
-	lot, _, err := NewLot("lot-3", "prod-3", "seller-3", int64(50), schedule)
+func TestAssignAuctionIDCannotReassign(t *testing.T) {
+	lot, _, err := NewLot("lot-4", "prod-4", "seller-4", int64(100), newSchedule())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	_, err = lot.AssignAuctionID("auc-3")
+	_, err = lot.AssignAuctionID("auc-4")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	_, err = lot.AssignAuctionID("auc-4b")
+	if err != ErrAlreadyAssigned {
+		t.Fatalf("expected ErrAlreadyAssigned, got %v", err)
+	}
+}
+
+func TestUnpublishFromPublished(t *testing.T) {
+	lot, _, err := NewLot("lot-5", "prod-5", "seller-5", int64(100), newSchedule())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	_, err = lot.AssignAuctionID("auc-5")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -71,27 +84,11 @@ func TestLotSoldRules(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	_, err = lot.MarkSold("", int64(100))
-	if err != ErrInvalidIdentifier {
-		t.Fatalf("expected ErrInvalidIdentifier, got %v", err)
-	}
-	if lot.Status() != LotStatusPublished {
-		t.Fatalf("expected status to remain published, got %s", lot.Status())
-	}
-
-	_, err = lot.MarkSold("deal-1", int64(100))
+	_, err = lot.Unpublish()
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if lot.Status() != LotStatusSold {
-		t.Fatalf("expected status to be sold, got %s", lot.Status())
-	}
-	if lot.DealID() != "deal-1" {
-		t.Fatalf("expected deal id to be set, got %q", lot.DealID())
-	}
-
-	_, err = lot.Unpublish()
-	if err != ErrForbiddenStateTransition {
-		t.Fatalf("expected ErrForbiddenStateTransition, got %v", err)
+	if lot.Status() != LotStatusCancelled {
+		t.Fatalf("expected status to be cancelled, got %s", lot.Status())
 	}
 }

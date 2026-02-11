@@ -13,4 +13,5 @@ var (
 	ErrInvalidSchedule          = errors.New("invalid schedule")
 	ErrAlreadyAssigned          = errors.New("already assigned")
 	ErrAuctionIDRequired        = errors.New("auction id required")
+	ErrInvalidWeight            = errors.New("invalid weight")
 )

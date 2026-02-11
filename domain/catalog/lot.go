@@ -13,7 +13,6 @@ type Lot struct {
 	finalPrice int64
 
 	status LotStatus
-	dealID string
 
 	auctionSchedule *AuctionSchedule
 }
@@ -62,7 +61,6 @@ func NewLot(
 		finalPrice: startPrice,
 
 		status: LotStatusDraft,
-		dealID: "",
 
 		auctionSchedule: auctionSchedule,
 	}
@@ -97,7 +95,6 @@ func (l *Lot) ProductID() string       { return l.productID }
 func (l *Lot) SellerCompanyID() string { return l.sellerCompanyID }
 func (l *Lot) AuctionID() string       { return l.auctionID }
 func (l *Lot) Status() LotStatus       { return l.status }
-func (l *Lot) DealID() string          { return l.dealID }
 func (l *Lot) StartPrice() int64       { return l.startPrice }
 func (l *Lot) CurPrice() int64         { return l.curPrice }
 func (l *Lot) FinalPrice() int64       { return l.finalPrice }
@@ -141,7 +138,7 @@ func (l *Lot) Unpublish() ([]Event, error) {
 	return []Event{event}, nil
 }
 
-func (l *Lot) MarkSold(dealID string, finalPrice int64) ([]Event, error) {
+/*func (l *Lot) MarkSold(dealID string, finalPrice int64) ([]Event, error) {
 	if !l.canTransition(LotStatusSold) {
 		return nil, ErrForbiddenStateTransition
 	}
@@ -163,7 +160,7 @@ func (l *Lot) MarkSold(dealID string, finalPrice int64) ([]Event, error) {
 	}
 
 	return []Event{event}, nil
-}
+}*/
 
 func (l *Lot) canTransition(to LotStatus) bool {
 	next, ok := lotTransitions[l.status]
