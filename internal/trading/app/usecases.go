@@ -2,6 +2,8 @@ package app
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"time"
 
 	"github.com/EBal0vGG/Unbelievable_Fish/internal/trading/auction"
@@ -19,9 +21,16 @@ func NewCreateAuction(repo AuctionRepository, publisher EventPublisher) *CreateA
 	}
 }
 
-func (uc *CreateAuction) Execute(ctx context.Context, meta CommandMeta, id AuctionID) error {
+func (uc *CreateAuction) Execute(ctx context.Context, meta CommandMeta, lotID string, startsAt, endsAt time.Time) error {
 	_ = meta
-	a := auction.NewAuction(string(id))
+	id, err := generateAuctionID()
+	if err != nil {
+		return err
+	}
+	a, err := auction.NewAuction(id, lotID, startsAt, endsAt)
+	if err != nil {
+		return err
+	}
 	if err := uc.repo.Save(ctx, a); err != nil {
 		return err
 	}
@@ -154,4 +163,12 @@ func publishEvents(ctx context.Context, publisher EventPublisher, events []aucti
 		return nil
 	}
 	return publisher.Publish(ctx, events)
+}
+
+func generateAuctionID() (string, error) {
+	buf := make([]byte, 16)
+	if _, err := rand.Read(buf); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(buf), nil
 }

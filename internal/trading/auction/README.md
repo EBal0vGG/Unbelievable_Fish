@@ -1,11 +1,11 @@
 # Auction Domain API
 
 Auction is the aggregate root of the trading domain and the only source of
-truth for auction state and bidding rules. Create it via `NewAuction(id)`.
+truth for auction state and bidding rules. Create it via `NewAuction(id, lotID, startsAt, endsAt)`.
 ---
 Аукцион является корневым агрегатом торговой доменной области и единственным
 источником истины о состоянии аукциона и правилах приёма ставок.
-Создаётся исключительно через конструктор `NewAuction(id)`.
+Создаётся исключительно через конструктор `NewAuction(id, lotID, startsAt, endsAt)`.
 
 ## Operations
 

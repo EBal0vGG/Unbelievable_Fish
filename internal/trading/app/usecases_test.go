@@ -47,11 +47,13 @@ func TestCreateAuctionSavesAggregate(t *testing.T) {
 	publisher := &spyPublisher{calls: &calls}
 
 	uc := NewCreateAuction(repo, publisher)
-	if err := uc.Execute(context.Background(), testMeta(), "1"); err != nil {
+	startsAt := time.Now().Add(-time.Hour)
+	endsAt := startsAt.Add(time.Hour)
+	if err := uc.Execute(context.Background(), testMeta(), "lot-1", startsAt, endsAt); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	assertCalls(t, calls, []string{"save"})
-	assertCreatedAggregate(t, repo, "1")
+	assertCreatedAggregate(t, repo, "lot-1")
 	if len(publisher.published) != 0 {
 		t.Fatalf("expected no events to be published, got %d", len(publisher.published))
 	}
@@ -59,7 +61,9 @@ func TestCreateAuctionSavesAggregate(t *testing.T) {
 
 func TestPublishAuctionOrchestratesLoadSavePublish(t *testing.T) {
 	calls := []string{}
-	a := auction.NewAuction("1")
+	startsAt := time.Now().Add(-time.Hour)
+	endsAt := startsAt.Add(time.Hour)
+	a, _ := auction.NewAuction("1", "lot-1", startsAt, endsAt)
 	repo := &spyRepo{auction: a, calls: &calls}
 	publisher := &spyPublisher{calls: &calls}
 
@@ -74,13 +78,16 @@ func TestPublishAuctionOrchestratesLoadSavePublish(t *testing.T) {
 
 func TestPlaceBidOrchestratesLoadSavePublish(t *testing.T) {
 	calls := []string{}
-	a := auction.NewAuction("1")
+	startsAt := time.Now().Add(-time.Hour)
+	endsAt := startsAt.Add(time.Hour)
+	a, _ := auction.NewAuction("1", "lot-1", startsAt, endsAt)
 	_, _ = a.Publish()
 	repo := &spyRepo{auction: a, calls: &calls}
 	publisher := &spyPublisher{calls: &calls}
 
 	uc := NewPlaceBid(repo, publisher)
-	if err := uc.Execute(context.Background(), testMeta(), "1", 100, time.Now()); err != nil {
+	placedAt := endsAt.Add(-time.Minute)
+	if err := uc.Execute(context.Background(), testMeta(), "1", 100, placedAt); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	assertCalls(t, calls, []string{"load", "save", "publish"})
@@ -90,7 +97,9 @@ func TestPlaceBidOrchestratesLoadSavePublish(t *testing.T) {
 
 func TestCloseAuctionOrchestratesLoadSavePublish(t *testing.T) {
 	calls := []string{}
-	a := auction.NewAuction("1")
+	startsAt := time.Now().Add(-time.Hour)
+	endsAt := startsAt.Add(time.Hour)
+	a, _ := auction.NewAuction("1", "lot-1", startsAt, endsAt)
 	_, _ = a.Publish()
 	bid, _ := auction.NewBid("bidder-1", 100, time.Now())
 	_, _ = a.PlaceBid(bid)
@@ -108,7 +117,9 @@ func TestCloseAuctionOrchestratesLoadSavePublish(t *testing.T) {
 
 func TestCancelAuctionOrchestratesLoadSavePublish(t *testing.T) {
 	calls := []string{}
-	a := auction.NewAuction("1")
+	startsAt := time.Now().Add(-time.Hour)
+	endsAt := startsAt.Add(time.Hour)
+	a, _ := auction.NewAuction("1", "lot-1", startsAt, endsAt)
 	_, _ = a.Publish()
 	repo := &spyRepo{auction: a, calls: &calls}
 	publisher := &spyPublisher{calls: &calls}
@@ -149,7 +160,7 @@ func assertSavedAggregate(t *testing.T, repo *spyRepo) {
 	}
 }
 
-func assertCreatedAggregate(t *testing.T, repo *spyRepo, id AuctionID) {
+func assertCreatedAggregate(t *testing.T, repo *spyRepo, lotID string) {
 	t.Helper()
 	if repo.lastSaved == nil {
 		t.Fatal("expected auction to be saved")
@@ -157,8 +168,11 @@ func assertCreatedAggregate(t *testing.T, repo *spyRepo, id AuctionID) {
 	if repo.lastSaved == repo.auction {
 		t.Fatal("expected created aggregate to be a new instance")
 	}
-	if repo.lastSaved.ID != string(id) {
-		t.Fatalf("expected saved auction id %s, got %s", id, repo.lastSaved.ID)
+	if repo.lastSaved.ID == "" {
+		t.Fatal("expected auction id to be generated")
+	}
+	if repo.lastSaved.LotID != lotID {
+		t.Fatalf("expected lot id %s, got %s", lotID, repo.lastSaved.LotID)
 	}
 }
 

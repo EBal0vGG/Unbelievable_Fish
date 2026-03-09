@@ -6,7 +6,7 @@ import (
 )
 
 func TestBidBeforePublishIsRejected(t *testing.T) {
-	a := NewAuction("1")
+	a := mustAuction(t)
 
 	_, err := a.PlaceBid(mustBid(t, "x", 100, time.Now()))
 	if err == nil {
@@ -15,7 +15,7 @@ func TestBidBeforePublishIsRejected(t *testing.T) {
 }
 
 func TestBidAfterCloseIsRejected(t *testing.T) {
-	a := NewAuction("1")
+	a := mustAuction(t)
 	_, _ = a.Publish()
 	_, _ = a.PlaceBid(mustBid(t, "x", 100, time.Now()))
 	_, _ = a.Close()
@@ -27,7 +27,7 @@ func TestBidAfterCloseIsRejected(t *testing.T) {
 }
 
 func TestAuctionWithoutBidsIsCancelledOnClose(t *testing.T) {
-	a := NewAuction("1")
+	a := mustAuction(t)
 	_, _ = a.Publish()
 
 	events, err := a.Close()
@@ -46,7 +46,7 @@ func TestAuctionWithoutBidsIsCancelledOnClose(t *testing.T) {
 }
 
 func TestAuctionWithBidsIsWonOnClose(t *testing.T) {
-	a := NewAuction("1")
+	a := mustAuction(t)
 	_, _ = a.Publish()
 	now := time.Now()
 	_, _ = a.PlaceBid(mustBid(t, "a", 100, now))
@@ -78,7 +78,7 @@ func TestAuctionWithBidsIsWonOnClose(t *testing.T) {
 }
 
 func TestClosingAuctionTwiceIsRejected(t *testing.T) {
-	a := NewAuction("1")
+	a := mustAuction(t)
 	_, _ = a.Publish()
 	_, _ = a.PlaceBid(mustBid(t, "x", 100, time.Now()))
 	_, _ = a.Close()
@@ -120,6 +120,60 @@ func TestDetermineWinner(t *testing.T) {
 			t.Fatalf("expected winner b, got %s", winner.BidderCompanyID())
 		}
 	})
+}
+
+func TestBidLowerThanCurrentPriceIsRejected(t *testing.T) {
+	a := mustAuction(t)
+	_, _ = a.Publish()
+	now := time.Now()
+	_, _ = a.PlaceBid(mustBid(t, "x", 200, now))
+
+	_, err := a.PlaceBid(mustBid(t, "x", 100, now.Add(time.Second)))
+	if err == nil {
+		t.Fatal("expected error")
+	}
+}
+
+func TestBidExtendsAuctionNearEnd(t *testing.T) {
+	startsAt := time.Now().Add(-time.Hour)
+	endsAt := time.Now().Add(2 * time.Minute)
+	a := mustAuctionWithSchedule(t, startsAt, endsAt)
+	_, _ = a.Publish()
+
+	bidTime := endsAt.Add(-time.Minute)
+	events, err := a.PlaceBid(mustBid(t, "x", 100, bidTime))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if a.EndsAt().Equal(endsAt) {
+		t.Fatal("expected auction end time to be extended")
+	}
+	if len(events) != 1 {
+		t.Fatalf("expected 1 event, got %d", len(events))
+	}
+	placed, ok := events[0].(BidPlaced)
+	if !ok {
+		t.Fatal("expected BidPlaced event")
+	}
+	if placed.NewEndAt != a.EndsAt() {
+		t.Fatal("expected BidPlaced.NewEndAt to match auction end time")
+	}
+}
+
+func mustAuction(t *testing.T) *Auction {
+	t.Helper()
+	startsAt := time.Now().Add(-time.Hour)
+	endsAt := startsAt.Add(2 * time.Hour)
+	return mustAuctionWithSchedule(t, startsAt, endsAt)
+}
+
+func mustAuctionWithSchedule(t *testing.T, startsAt, endsAt time.Time) *Auction {
+	t.Helper()
+	a, err := NewAuction("1", "lot-1", startsAt, endsAt)
+	if err != nil {
+		t.Fatalf("unexpected auction error: %v", err)
+	}
+	return a
 }
 
 func mustBid(t *testing.T, bidderCompanyID string, amount int64, placedAt time.Time) Bid {

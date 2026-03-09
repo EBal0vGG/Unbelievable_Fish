@@ -32,12 +32,17 @@ func (h *CreateAuctionHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		writeError(w, httpErr.Status, httpErr.Code, httpErr.Message, meta)
 		return
 	}
-	if req.AuctionID == "" {
-		httpErr := httpapi.BadRequest("INVALID_BODY", "auction_id is required")
+	if req.LotID == "" {
+		httpErr := httpapi.BadRequest("INVALID_BODY", "lot_id is required")
 		writeError(w, httpErr.Status, httpErr.Code, httpErr.Message, meta)
 		return
 	}
-	if err := h.uc.Execute(r.Context(), meta, app.AuctionID(req.AuctionID)); err != nil {
+	if req.StartsAt.IsZero() || req.EndsAt.IsZero() {
+		httpErr := httpapi.BadRequest("INVALID_BODY", "starts_at and ends_at are required")
+		writeError(w, httpErr.Status, httpErr.Code, httpErr.Message, meta)
+		return
+	}
+	if err := h.uc.Execute(r.Context(), meta, req.LotID, req.StartsAt, req.EndsAt); err != nil {
 		httpErr := httpapi.MapError(err)
 		writeError(w, httpErr.Status, httpErr.Code, httpErr.Message, meta)
 		return

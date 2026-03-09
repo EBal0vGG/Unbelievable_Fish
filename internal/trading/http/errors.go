@@ -31,16 +31,26 @@ func MapError(err error) HTTPError {
 		return HTTPError{http.StatusConflict, "AUCTION_NOT_PUBLISHED", "auction not in draft state"}
 	case errors.Is(err, auction.ErrAuctionNotActive):
 		return HTTPError{http.StatusConflict, "AUCTION_NOT_ACTIVE", "auction not active"}
+	case errors.Is(err, auction.ErrAuctionNotStarted):
+		return HTTPError{http.StatusConflict, "AUCTION_NOT_ACTIVE", "auction not started"}
+	case errors.Is(err, auction.ErrAuctionAlreadyEnded):
+		return HTTPError{http.StatusConflict, "AUCTION_NOT_ACTIVE", "auction already ended"}
 	case errors.Is(err, auction.ErrCannotCloseAuction):
 		return HTTPError{http.StatusConflict, "AUCTION_ALREADY_CLOSED", "auction already closed"}
 	case errors.Is(err, auction.ErrInvalidStateTransition):
 		return HTTPError{http.StatusConflict, "INVALID_STATE", "invalid state transition"}
 	case errors.Is(err, auction.ErrCannotCancelWithBids):
 		return HTTPError{http.StatusConflict, "AUCTION_HAS_BIDS", "auction has bids"}
+	case errors.Is(err, auction.ErrAuctionIDEmpty),
+		errors.Is(err, auction.ErrLotIDEmpty):
+		return HTTPError{http.StatusBadRequest, "INVALID_BODY", "invalid request body"}
 	case errors.Is(err, auction.ErrBidderCompanyIDEmpty),
 		errors.Is(err, auction.ErrBidAmountNonPositive),
-		errors.Is(err, auction.ErrBidPlacedAtZero):
+		errors.Is(err, auction.ErrBidPlacedAtZero),
+		errors.Is(err, auction.ErrBidTooLow):
 		return HTTPError{http.StatusBadRequest, "INVALID_BID", "invalid bid"}
+	case errors.Is(err, auction.ErrInvalidSchedule):
+		return HTTPError{http.StatusBadRequest, "INVALID_SCHEDULE", "invalid auction schedule"}
 	default:
 		return HTTPError{http.StatusInternalServerError, "INTERNAL_ERROR", "internal error"}
 	}

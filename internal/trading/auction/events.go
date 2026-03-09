@@ -17,6 +17,7 @@ type BidPlaced struct {
 	BidderCompanyID string
 	Amount          int64
 	PlacedAt        time.Time
+	NewEndAt        time.Time
 }
 
 func (BidPlaced) isAuctionEvent() {}

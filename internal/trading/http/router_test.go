@@ -16,9 +16,9 @@ import (
 )
 
 type spyRepo struct {
-	auction    *auction.Auction
-	loadCount  int
-	saveCount  int
+	auction   *auction.Auction
+	loadCount int
+	saveCount int
 }
 
 func (s *spyRepo) Load(ctx context.Context, id app.AuctionID) (*auction.Auction, error) {
@@ -41,7 +41,9 @@ func (s *spyPublisher) Publish(ctx context.Context, events []auction.Event) erro
 }
 
 func TestCommandFlowSmoke(t *testing.T) {
-	a := auction.NewAuction("a-1")
+	startsAt := time.Now().Add(-time.Hour)
+	endsAt := time.Now().Add(time.Hour)
+	a, _ := auction.NewAuction("a-1", "lot-1", startsAt, endsAt)
 	_, _ = a.Publish()
 
 	repo := &spyRepo{auction: a}
@@ -63,7 +65,7 @@ func TestCommandFlowSmoke(t *testing.T) {
 
 	body, _ := json.Marshal(httpapi.PlaceBidRequest{
 		Amount:   100,
-		PlacedAt: time.Now().UTC(),
+		PlacedAt: endsAt.Add(-time.Minute).UTC(),
 	})
 	req := httptest.NewRequest(http.MethodPost, "/auctions/a-1/bids", bytes.NewReader(body))
 	req.Header.Set("X-Company-ID", "company-1")

@@ -376,13 +376,16 @@ components:
   schemas:
     CreateAuctionCommand:
       type: object
-      required: [auction_id]
+      required: [lot_id, starts_at, ends_at]
       properties:
-        auction_id:
+        lot_id:
           type: string
-          description: |
-            AuctionID is provided by the client and must be globally unique.
-            Trading does not generate identifiers.
+        starts_at:
+          type: string
+          format: date-time
+        ends_at:
+          type: string
+          format: date-time
     PlaceBidCommand:
       type: object
       required: [amount, placed_at]
@@ -444,7 +447,7 @@ components:
           type: string
     BidPlaced:
       type: object
-      required: [auction_id, bidder_company_id, amount, placed_at]
+      required: [auction_id, bidder_company_id, amount, placed_at, new_end_at]
       properties:
         auction_id:
           type: string
@@ -455,6 +458,9 @@ components:
           format: int64
           description: Amount in rubles.
         placed_at:
+          type: string
+          format: date-time
+        new_end_at:
           type: string
           format: date-time
     AuctionClosed:
