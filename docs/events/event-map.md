@@ -260,7 +260,7 @@ User
 User / Scheduler
  → Trading API
    → CloseAuction
-     → Auction.Close()
+     → Auction.Close(bids)
        → AuctionClosed
        → AuctionWon (если есть ставки)
          → EventBus

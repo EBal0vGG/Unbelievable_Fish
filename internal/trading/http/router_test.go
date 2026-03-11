@@ -40,6 +40,19 @@ func (s *spyPublisher) Publish(ctx context.Context, events []auction.Event) erro
 	return nil
 }
 
+type spyBidRepo struct {
+	saveCount int
+}
+
+func (s *spyBidRepo) Save(ctx context.Context, auctionID app.AuctionID, bid auction.Bid) error {
+	s.saveCount++
+	return nil
+}
+
+func (s *spyBidRepo) TopBids(ctx context.Context, auctionID app.AuctionID) ([]auction.Bid, error) {
+	return []auction.Bid{}, nil
+}
+
 func TestCommandFlowSmoke(t *testing.T) {
 	startsAt := time.Now().Add(-time.Hour)
 	endsAt := time.Now().Add(time.Hour)
@@ -48,11 +61,12 @@ func TestCommandFlowSmoke(t *testing.T) {
 
 	repo := &spyRepo{auction: a}
 	publisher := &spyPublisher{}
+	bidRepo := &spyBidRepo{}
 
 	createUC := app.NewCreateAuction(repo, publisher)
 	publishUC := app.NewPublishAuction(repo, publisher)
-	placeBidUC := app.NewPlaceBid(repo, publisher)
-	closeUC := app.NewCloseAuction(repo, publisher)
+	placeBidUC := app.NewPlaceBid(repo, bidRepo, publisher)
+	closeUC := app.NewCloseAuction(repo, bidRepo, publisher)
 	cancelUC := app.NewCancelAuction(repo, publisher)
 
 	router := httpapi.NewRouter(

@@ -41,6 +41,33 @@ func (s *spyPublisher) Publish(ctx context.Context, events []auction.Event) erro
 	return nil
 }
 
+type spyBidRepo struct {
+	calls      *[]string
+	saveCount  int
+	topCount   int
+	lastSaved  auction.Bid
+	topBids    []auction.Bid
+}
+
+func (s *spyBidRepo) Save(ctx context.Context, auctionID AuctionID, bid auction.Bid) error {
+	s.saveCount++
+	s.lastSaved = bid
+	*s.calls = append(*s.calls, "save_bid")
+	return nil
+}
+
+func (s *spyBidRepo) TopBids(ctx context.Context, auctionID AuctionID) ([]auction.Bid, error) {
+	s.topCount++
+	*s.calls = append(*s.calls, "top_bids")
+	if len(s.topBids) > 0 {
+		return s.topBids, nil
+	}
+	if (s.lastSaved != auction.Bid{}) {
+		return []auction.Bid{s.lastSaved}, nil
+	}
+	return nil, nil
+}
+
 func TestCreateAuctionSavesAggregate(t *testing.T) {
 	calls := []string{}
 	repo := &spyRepo{calls: &calls}
@@ -83,14 +110,15 @@ func TestPlaceBidOrchestratesLoadSavePublish(t *testing.T) {
 	a, _ := auction.NewAuction("1", "lot-1", startsAt, endsAt)
 	_, _ = a.Publish()
 	repo := &spyRepo{auction: a, calls: &calls}
+	bidRepo := &spyBidRepo{calls: &calls}
 	publisher := &spyPublisher{calls: &calls}
 
-	uc := NewPlaceBid(repo, publisher)
+	uc := NewPlaceBid(repo, bidRepo, publisher)
 	placedAt := endsAt.Add(-time.Minute)
 	if err := uc.Execute(context.Background(), testMeta(), "1", 100, placedAt); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	assertCalls(t, calls, []string{"load", "save", "publish"})
+	assertCalls(t, calls, []string{"load", "save_bid", "save", "publish"})
 	assertSavedAggregate(t, repo)
 	assertPublished(t, publisher)
 }
@@ -104,13 +132,14 @@ func TestCloseAuctionOrchestratesLoadSavePublish(t *testing.T) {
 	bid, _ := auction.NewBid("bidder-1", 100, time.Now())
 	_, _ = a.PlaceBid(bid)
 	repo := &spyRepo{auction: a, calls: &calls}
+	bidRepo := &spyBidRepo{calls: &calls, topBids: []auction.Bid{bid}}
 	publisher := &spyPublisher{calls: &calls}
 
-	uc := NewCloseAuction(repo, publisher)
+	uc := NewCloseAuction(repo, bidRepo, publisher)
 	if err := uc.Execute(context.Background(), testMeta(), "1"); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	assertCalls(t, calls, []string{"load", "save", "publish"})
+	assertCalls(t, calls, []string{"load", "top_bids", "save", "publish"})
 	assertSavedAggregate(t, repo)
 	assertPublished(t, publisher)
 }

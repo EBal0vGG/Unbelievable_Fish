@@ -15,7 +15,7 @@ truth for auction state and bidding rules. Create it via `NewAuction(id, lotID, 
   - no bids -> `CANCELLED`
   - bids -> `CLOSED` then `WON`
 - `Cancel()` cancels an auction in `PUBLISHED` state with no bids.
-- `State()`, `Bids()`, `Winner()` are read-only accessors.
+- `State()`, `Winner()` are read-only accessors.
 
 ## Events returned
 

@@ -17,8 +17,9 @@ func TestBidBeforePublishIsRejected(t *testing.T) {
 func TestBidAfterCloseIsRejected(t *testing.T) {
 	a := mustAuction(t)
 	_, _ = a.Publish()
-	_, _ = a.PlaceBid(mustBid(t, "x", 100, time.Now()))
-	_, _ = a.Close()
+	bid := mustBid(t, "x", 100, time.Now())
+	_, _ = a.PlaceBid(bid)
+	_, _ = a.Close([]Bid{bid})
 
 	_, err := a.PlaceBid(mustBid(t, "x", 100, time.Now()))
 	if err == nil {
@@ -30,7 +31,7 @@ func TestAuctionWithoutBidsIsCancelledOnClose(t *testing.T) {
 	a := mustAuction(t)
 	_, _ = a.Publish()
 
-	events, err := a.Close()
+	events, err := a.Close(nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -49,22 +50,24 @@ func TestAuctionWithBidsIsWonOnClose(t *testing.T) {
 	a := mustAuction(t)
 	_, _ = a.Publish()
 	now := time.Now()
-	_, _ = a.PlaceBid(mustBid(t, "a", 100, now))
-	_, _ = a.PlaceBid(mustBid(t, "b", 200, now.Add(time.Second)))
+	bidA := mustBid(t, "a", 100, now)
+	bidB := mustBid(t, "b", 200, now.Add(time.Second))
+	_, _ = a.PlaceBid(bidA)
+	_, _ = a.PlaceBid(bidB)
 
-	events, err := a.Close()
+	events, err := a.Close([]Bid{bidA, bidB})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if a.State() != StateWon {
 		t.Fatalf("expected state %s, got %s", StateWon, a.State())
 	}
-	winner, ok := a.Winner()
+	winnerCompanyID, _, ok := a.Winner()
 	if !ok {
 		t.Fatal("expected winner")
 	}
-	if winner.BidderCompanyID() != "b" {
-		t.Fatalf("expected winner b, got %s", winner.BidderCompanyID())
+	if winnerCompanyID != "b" {
+		t.Fatalf("expected winner b, got %s", winnerCompanyID)
 	}
 	if len(events) != 2 {
 		t.Fatalf("expected 2 events, got %d", len(events))
@@ -80,10 +83,11 @@ func TestAuctionWithBidsIsWonOnClose(t *testing.T) {
 func TestClosingAuctionTwiceIsRejected(t *testing.T) {
 	a := mustAuction(t)
 	_, _ = a.Publish()
-	_, _ = a.PlaceBid(mustBid(t, "x", 100, time.Now()))
-	_, _ = a.Close()
+	bid := mustBid(t, "x", 100, time.Now())
+	_, _ = a.PlaceBid(bid)
+	_, _ = a.Close([]Bid{bid})
 
-	_, err := a.Close()
+	_, err := a.Close([]Bid{bid})
 	if err == nil {
 		t.Fatal("expected error")
 	}

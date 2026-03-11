@@ -67,13 +67,15 @@ func (uc *PublishAuction) Execute(ctx context.Context, meta CommandMeta, id Auct
 
 type PlaceBid struct {
 	repo      AuctionRepository
-	publisher EventPublisher
+	bidRepo   BidRepository
+	pub       EventPublisher
 }
 
-func NewPlaceBid(repo AuctionRepository, publisher EventPublisher) *PlaceBid {
+func NewPlaceBid(repo AuctionRepository, bidRepo BidRepository, pub EventPublisher) *PlaceBid {
 	return &PlaceBid{
-		repo:      repo,
-		publisher: publisher,
+		repo:    repo,
+		bidRepo: bidRepo,
+		pub:     pub,
 	}
 }
 
@@ -96,20 +98,25 @@ func (uc *PlaceBid) Execute(
 	if err != nil {
 		return err
 	}
+	if err := uc.bidRepo.Save(ctx, id, bid); err != nil {
+		return err
+	}
 	if err := uc.repo.Save(ctx, a); err != nil {
 		return err
 	}
-	return publishEvents(ctx, uc.publisher, events)
+	return publishEvents(ctx, uc.pub, events)
 }
 
 type CloseAuction struct {
 	repo      AuctionRepository
+	bidRepo   BidRepository
 	publisher EventPublisher
 }
 
-func NewCloseAuction(repo AuctionRepository, publisher EventPublisher) *CloseAuction {
+func NewCloseAuction(repo AuctionRepository, bidRepo BidRepository, publisher EventPublisher) *CloseAuction {
 	return &CloseAuction{
 		repo:      repo,
+		bidRepo:   bidRepo,
 		publisher: publisher,
 	}
 }
@@ -120,7 +127,11 @@ func (uc *CloseAuction) Execute(ctx context.Context, meta CommandMeta, id Auctio
 	if err != nil {
 		return err
 	}
-	events, err := a.Close()
+	bids, err := uc.bidRepo.TopBids(ctx, id)
+	if err != nil {
+		return err
+	}
+	events, err := a.Close(bids)
 	if err != nil {
 		return err
 	}

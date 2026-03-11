@@ -43,6 +43,19 @@ func (s *spyPublisher) Publish(ctx context.Context, events []auction.Event) erro
 	return nil
 }
 
+type spyBidRepo struct {
+	saveCount int
+}
+
+func (s *spyBidRepo) Save(ctx context.Context, auctionID app.AuctionID, bid auction.Bid) error {
+	s.saveCount++
+	return nil
+}
+
+func (s *spyBidRepo) TopBids(ctx context.Context, auctionID app.AuctionID) ([]auction.Bid, error) {
+	return nil, nil
+}
+
 func TestCreateAuctionHandlerSuccess(t *testing.T) {
 	repo := &spyRepo{}
 	publisher := &spyPublisher{}
@@ -98,7 +111,8 @@ func TestPlaceBidHandlerInvalidJSON(t *testing.T) {
 	a, _ := auction.NewAuction("a-1", "lot-1", startsAt, endsAt)
 	repo := &spyRepo{auction: a}
 	publisher := &spyPublisher{}
-	uc := app.NewPlaceBid(repo, publisher)
+	bidRepo := &spyBidRepo{}
+	uc := app.NewPlaceBid(repo, bidRepo, publisher)
 	handler := NewPlaceBidHandler(uc)
 
 	req := httptest.NewRequest(http.MethodPost, "/auctions/a-1/bids", bytes.NewBufferString("{"))

@@ -30,7 +30,8 @@ func (AuctionClosed) isAuctionEvent() {}
 
 type AuctionWon struct {
 	AuctionID       string
-	WinnerCompanyID string
+	LotID           string
+	WinnerCompanyID []string
 	FinalPrice      int64
 }
 

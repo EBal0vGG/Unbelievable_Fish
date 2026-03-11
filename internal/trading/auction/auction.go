@@ -29,14 +29,18 @@ package auction
 import "time"
 
 type Auction struct {
-	ID                string
-	LotID             string
-	state             State
-	bids              []Bid
-	winner            *Bid
-	startsAt          time.Time
-	endsAt            time.Time
-	currentPrice      int64
+	ID    string
+	LotID string
+
+	state State
+
+	startsAt time.Time
+	endsAt   time.Time
+
+	currentPrice int64
+
+	leaderCompanyID string
+
 	extensionWindow   time.Duration
 	extensionDuration time.Duration
 }
@@ -92,8 +96,8 @@ func (a *Auction) PlaceBid(b Bid) ([]Event, error) {
 	if b.Amount() < a.currentPrice {
 		return nil, ErrBidTooLow
 	}
-	a.bids = append(a.bids, b)
 	a.currentPrice = b.Amount()
+	a.leaderCompanyID = b.BidderCompanyID()
 	newEndAt := a.endsAt
 	if a.endsAt.Sub(b.PlacedAt()) <= a.extensionWindow {
 		newEndAt = a.endsAt.Add(a.extensionDuration)
@@ -110,11 +114,11 @@ func (a *Auction) PlaceBid(b Bid) ([]Event, error) {
 	}, nil
 }
 
-func (a *Auction) Close() ([]Event, error) {
+func (a *Auction) Close(bids []Bid) ([]Event, error) {
 	if a.state != StatePublished {
 		return nil, ErrCannotCloseAuction
 	}
-	if len(a.bids) == 0 {
+	if len(bids) == 0 {
 		if err := a.transitionTo(StateCancelled); err != nil {
 			return nil, err
 		}
@@ -122,11 +126,12 @@ func (a *Auction) Close() ([]Event, error) {
 			AuctionCancelled{AuctionID: a.ID},
 		}, nil
 	}
-	winner, _ := determineWinner(a.bids)
+	winner, _ := determineWinner(bids)
 	if err := a.transitionTo(StateClosed); err != nil {
 		return nil, err
 	}
-	a.winner = &winner
+	a.currentPrice = winner.Amount()
+	a.leaderCompanyID = winner.BidderCompanyID()
 	if err := a.transitionTo(StateWon); err != nil {
 		return nil, err
 	}
@@ -134,8 +139,9 @@ func (a *Auction) Close() ([]Event, error) {
 		AuctionClosed{AuctionID: a.ID},
 		AuctionWon{
 			AuctionID:       a.ID,
-			WinnerCompanyID: winner.BidderCompanyID(),
-			FinalPrice:      winner.Amount(),
+			LotID:           a.LotID,
+			WinnerCompanyID: collectWinnerCompanyIDs(bids),
+			FinalPrice:      a.currentPrice,
 		},
 	}, nil
 }
@@ -144,7 +150,7 @@ func (a *Auction) Cancel() ([]Event, error) {
 	if a.state != StatePublished {
 		return nil, ErrInvalidStateTransition
 	}
-	if len(a.bids) > 0 {
+	if a.currentPrice > 0 {
 		return nil, ErrCannotCancelWithBids
 	}
 	if err := a.transitionTo(StateCancelled); err != nil {
@@ -171,18 +177,36 @@ func (a *Auction) CurrentPrice() int64 {
 	return a.currentPrice
 }
 
-func (a *Auction) Bids() []Bid {
-	if len(a.bids) == 0 {
+func (a *Auction) LeaderCompanyID() string {
+	return a.leaderCompanyID
+}
+
+func collectWinnerCompanyIDs(bids []Bid) []string {
+	if len(bids) == 0 {
 		return nil
 	}
-	out := make([]Bid, len(a.bids))
-	copy(out, a.bids)
+	seen := make(map[string]struct{}, len(bids))
+	out := make([]string, 0, len(bids))
+	for _, bid := range bids {
+		id := bid.BidderCompanyID()
+		if id == "" {
+			continue
+		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		out = append(out, id)
+	}
+	if len(out) == 0 {
+		return nil
+	}
 	return out
 }
 
-func (a *Auction) Winner() (Bid, bool) {
-	if a.winner == nil {
-		return Bid{}, false
+func (a *Auction) Winner() (string, int64, bool) {
+	if a.leaderCompanyID == "" {
+		return "", 0, false
 	}
-	return *a.winner, true
+	return a.leaderCompanyID, a.currentPrice, true
 }

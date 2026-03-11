@@ -477,12 +477,16 @@ components:
           type: string
     AuctionWon:
       type: object
-      required: [auction_id, winner_company_id, final_price]
+      required: [auction_id, lot_id, winner_company_id, final_price]
       properties:
         auction_id:
           type: string
-        winner_company_id:
+        lot_id:
           type: string
+        winner_company_id:
+          type: array
+          items:
+            type: string
         final_price:
           type: integer
           format: int64
