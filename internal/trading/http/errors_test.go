@@ -8,23 +8,32 @@ import (
 )
 
 func TestMapErrorContract(t *testing.T) {
+	logTest(t)
 	t.Run("missing company id", func(t *testing.T) {
+		logTest(t)
 		got := MapError(ErrMissingCompanyID)
+		logf(t, "mapped=%+v", got)
 		assertHTTPError(t, got, 400, "MISSING_COMPANY_ID", "missing X-Company-ID header")
 	})
 
 	t.Run("invalid state transition", func(t *testing.T) {
+		logTest(t)
 		got := MapError(auction.ErrInvalidStateTransition)
+		logf(t, "mapped=%+v", got)
 		assertHTTPError(t, got, 409, "INVALID_STATE", "invalid state transition")
 	})
 
 	t.Run("invalid bid", func(t *testing.T) {
+		logTest(t)
 		got := MapError(auction.ErrBidAmountNonPositive)
+		logf(t, "mapped=%+v", got)
 		assertHTTPError(t, got, 400, "INVALID_BID", "invalid bid")
 	})
 
 	t.Run("default", func(t *testing.T) {
+		logTest(t)
 		got := MapError(errors.New("boom"))
+		logf(t, "mapped=%+v", got)
 		assertHTTPError(t, got, 500, "INTERNAL_ERROR", "internal error")
 	})
 }

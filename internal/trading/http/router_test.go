@@ -54,6 +54,7 @@ func (s *spyBidRepo) TopBids(ctx context.Context, auctionID app.AuctionID) ([]au
 }
 
 func TestCommandFlowSmoke(t *testing.T) {
+	logTest(t)
 	startsAt := time.Now().Add(-time.Hour)
 	endsAt := time.Now().Add(time.Hour)
 	a, _ := auction.NewAuction("a-1", "lot-1", startsAt, endsAt)
@@ -81,6 +82,7 @@ func TestCommandFlowSmoke(t *testing.T) {
 		Amount:   100,
 		PlacedAt: endsAt.Add(-time.Minute).UTC(),
 	})
+	logf(t, "request auction_id=%s amount=%d placed_at=%s", "a-1", 100, endsAt.Add(-time.Minute).UTC())
 	req := httptest.NewRequest(http.MethodPost, "/auctions/a-1/bids", bytes.NewReader(body))
 	req.Header.Set("X-Company-ID", "company-1")
 	req.Header.Set("X-User-ID", "user-1")
@@ -88,6 +90,7 @@ func TestCommandFlowSmoke(t *testing.T) {
 
 	router.ServeHTTP(rec, req)
 
+	logf(t, "status=%d load=%d save=%d publish=%d bid_save=%d", rec.Code, repo.loadCount, repo.saveCount, publisher.publishCount, bidRepo.saveCount)
 	if rec.Code != http.StatusAccepted {
 		t.Fatalf("expected status %d, got %d", http.StatusAccepted, rec.Code)
 	}

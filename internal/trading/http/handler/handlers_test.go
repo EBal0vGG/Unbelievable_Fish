@@ -57,6 +57,7 @@ func (s *spyBidRepo) TopBids(ctx context.Context, auctionID app.AuctionID) ([]au
 }
 
 func TestCreateAuctionHandlerSuccess(t *testing.T) {
+	logTest(t)
 	repo := &spyRepo{}
 	publisher := &spyPublisher{}
 	uc := app.NewCreateAuction(repo, publisher)
@@ -64,6 +65,7 @@ func TestCreateAuctionHandlerSuccess(t *testing.T) {
 
 	startsAt := time.Now().Add(-time.Hour).UTC()
 	endsAt := startsAt.Add(time.Hour)
+	logf(t, "request lot_id=%s starts_at=%s ends_at=%s", "lot-1", startsAt, endsAt)
 	body, _ := json.Marshal(httpapi.CreateAuctionRequest{
 		LotID:    "lot-1",
 		StartsAt: startsAt,
@@ -76,6 +78,7 @@ func TestCreateAuctionHandlerSuccess(t *testing.T) {
 
 	handler.ServeHTTP(rec, req)
 
+	logf(t, "status=%d save_count=%d", rec.Code, repo.saveCount)
 	if rec.Code != http.StatusAccepted {
 		t.Fatalf("expected status %d, got %d", http.StatusAccepted, rec.Code)
 	}
@@ -85,6 +88,7 @@ func TestCreateAuctionHandlerSuccess(t *testing.T) {
 }
 
 func TestPublishAuctionHandlerMissingCompanyID(t *testing.T) {
+	logTest(t)
 	startsAt := time.Now().Add(-time.Hour)
 	endsAt := startsAt.Add(time.Hour)
 	a, _ := auction.NewAuction("a-1", "lot-1", startsAt, endsAt)
@@ -99,6 +103,7 @@ func TestPublishAuctionHandlerMissingCompanyID(t *testing.T) {
 
 	handler.ServeHTTP(rec, req)
 
+	logf(t, "status=%d body=%s", rec.Code, rec.Body.String())
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("expected status %d, got %d", http.StatusBadRequest, rec.Code)
 	}
@@ -106,6 +111,7 @@ func TestPublishAuctionHandlerMissingCompanyID(t *testing.T) {
 }
 
 func TestPlaceBidHandlerInvalidJSON(t *testing.T) {
+	logTest(t)
 	startsAt := time.Now().Add(-time.Hour)
 	endsAt := startsAt.Add(time.Hour)
 	a, _ := auction.NewAuction("a-1", "lot-1", startsAt, endsAt)
@@ -122,6 +128,7 @@ func TestPlaceBidHandlerInvalidJSON(t *testing.T) {
 
 	handler.ServeHTTP(rec, req)
 
+	logf(t, "status=%d body=%s", rec.Code, rec.Body.String())
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("expected status %d, got %d", http.StatusBadRequest, rec.Code)
 	}
@@ -129,6 +136,7 @@ func TestPlaceBidHandlerInvalidJSON(t *testing.T) {
 }
 
 func TestPublishAuctionHandlerInvalidPath(t *testing.T) {
+	logTest(t)
 	startsAt := time.Now().Add(-time.Hour)
 	endsAt := startsAt.Add(time.Hour)
 	a, _ := auction.NewAuction("a-1", "lot-1", startsAt, endsAt)
@@ -144,6 +152,7 @@ func TestPublishAuctionHandlerInvalidPath(t *testing.T) {
 
 	handler.ServeHTTP(rec, req)
 
+	logf(t, "status=%d body=%s", rec.Code, rec.Body.String())
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("expected status %d, got %d", http.StatusBadRequest, rec.Code)
 	}

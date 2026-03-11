@@ -69,6 +69,7 @@ func (s *spyBidRepo) TopBids(ctx context.Context, auctionID AuctionID) ([]auctio
 }
 
 func TestCreateAuctionSavesAggregate(t *testing.T) {
+	logTest(t)
 	calls := []string{}
 	repo := &spyRepo{calls: &calls}
 	publisher := &spyPublisher{calls: &calls}
@@ -76,6 +77,7 @@ func TestCreateAuctionSavesAggregate(t *testing.T) {
 	uc := NewCreateAuction(repo, publisher)
 	startsAt := time.Now().Add(-time.Hour)
 	endsAt := startsAt.Add(time.Hour)
+	logf(t, "create auction lot_id=%s starts_at=%s ends_at=%s", "lot-1", startsAt, endsAt)
 	if err := uc.Execute(context.Background(), testMeta(), "lot-1", startsAt, endsAt); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -87,10 +89,12 @@ func TestCreateAuctionSavesAggregate(t *testing.T) {
 }
 
 func TestPublishAuctionOrchestratesLoadSavePublish(t *testing.T) {
+	logTest(t)
 	calls := []string{}
 	startsAt := time.Now().Add(-time.Hour)
 	endsAt := startsAt.Add(time.Hour)
 	a, _ := auction.NewAuction("1", "lot-1", startsAt, endsAt)
+	logf(t, "auction id=%s lot_id=%s state=%s", a.ID, a.LotID, a.State())
 	repo := &spyRepo{auction: a, calls: &calls}
 	publisher := &spyPublisher{calls: &calls}
 
@@ -98,16 +102,19 @@ func TestPublishAuctionOrchestratesLoadSavePublish(t *testing.T) {
 	if err := uc.Execute(context.Background(), testMeta(), "1"); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+	logf(t, "calls=%v", calls)
 	assertCalls(t, calls, []string{"load", "save", "publish"})
 	assertSavedAggregate(t, repo)
 	assertPublished(t, publisher)
 }
 
 func TestPlaceBidOrchestratesLoadSavePublish(t *testing.T) {
+	logTest(t)
 	calls := []string{}
 	startsAt := time.Now().Add(-time.Hour)
 	endsAt := startsAt.Add(time.Hour)
 	a, _ := auction.NewAuction("1", "lot-1", startsAt, endsAt)
+	logf(t, "auction id=%s lot_id=%s state=%s", a.ID, a.LotID, a.State())
 	_, _ = a.Publish()
 	repo := &spyRepo{auction: a, calls: &calls}
 	bidRepo := &spyBidRepo{calls: &calls}
@@ -115,19 +122,23 @@ func TestPlaceBidOrchestratesLoadSavePublish(t *testing.T) {
 
 	uc := NewPlaceBid(repo, bidRepo, publisher)
 	placedAt := endsAt.Add(-time.Minute)
+	logf(t, "place bid amount=%d placed_at=%s", 100, placedAt)
 	if err := uc.Execute(context.Background(), testMeta(), "1", 100, placedAt); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+	logf(t, "calls=%v bid_saved_amount=%d", calls, bidRepo.lastSaved.Amount())
 	assertCalls(t, calls, []string{"load", "save_bid", "save", "publish"})
 	assertSavedAggregate(t, repo)
 	assertPublished(t, publisher)
 }
 
 func TestCloseAuctionOrchestratesLoadSavePublish(t *testing.T) {
+	logTest(t)
 	calls := []string{}
 	startsAt := time.Now().Add(-time.Hour)
 	endsAt := startsAt.Add(time.Hour)
 	a, _ := auction.NewAuction("1", "lot-1", startsAt, endsAt)
+	logf(t, "auction id=%s lot_id=%s state=%s", a.ID, a.LotID, a.State())
 	_, _ = a.Publish()
 	bid, _ := auction.NewBid("bidder-1", 100, time.Now())
 	_, _ = a.PlaceBid(bid)
@@ -139,16 +150,19 @@ func TestCloseAuctionOrchestratesLoadSavePublish(t *testing.T) {
 	if err := uc.Execute(context.Background(), testMeta(), "1"); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+	logf(t, "calls=%v", calls)
 	assertCalls(t, calls, []string{"load", "top_bids", "save", "publish"})
 	assertSavedAggregate(t, repo)
 	assertPublished(t, publisher)
 }
 
 func TestCancelAuctionOrchestratesLoadSavePublish(t *testing.T) {
+	logTest(t)
 	calls := []string{}
 	startsAt := time.Now().Add(-time.Hour)
 	endsAt := startsAt.Add(time.Hour)
 	a, _ := auction.NewAuction("1", "lot-1", startsAt, endsAt)
+	logf(t, "auction id=%s lot_id=%s state=%s", a.ID, a.LotID, a.State())
 	_, _ = a.Publish()
 	repo := &spyRepo{auction: a, calls: &calls}
 	publisher := &spyPublisher{calls: &calls}
@@ -157,6 +171,7 @@ func TestCancelAuctionOrchestratesLoadSavePublish(t *testing.T) {
 	if err := uc.Execute(context.Background(), testMeta(), "1"); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+	logf(t, "calls=%v", calls)
 	assertCalls(t, calls, []string{"load", "save", "publish"})
 	assertSavedAggregate(t, repo)
 	assertPublished(t, publisher)
