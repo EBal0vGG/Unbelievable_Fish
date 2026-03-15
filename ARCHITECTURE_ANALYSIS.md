@@ -1,5 +1,3 @@
-**Scope & Sources**  
-Проанализирован весь код в репозитории: `domain/catalog`, `internal/catalog/app`, `migrations`, `README.md`. В ветке `origin/ebal0v` доступен только `docs/events/event-map.md`; `er-diagram.puml/svg` в репозитории отсутствуют. Анализ ограничен тем, что реально есть в коде.
 
 **Project Map**  
 - `domain/catalog`: доменная модель Catalog (Fish, Product, Lot), события, FSM, ошибки, тесты.  
