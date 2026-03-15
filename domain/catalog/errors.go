@@ -14,4 +14,5 @@ var (
 	ErrAlreadyAssigned          = errors.New("already assigned")
 	ErrAuctionIDRequired        = errors.New("auction id required")
 	ErrInvalidWeight            = errors.New("invalid weight")
+	ErrInvalidUnit              = errors.New("invalid unit")
 )

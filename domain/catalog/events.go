@@ -13,7 +13,7 @@ func (LotAuctionLinked) isCatalogEvent() {}
 type ProductCreated struct {
 	ProductID      string
 	FishID         string
-	Weight         int64
+	Weight         float64
 	Unit           string
 	Size           string
 	ProcessingType ProcessingType
@@ -23,7 +23,7 @@ type ProductCreated struct {
 type ProductUpdated struct {
 	ProductID      string
 	FishID         string
-	Weight         int64
+	Weight         float64
 	Unit           string
 	Size           string
 	ProcessingType ProcessingType
@@ -44,17 +44,19 @@ type LotCreated struct {
 	LotID           string
 	ProductID       string
 	SellerCompanyID string
-	Quantity        int64
-	Unit            Unit
-	DeliveryTerms   string
-	StorageTerms    string
+	Photo           string
+	Quantity        float64
 	Status          LotStatus
 }
 
 type LotPublished struct {
-	LotID     string
-	ProductID string
-	Status    LotStatus
+	LotID           string
+	AuctionID       string
+	SellerCompanyID string
+	ProductID       string
+	Product         ProductSnapshot
+	StartPrice      int64
+	Status          LotStatus
 }
 
 type LotUnpublished struct {
@@ -62,10 +64,10 @@ type LotUnpublished struct {
 	Status LotStatus
 }
 
-type LotSold struct {
-	LotID  string
-	DealID string
-	Status LotStatus
+type LotClosed struct {
+	LotID      string
+	FinalPrice int64
+	Status     LotStatus
 }
 
 func (ProductCreated) isCatalogEvent()     {}
@@ -75,4 +77,12 @@ func (ProductUnpublished) isCatalogEvent() {}
 func (LotCreated) isCatalogEvent()         {}
 func (LotPublished) isCatalogEvent()       {}
 func (LotUnpublished) isCatalogEvent()     {}
-func (LotSold) isCatalogEvent()            {}
+func (LotClosed) isCatalogEvent()          {}
+
+type ProductSnapshot struct {
+	FishID         string
+	Weight         float64
+	Unit           string
+	Size           string
+	ProcessingType ProcessingType
+}

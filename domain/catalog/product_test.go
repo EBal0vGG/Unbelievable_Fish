@@ -3,7 +3,7 @@ package catalog
 import "testing"
 
 func TestNewProduct_Validation(t *testing.T) {
-	var pt ProcessingType
+	pt := ProcessingType("proc-1")
 
 	_, _, err := NewProduct("", "fish-1", 1000, "KG", "L", pt)
 	if err != ErrInvalidIdentifier {
@@ -20,14 +20,19 @@ func TestNewProduct_Validation(t *testing.T) {
 		t.Fatalf("expected ErrInvalidWeight, got %v", err)
 	}
 
-	_, _, err = NewProduct("prod-1", "fish-1", 1000, "", "L", pt)
-	if err != ErrInvalidIdentifier {
-		t.Fatalf("expected ErrInvalidIdentifier, got %v", err)
+	_, _, err = NewProduct("prod-1", "fish-1", 1, "", "L", pt)
+	if err != ErrInvalidUnit {
+		t.Fatalf("expected ErrInvalidUnit, got %v", err)
+	}
+
+	_, _, err = NewProduct("prod-1", "fish-1", 1, "KG", "L", ProcessingType(""))
+	if err != ErrInvalidEnum {
+		t.Fatalf("expected ErrInvalidEnum, got %v", err)
 	}
 }
 
 func TestProduct_PublishAndUnpublish(t *testing.T) {
-	var pt ProcessingType
+	pt := ProcessingType("proc-1")
 
 	p, events, err := NewProduct("prod-1", "fish-1", 1000, "KG", "L", pt)
 	if err != nil {
@@ -72,7 +77,7 @@ func TestProduct_PublishAndUnpublish(t *testing.T) {
 }
 
 func TestProduct_UpdateOnlyInDraft(t *testing.T) {
-	var pt ProcessingType
+	pt := ProcessingType("proc-1")
 
 	p, _, err := NewProduct("prod-2", "fish-2", 2000, "KG", "M", pt)
 	if err != nil {
@@ -87,5 +92,20 @@ func TestProduct_UpdateOnlyInDraft(t *testing.T) {
 	_, err = p.Update("fish-x", 123, "KG", "S", pt)
 	if err != ErrModificationNotAllowed {
 		t.Fatalf("expected ErrModificationNotAllowed, got %v", err)
+	}
+}
+
+func TestProduct_WeightAndUnitNormalization(t *testing.T) {
+	pt := ProcessingType("proc-1")
+
+	p, _, err := NewProduct("prod-3", "fish-3", 123.5, " kg ", "L", pt)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if p.Weight() != 123.5 {
+		t.Fatalf("expected weight 123.5, got %v", p.Weight())
+	}
+	if p.Unit() != "kg" {
+		t.Fatalf("expected unit kg, got %s", p.Unit())
 	}
 }

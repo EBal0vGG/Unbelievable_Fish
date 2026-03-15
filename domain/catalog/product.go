@@ -1,10 +1,12 @@
 package catalog
 
+import "strings"
+
 type Product struct {
 	productID string
 	fishID    string
 
-	weight int64
+	weight float64
 	size   string
 	unit   string
 
@@ -14,16 +16,22 @@ type Product struct {
 
 func NewProduct(
 	productID, fishID string,
-	weight int64,
+	weight float64,
 	unit string,
 	size string,
 	processingType ProcessingType,
 ) (*Product, []Event, error) {
 
-	if isBlank(productID) || isBlank(fishID) || isBlank(unit) {
+	if isBlank(productID) || isBlank(fishID) {
 		return nil, nil, ErrInvalidIdentifier
 	}
 
+	if isBlank(unit) {
+		return nil, nil, ErrInvalidUnit
+	}
+	if isBlank(string(processingType)) {
+		return nil, nil, ErrInvalidEnum
+	}
 	if weight <= 0 {
 		return nil, nil, ErrInvalidWeight
 	}
@@ -32,9 +40,9 @@ func NewProduct(
 		productID:      productID,
 		fishID:         fishID,
 		weight:         weight,
-		unit:           unit,
+		unit:           strings.TrimSpace(unit),
 		size:           size,
-		processingType: processingType,
+		processingType: ProcessingType(strings.TrimSpace(string(processingType))),
 		status:         ProductStatusDraft,
 	}
 
@@ -53,7 +61,7 @@ func NewProduct(
 
 func (p *Product) ID() string                     { return p.productID }
 func (p *Product) FishID() string                 { return p.fishID }
-func (p *Product) Weight() int64                  { return p.weight }
+func (p *Product) Weight() float64                { return p.weight }
 func (p *Product) Unit() string                   { return p.unit }
 func (p *Product) Size() string                   { return p.size }
 func (p *Product) ProcessingType() ProcessingType { return p.processingType }
@@ -61,7 +69,7 @@ func (p *Product) Status() ProductStatus          { return p.status }
 
 func (p *Product) Update(
 	fishID string,
-	weight int64,
+	weight float64,
 	unit string,
 	size string,
 	processingType ProcessingType,
@@ -70,19 +78,25 @@ func (p *Product) Update(
 	if p.status != ProductStatusDraft {
 		return nil, ErrModificationNotAllowed
 	}
-	if isBlank(fishID) || isBlank(unit) {
+	if isBlank(fishID) {
 		return nil, ErrInvalidIdentifier
 	}
 
+	if isBlank(unit) {
+		return nil, ErrInvalidUnit
+	}
+	if isBlank(string(processingType)) {
+		return nil, ErrInvalidEnum
+	}
 	if weight <= 0 {
 		return nil, ErrInvalidWeight
 	}
 
 	p.fishID = fishID
 	p.weight = weight
-	p.unit = unit
+	p.unit = strings.TrimSpace(unit)
 	p.size = size
-	p.processingType = processingType
+	p.processingType = ProcessingType(strings.TrimSpace(string(processingType)))
 
 	ev := ProductUpdated{
 		ProductID:      p.productID,

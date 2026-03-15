@@ -17,7 +17,7 @@ var lotTransitions = map[LotStatus]map[LotStatus]struct{}{
 		LotStatusPublished: {},
 	},
 	LotStatusPublished: {
-		LotStatusSold:      {},
+		LotStatusClosed:    {},
 		LotStatusCancelled: {},
 	},
 }

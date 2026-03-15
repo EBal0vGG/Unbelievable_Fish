@@ -1,12 +1,18 @@
 package catalog
 
-import "time"
+import (
+	"strings"
+	"time"
+)
 
 type Lot struct {
 	lotID           string
 	productID       string
 	auctionID       string
 	sellerCompanyID string
+
+	photo    string
+	quantity float64
 
 	startPrice int64
 	curPrice   int64
@@ -35,12 +41,17 @@ func (i Instant) Time() time.Time {
 
 func NewLot(
 	lotID, productID, sellerCompanyID string,
+	photo string,
+	quantity float64,
 	startPrice int64,
 	auctionSchedule *AuctionSchedule,
 ) (*Lot, []Event, error) {
 
 	if isBlank(lotID) || isBlank(productID) || isBlank(sellerCompanyID) {
 		return nil, nil, ErrInvalidIdentifier
+	}
+	if quantity <= 0 {
+		return nil, nil, ErrInvalidQuantity
 	}
 	if startPrice <= 0 {
 		return nil, nil, ErrInvalidPrice
@@ -49,12 +60,17 @@ func NewLot(
 		return nil, nil, ErrInvalidSchedule
 	}
 
+	normalizedPhoto := strings.TrimSpace(photo)
+
 	lot := &Lot{
 		lotID:           lotID,
 		productID:       productID,
 		sellerCompanyID: sellerCompanyID,
 
 		auctionID: "",
+
+		photo:    normalizedPhoto,
+		quantity: quantity,
 
 		startPrice: startPrice,
 		curPrice:   startPrice,
@@ -69,6 +85,8 @@ func NewLot(
 		LotID:           lot.lotID,
 		ProductID:       lot.productID,
 		SellerCompanyID: lot.sellerCompanyID,
+		Photo:           lot.photo,
+		Quantity:        lot.quantity,
 		Status:          lot.status,
 	}
 
@@ -94,12 +112,14 @@ func (l *Lot) ID() string              { return l.lotID }
 func (l *Lot) ProductID() string       { return l.productID }
 func (l *Lot) SellerCompanyID() string { return l.sellerCompanyID }
 func (l *Lot) AuctionID() string       { return l.auctionID }
+func (l *Lot) Photo() string           { return l.photo }
+func (l *Lot) Quantity() float64       { return l.quantity }
 func (l *Lot) Status() LotStatus       { return l.status }
 func (l *Lot) StartPrice() int64       { return l.startPrice }
 func (l *Lot) CurPrice() int64         { return l.curPrice }
 func (l *Lot) FinalPrice() int64       { return l.finalPrice }
 
-func (l *Lot) Publish(productIsPublished bool) ([]Event, error) {
+func (l *Lot) Publish(productIsPublished bool, product ProductSnapshot) ([]Event, error) {
 	if !l.canTransition(LotStatusPublished) {
 		return nil, ErrForbiddenStateTransition
 	}
@@ -115,15 +135,20 @@ func (l *Lot) Publish(productIsPublished bool) ([]Event, error) {
 	l.status = LotStatusPublished
 
 	event := LotPublished{
-		LotID:     l.lotID,
-		ProductID: l.productID,
-		Status:    l.status,
+		LotID:           l.lotID,
+		AuctionID:       l.auctionID,
+		SellerCompanyID: l.sellerCompanyID,
+		ProductID:       l.productID,
+		Product:         product,
+		StartPrice:      l.startPrice,
+		Status:          l.status,
 	}
 
 	return []Event{event}, nil
 }
 
 func (l *Lot) Unpublish() ([]Event, error) {
+	// Unpublish transitions a published lot to CANCELLED.
 	if !l.canTransition(LotStatusCancelled) {
 		return nil, ErrForbiddenStateTransition
 	}
@@ -138,29 +163,37 @@ func (l *Lot) Unpublish() ([]Event, error) {
 	return []Event{event}, nil
 }
 
-/*func (l *Lot) MarkSold(dealID string, finalPrice int64) ([]Event, error) {
-	if !l.canTransition(LotStatusSold) {
+func (l *Lot) Close(finalPrice int64) ([]Event, error) {
+	if !l.canTransition(LotStatusClosed) {
 		return nil, ErrForbiddenStateTransition
-	}
-	if isBlank(dealID) {
-		return nil, ErrInvalidIdentifier
 	}
 	if finalPrice <= 0 {
 		return nil, ErrInvalidPrice
 	}
 
-	l.status = LotStatusSold
-	l.dealID = dealID
+	l.status = LotStatusClosed
 	l.finalPrice = finalPrice
 
-	event := LotSold{
-		LotID:  l.lotID,
-		DealID: l.dealID,
-		Status: l.status,
+	event := LotClosed{
+		LotID:      l.lotID,
+		FinalPrice: finalPrice,
+		Status:     l.status,
 	}
 
 	return []Event{event}, nil
-}*/
+}
+
+func (l *Lot) UpdateCurrentPrice(amount int64) ([]Event, error) {
+	if l.status != LotStatusPublished {
+		return nil, ErrModificationNotAllowed
+	}
+	if amount <= 0 {
+		return nil, ErrInvalidPrice
+	}
+
+	l.curPrice = amount
+	return nil, nil
+}
 
 func (l *Lot) canTransition(to LotStatus) bool {
 	next, ok := lotTransitions[l.status]
