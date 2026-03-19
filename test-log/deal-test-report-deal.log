@@ -1,0 +1,56 @@
+========== START TestDeal_Confirm (deal) ==========
+{"time":"2026-03-20T02:49:19.038884745+03:00","package":"deal","test":"TestDeal_Confirm","message":"START"}
+{"time":"2026-03-20T02:49:19.039047309+03:00","package":"deal","test":"TestDeal_Confirm","message":"deal id=deal_123 status=pending"}
+{"time":"2026-03-20T02:49:19.039093822+03:00","package":"deal","test":"TestDeal_Confirm","message":"confirm events=1 error=\u003cnil\u003e"}
+{"time":"2026-03-20T02:49:19.039139901+03:00","package":"deal","test":"TestDeal_Confirm","message":"END"}
+========== END TestDeal_Confirm (deal) ==========
+========== START TestDeal_PrepareAndSignContract (deal) ==========
+{"time":"2026-03-20T02:49:19.039322355+03:00","package":"deal","test":"TestDeal_PrepareAndSignContract","message":"START"}
+{"time":"2026-03-20T02:49:19.039368158+03:00","package":"deal","test":"TestDeal_PrepareAndSignContract","message":"deal id=deal_123 status=pending"}
+{"time":"2026-03-20T02:49:19.039410998+03:00","package":"deal","test":"TestDeal_PrepareAndSignContract","message":"deal confirmed status=confirmed"}
+{"time":"2026-03-20T02:49:19.039450801+03:00","package":"deal","test":"TestDeal_PrepareAndSignContract","message":"contract prepared number=CNT-001 status=contract_prepared"}
+{"time":"2026-03-20T02:49:19.039510154+03:00","package":"deal","test":"TestDeal_PrepareAndSignContract","message":"contract signed by=buyer status=contract_signed"}
+{"time":"2026-03-20T02:49:19.039555929+03:00","package":"deal","test":"TestDeal_PrepareAndSignContract","message":"END"}
+========== END TestDeal_PrepareAndSignContract (deal) ==========
+========== START TestDeal_RequestPaymentAndMarkAsPaid (deal) ==========
+{"time":"2026-03-20T02:49:19.039719624+03:00","package":"deal","test":"TestDeal_RequestPaymentAndMarkAsPaid","message":"START"}
+{"time":"2026-03-20T02:49:19.039774677+03:00","package":"deal","test":"TestDeal_RequestPaymentAndMarkAsPaid","message":"deal id=deal_123 total=1000"}
+{"time":"2026-03-20T02:49:19.039816864+03:00","package":"deal","test":"TestDeal_RequestPaymentAndMarkAsPaid","message":"contract signed status=contract_signed"}
+{"time":"2026-03-20T02:49:19.03985957+03:00","package":"deal","test":"TestDeal_RequestPaymentAndMarkAsPaid","message":"payment requested invoice=INV-001 amount=1000"}
+{"time":"2026-03-20T02:49:19.039899264+03:00","package":"deal","test":"TestDeal_RequestPaymentAndMarkAsPaid","message":"deal paid payment_id=pay_123 type=card"}
+{"time":"2026-03-20T02:49:19.03996208+03:00","package":"deal","test":"TestDeal_RequestPaymentAndMarkAsPaid","message":"END"}
+========== END TestDeal_RequestPaymentAndMarkAsPaid (deal) ==========
+========== START TestDeal_Cancel (deal) ==========
+{"time":"2026-03-20T02:49:19.040139489+03:00","package":"deal","test":"TestDeal_Cancel","message":"START"}
+{"time":"2026-03-20T02:49:19.040184561+03:00","package":"deal","test":"TestDeal_Cancel","message":"deal id=deal_123 status=pending"}
+{"time":"2026-03-20T02:49:19.040236459+03:00","package":"deal","test":"TestDeal_Cancel","message":"deal cancelled reason=buyer changed mind cancelled_by=customer"}
+{"time":"2026-03-20T02:49:19.04027979+03:00","package":"deal","test":"TestDeal_Cancel","message":"END"}
+========== END TestDeal_Cancel (deal) ==========
+========== START TestDeal_Confirm (deal) ==========
+{"time":"2026-03-20T02:49:23.984205319+03:00","package":"deal","test":"TestDeal_Confirm","message":"START"}
+{"time":"2026-03-20T02:49:23.984359886+03:00","package":"deal","test":"TestDeal_Confirm","message":"deal id=deal_123 status=pending"}
+{"time":"2026-03-20T02:49:23.984407407+03:00","package":"deal","test":"TestDeal_Confirm","message":"confirm events=1 error=\u003cnil\u003e"}
+{"time":"2026-03-20T02:49:23.984453981+03:00","package":"deal","test":"TestDeal_Confirm","message":"END"}
+========== END TestDeal_Confirm (deal) ==========
+========== START TestDeal_PrepareAndSignContract (deal) ==========
+{"time":"2026-03-20T02:49:23.984661336+03:00","package":"deal","test":"TestDeal_PrepareAndSignContract","message":"START"}
+{"time":"2026-03-20T02:49:23.984715801+03:00","package":"deal","test":"TestDeal_PrepareAndSignContract","message":"deal id=deal_123 status=pending"}
+{"time":"2026-03-20T02:49:23.984784538+03:00","package":"deal","test":"TestDeal_PrepareAndSignContract","message":"deal confirmed status=confirmed"}
+{"time":"2026-03-20T02:49:23.984823675+03:00","package":"deal","test":"TestDeal_PrepareAndSignContract","message":"contract prepared number=CNT-001 status=contract_prepared"}
+{"time":"2026-03-20T02:49:23.984880033+03:00","package":"deal","test":"TestDeal_PrepareAndSignContract","message":"contract signed by=buyer status=contract_signed"}
+{"time":"2026-03-20T02:49:23.984926725+03:00","package":"deal","test":"TestDeal_PrepareAndSignContract","message":"END"}
+========== END TestDeal_PrepareAndSignContract (deal) ==========
+========== START TestDeal_RequestPaymentAndMarkAsPaid (deal) ==========
+{"time":"2026-03-20T02:49:23.985128734+03:00","package":"deal","test":"TestDeal_RequestPaymentAndMarkAsPaid","message":"START"}
+{"time":"2026-03-20T02:49:23.985172272+03:00","package":"deal","test":"TestDeal_RequestPaymentAndMarkAsPaid","message":"deal id=deal_123 total=1000"}
+{"time":"2026-03-20T02:49:23.985211331+03:00","package":"deal","test":"TestDeal_RequestPaymentAndMarkAsPaid","message":"contract signed status=contract_signed"}
+{"time":"2026-03-20T02:49:23.985258326+03:00","package":"deal","test":"TestDeal_RequestPaymentAndMarkAsPaid","message":"payment requested invoice=INV-001 amount=1000"}
+{"time":"2026-03-20T02:49:23.985305654+03:00","package":"deal","test":"TestDeal_RequestPaymentAndMarkAsPaid","message":"deal paid payment_id=pay_123 type=card"}
+{"time":"2026-03-20T02:49:23.985355772+03:00","package":"deal","test":"TestDeal_RequestPaymentAndMarkAsPaid","message":"END"}
+========== END TestDeal_RequestPaymentAndMarkAsPaid (deal) ==========
+========== START TestDeal_Cancel (deal) ==========
+{"time":"2026-03-20T02:49:23.985561025+03:00","package":"deal","test":"TestDeal_Cancel","message":"START"}
+{"time":"2026-03-20T02:49:23.985602001+03:00","package":"deal","test":"TestDeal_Cancel","message":"deal id=deal_123 status=pending"}
+{"time":"2026-03-20T02:49:23.985651055+03:00","package":"deal","test":"TestDeal_Cancel","message":"deal cancelled reason=buyer changed mind cancelled_by=customer"}
+{"time":"2026-03-20T02:49:23.98569024+03:00","package":"deal","test":"TestDeal_Cancel","message":"END"}
+========== END TestDeal_Cancel (deal) ==========

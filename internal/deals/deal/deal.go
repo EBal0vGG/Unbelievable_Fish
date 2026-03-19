@@ -227,12 +227,12 @@ func (d *Deal) SignContract(signedBy, signatureRef string) ([]Event, error) {
 
 // RequestPayment - запрашивает оплату сделки
 func (d *Deal) RequestPayment(invoiceNumber string, dueDate *time.Time) ([]Event, error) {
-	if d.status != DealStatusContractSigned {
-		return nil, ErrCannotRequestPayment
-	}
-
 	if d.status == DealStatusPaymentRequested {
 		return nil, ErrPaymentAlreadyRequested
+	}
+
+	if d.status != DealStatusContractSigned {
+		return nil, ErrCannotRequestPayment
 	}
 
 	if !d.hasSignedContract() {
