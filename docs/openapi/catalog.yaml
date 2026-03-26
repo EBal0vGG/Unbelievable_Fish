@@ -1,0 +1,775 @@
+openapi: 3.0.3
+info:
+  title: Catalog API
+  version: 0.1.0
+  description: |
+    Catalog API.
+
+    Зона ответственности:
+    - управление справочником Fish
+    - жизненный цикл Product
+    - жизненный цикл Lot
+    - генерация доменных событий Catalog
+    - реакция на integration events из Trading
+
+    Не входит в ответственность:
+    - управление аукционом
+    - ставки и определение победителя
+    - сделки и контракты
+    - аутентификация и авторизация
+    - гарантии доставки событий
+
+    Метаданные vs атрибуты:
+    - В headers или metadata event envelope передаются только transport/security/tracing данные.
+    - Бизнес-данные передаются в body / path params / event payload attributes.
+    - `seller_company_id`, `fish_id`, `product_id`, `lot_id`, `auction_id`, `final_price`,
+      `weight`, `quantity`, `unit`, `processing_type` — это бизнес-атрибуты, а не headers.
+
+x-boundaries:
+  catalog_responsibilities:
+    - fish dictionary
+    - products
+    - lots
+    - catalog event generation
+    - catalog UI-facing state
+  out_of_scope:
+    - auctions
+    - bids
+    - winner determination
+    - deals
+    - contracts
+    - auth
+    - broker delivery
+
+x-metadata-rules:
+  http_headers:
+    - X-Company-ID
+    - X-User-ID
+    - X-Correlation-ID
+    - X-Causation-ID
+  event_envelope_metadata:
+    - event_id
+    - event_type
+    - event_version
+    - occurred_at
+    - correlation_id
+    - causation_id
+    - producer
+  business_attributes:
+    - fish_id
+    - product_id
+    - lot_id
+    - auction_id
+    - seller_company_id
+    - weight
+    - quantity
+    - unit
+    - processing_type
+    - start_price
+    - final_price
+    - status
+  rule: |
+    Метаданные ориентированы на транспортный уровень и могут использоваться для передачи идентичности, трассировки, идемпотентности и маршрутизации событий. Атрибуты описывают бизнес-факты и должны оставаться внутри тела запроса, path-параметров или payload событ
+
+x-domain-events:
+  delivery: best-effort
+  publication_moment: after successful use case execution
+  subscription: |
+    Consumers may subscribe via event bus / outbox / message broker.
+    Exact transport is an infrastructure concern.
+  events:
+    - name: ProductCreated
+      payload: ProductCreated
+    - name: ProductUpdated
+      payload: ProductUpdated
+    - name: ProductPublished
+      payload: ProductPublished
+    - name: ProductUnpublished
+      payload: ProductUnpublished
+    - name: LotCreated
+      payload: LotCreated
+    - name: LotPublished
+      payload: LotPublished
+    - name: LotUnpublished
+      payload: LotUnpublished
+    - name: LotClosed
+      payload: LotClosed
+
+x-consumed-events:
+  events:
+    - name: AuctionWon
+      payload: AuctionWon
+    - name: BidPlaced
+      payload: BidPlaced
+    - name: AuctionClosed
+      payload: AuctionClosed
+    - name: AuctionCancelled
+      payload: AuctionCancelled
+
+servers:
+  - url: /api
+
+tags:
+  - name: Fish
+    description: Fish dictionary commands.
+  - name: Products
+    description: Product lifecycle commands.
+  - name: Lots
+    description: Lot lifecycle commands.
+
+paths:
+  /fish:
+    post:
+      tags: [Fish]
+      summary: CreateFish
+      operationId: CreateFish
+      parameters:
+        - $ref: '#/components/parameters/XCompanyID'
+        - $ref: '#/components/parameters/XUserID'
+        - $ref: '#/components/parameters/XCorrelationID'
+        - $ref: '#/components/parameters/XCausationID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateFishCommand'
+      responses:
+        '202':
+          description: Command accepted
+        '400':
+          description: Invalid command
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /fish/{id}:
+    put:
+      tags: [Fish]
+      summary: UpdateFish
+      operationId: UpdateFish
+      parameters:
+        - $ref: '#/components/parameters/FishID'
+        - $ref: '#/components/parameters/XCompanyID'
+        - $ref: '#/components/parameters/XUserID'
+        - $ref: '#/components/parameters/XCorrelationID'
+        - $ref: '#/components/parameters/XCausationID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateFishCommand'
+      responses:
+        '202':
+          description: Command accepted
+        '404':
+          description: Fish not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /products:
+    post:
+      tags: [Products]
+      summary: CreateProduct
+      operationId: CreateProduct
+      parameters:
+        - $ref: '#/components/parameters/XCompanyID'
+        - $ref: '#/components/parameters/XUserID'
+        - $ref: '#/components/parameters/XCorrelationID'
+        - $ref: '#/components/parameters/XCausationID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateProductCommand'
+      responses:
+        '202':
+          description: Command accepted
+        '400':
+          description: Invalid command
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Reference not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /products/{id}:
+    put:
+      tags: [Products]
+      summary: UpdateProduct
+      operationId: UpdateProduct
+      parameters:
+        - $ref: '#/components/parameters/ProductID'
+        - $ref: '#/components/parameters/XCompanyID'
+        - $ref: '#/components/parameters/XUserID'
+        - $ref: '#/components/parameters/XCorrelationID'
+        - $ref: '#/components/parameters/XCausationID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProductCommand'
+      responses:
+        '202':
+          description: Command accepted
+        '404':
+          description: Product or reference not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Invalid state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /products/{id}/publish:
+    post:
+      tags: [Products]
+      summary: PublishProduct
+      operationId: PublishProduct
+      parameters:
+        - $ref: '#/components/parameters/ProductID'
+        - $ref: '#/components/parameters/XCompanyID'
+        - $ref: '#/components/parameters/XUserID'
+        - $ref: '#/components/parameters/XCorrelationID'
+        - $ref: '#/components/parameters/XCausationID'
+      responses:
+        '202':
+          description: Command accepted
+        '404':
+          description: Product not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Invalid state transition
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /products/{id}/unpublish:
+    post:
+      tags: [Products]
+      summary: UnpublishProduct
+      operationId: UnpublishProduct
+      parameters:
+        - $ref: '#/components/parameters/ProductID'
+        - $ref: '#/components/parameters/XCompanyID'
+        - $ref: '#/components/parameters/XUserID'
+        - $ref: '#/components/parameters/XCorrelationID'
+        - $ref: '#/components/parameters/XCausationID'
+      responses:
+        '202':
+          description: Command accepted
+        '404':
+          description: Product not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Invalid state transition
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /lots:
+    post:
+      tags: [Lots]
+      summary: CreateLot
+      operationId: CreateLot
+      parameters:
+        - $ref: '#/components/parameters/XCompanyID'
+        - $ref: '#/components/parameters/XUserID'
+        - $ref: '#/components/parameters/XCorrelationID'
+        - $ref: '#/components/parameters/XCausationID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateLotCommand'
+      responses:
+        '202':
+          description: Command accepted
+        '400':
+          description: Invalid command
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Product not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /lots/{id}/auction:
+    post:
+      tags: [Lots]
+      summary: AssignAuctionID
+      operationId: AssignAuctionID
+      parameters:
+        - $ref: '#/components/parameters/LotID'
+        - $ref: '#/components/parameters/XCompanyID'
+        - $ref: '#/components/parameters/XUserID'
+        - $ref: '#/components/parameters/XCorrelationID'
+        - $ref: '#/components/parameters/XCausationID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssignAuctionIDCommand'
+      responses:
+        '202':
+          description: Command accepted
+        '404':
+          description: Lot not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Auction already assigned or invalid lot state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /lots/{id}/publish:
+    post:
+      tags: [Lots]
+      summary: PublishLot
+      operationId: PublishLot
+      parameters:
+        - $ref: '#/components/parameters/LotID'
+        - $ref: '#/components/parameters/XCompanyID'
+        - $ref: '#/components/parameters/XUserID'
+        - $ref: '#/components/parameters/XCorrelationID'
+        - $ref: '#/components/parameters/XCausationID'
+      responses:
+        '202':
+          description: Command accepted
+        '404':
+          description: Lot or Product not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Publishing rule violation or invalid state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /lots/{id}/unpublish:
+    post:
+      tags: [Lots]
+      summary: UnpublishLot
+      operationId: UnpublishLot
+      parameters:
+        - $ref: '#/components/parameters/LotID'
+        - $ref: '#/components/parameters/XCompanyID'
+        - $ref: '#/components/parameters/XUserID'
+        - $ref: '#/components/parameters/XCorrelationID'
+        - $ref: '#/components/parameters/XCausationID'
+      responses:
+        '202':
+          description: Command accepted
+        '404':
+          description: Lot not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Invalid state transition
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /lots/{id}/close:
+    post:
+      tags: [Lots]
+      summary: CloseLot
+      operationId: CloseLot
+      parameters:
+        - $ref: '#/components/parameters/LotID'
+        - $ref: '#/components/parameters/XCompanyID'
+        - $ref: '#/components/parameters/XUserID'
+        - $ref: '#/components/parameters/XCorrelationID'
+        - $ref: '#/components/parameters/XCausationID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CloseLotCommand'
+      responses:
+        '202':
+          description: Command accepted
+        '404':
+          description: Lot not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Invalid state transition or invalid price
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  parameters:
+    FishID:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+    ProductID:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+    LotID:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+    XCompanyID:
+      name: X-Company-ID
+      in: header
+      required: true
+      schema:
+        type: string
+      description: |
+        Security / tenant metadata from upstream.
+        This is not a substitute for `seller_company_id` in the business payload.
+    XUserID:
+      name: X-User-ID
+      in: header
+      required: true
+      schema:
+        type: string
+      description: User identity metadata from upstream.
+    XCorrelationID:
+      name: X-Correlation-ID
+      in: header
+      required: false
+      schema:
+        type: string
+      description: Correlation ID for tracing across services.
+    XCausationID:
+      name: X-Causation-ID
+      in: header
+      required: false
+      schema:
+        type: string
+      description: Causation ID for tracing command and event chains.
+  schemas:
+    CreateFishCommand:
+      type: object
+      required: [fish_id, name]
+      properties:
+        fish_id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+    UpdateFishCommand:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+    CreateProductCommand:
+      type: object
+      required: [product_id, fish_id, weight, unit, processing_type]
+      properties:
+        product_id:
+          type: string
+        fish_id:
+          type: string
+        weight:
+          type: number
+          format: double
+        unit:
+          type: string
+        size:
+          type: string
+        processing_type:
+          type: string
+    UpdateProductCommand:
+      type: object
+      required: [fish_id, weight, unit, processing_type]
+      properties:
+        fish_id:
+          type: string
+        weight:
+          type: number
+          format: double
+        unit:
+          type: string
+        size:
+          type: string
+        processing_type:
+          type: string
+    CreateLotCommand:
+      type: object
+      required: [lot_id, product_id, seller_company_id, quantity, start_price, auction_starts_at]
+      properties:
+        lot_id:
+          type: string
+        product_id:
+          type: string
+        seller_company_id:
+          type: string
+        photo:
+          type: string
+          nullable: true
+        quantity:
+          type: number
+          format: double
+        start_price:
+          type: integer
+          format: int64
+          description: Price in rubles.
+        auction_starts_at:
+          type: string
+          format: date-time
+    AssignAuctionIDCommand:
+      type: object
+      required: [auction_id]
+      properties:
+        auction_id:
+          type: string
+    CloseLotCommand:
+      type: object
+      required: [final_price]
+      properties:
+        final_price:
+          type: integer
+          format: int64
+          description: Final price in rubles.
+    ProductStatus:
+      type: string
+      enum: [DRAFT, PUBLISHED, UNPUBLISHED]
+    LotStatus:
+      type: string
+      enum: [DRAFT, PUBLISHED, CLOSED, CANCELLED]
+    ProductSnapshot:
+      type: object
+      required: [fish_id, weight, unit, processing_type]
+      properties:
+        fish_id:
+          type: string
+        weight:
+          type: number
+          format: double
+        unit:
+          type: string
+        size:
+          type: string
+          nullable: true
+        processing_type:
+          type: string
+    ProductCreated:
+      type: object
+      required: [product_id, fish_id, weight, unit, processing_type, status]
+      properties:
+        product_id:
+          type: string
+        fish_id:
+          type: string
+        weight:
+          type: number
+          format: double
+        unit:
+          type: string
+        size:
+          type: string
+          nullable: true
+        processing_type:
+          type: string
+        status:
+          $ref: '#/components/schemas/ProductStatus'
+    ProductUpdated:
+      type: object
+      required: [product_id, fish_id, weight, unit, processing_type, status]
+      properties:
+        product_id:
+          type: string
+        fish_id:
+          type: string
+        weight:
+          type: number
+          format: double
+        unit:
+          type: string
+        size:
+          type: string
+          nullable: true
+        processing_type:
+          type: string
+        status:
+          $ref: '#/components/schemas/ProductStatus'
+    ProductPublished:
+      type: object
+      required: [product_id, status]
+      properties:
+        product_id:
+          type: string
+        status:
+          $ref: '#/components/schemas/ProductStatus'
+    ProductUnpublished:
+      type: object
+      required: [product_id, status]
+      properties:
+        product_id:
+          type: string
+        status:
+          $ref: '#/components/schemas/ProductStatus'
+    LotCreated:
+      type: object
+      required: [lot_id, product_id, seller_company_id, quantity, status]
+      properties:
+        lot_id:
+          type: string
+        product_id:
+          type: string
+        seller_company_id:
+          type: string
+        photo:
+          type: string
+          nullable: true
+        quantity:
+          type: number
+          format: double
+        status:
+          $ref: '#/components/schemas/LotStatus'
+    LotPublished:
+      type: object
+      required: [lot_id, auction_id, seller_company_id, product_id, product, start_price, status]
+      properties:
+        lot_id:
+          type: string
+        auction_id:
+          type: string
+        seller_company_id:
+          type: string
+        product_id:
+          type: string
+        product:
+          $ref: '#/components/schemas/ProductSnapshot'
+        start_price:
+          type: integer
+          format: int64
+          description: Price in rubles.
+        status:
+          $ref: '#/components/schemas/LotStatus'
+    LotUnpublished:
+      type: object
+      required: [lot_id, status]
+      properties:
+        lot_id:
+          type: string
+        status:
+          $ref: '#/components/schemas/LotStatus'
+    LotClosed:
+      type: object
+      required: [lot_id, final_price, status]
+      properties:
+        lot_id:
+          type: string
+        final_price:
+          type: integer
+          format: int64
+          description: Price in rubles.
+        status:
+          $ref: '#/components/schemas/LotStatus'
+    AuctionWon:
+      type: object
+      required: [auction_id, winner_company_id, final_price]
+      properties:
+        auction_id:
+          type: string
+        winner_company_id:
+          type: string
+        final_price:
+          type: integer
+          format: int64
+          description: Price in rubles.
+    BidPlaced:
+      type: object
+      required: [auction_id, amount]
+      properties:
+        auction_id:
+          type: string
+        amount:
+          type: integer
+          format: int64
+          description: Price in rubles.
+    AuctionClosed:
+      type: object
+      required: [auction_id]
+      properties:
+        auction_id:
+          type: string
+    AuctionCancelled:
+      type: object
+      required: [auction_id]
+      properties:
+        auction_id:
+          type: string
+    ErrorResponse:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          $ref: '#/components/schemas/ErrorCode'
+        message:
+          type: string
+        correlation_id:
+          type: string
+          nullable: true
+        causation_id:
+          type: string
+          nullable: true
+    ErrorCode:
+      type: string
+      enum:
+        - NOT_FOUND
+        - FISH_NOT_FOUND
+        - UNIT_NOT_FOUND
+        - PROCESSING_TYPE_NOT_FOUND
+        - INVALID_IDENTIFIER
+        - INVALID_ENUM_VALUE
+        - INVALID_QUANTITY
+        - INVALID_WEIGHT
+        - INVALID_UNIT
+        - INVALID_PRICE
+        - INVALID_SCHEDULE
+        - FORBIDDEN_STATE_TRANSITION
+        - MODIFICATION_NOT_ALLOWED
+        - PUBLISHING_RULE_VIOLATION
+        - ALREADY_ASSIGNED
+        - AUCTION_ID_REQUIRED
