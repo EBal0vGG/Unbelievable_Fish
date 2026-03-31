@@ -192,7 +192,15 @@ func (l *Lot) UpdateCurrentPrice(amount int64) ([]Event, error) {
 	}
 
 	l.curPrice = amount
-	return nil, nil
+
+	event := LotPriceUpdated{
+		LotID:        l.lotID,
+		AuctionID:    l.auctionID,
+		CurrentPrice: l.curPrice,
+		Status:       l.status,
+	}
+
+	return []Event{event}, nil
 }
 
 func (l *Lot) canTransition(to LotStatus) bool {

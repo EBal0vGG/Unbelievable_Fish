@@ -14,6 +14,7 @@ type CatalogService struct {
 	productRepo        ProductRepository
 	lotRepo            LotRepository
 	outbox             OutboxRepository
+	idGenerator        IDGenerator
 	tx                 TransactionManager
 }
 
@@ -24,8 +25,13 @@ func NewCatalogService(
 	productRepo ProductRepository,
 	lotRepo LotRepository,
 	outbox OutboxRepository,
+	idGenerator IDGenerator,
 	tx TransactionManager,
 ) *CatalogService {
+	if idGenerator == nil {
+		idGenerator = NewRandomIDGenerator()
+	}
+
 	return &CatalogService{
 		fishRepo:           fishRepo,
 		unitRepo:           unitRepo,
@@ -33,6 +39,7 @@ func NewCatalogService(
 		productRepo:        productRepo,
 		lotRepo:            lotRepo,
 		outbox:             outbox,
+		idGenerator:        idGenerator,
 		tx:                 tx,
 	}
 }
@@ -41,7 +48,7 @@ func (s *CatalogService) CreateFish(ctx context.Context, cmd CreateFishCommand) 
 	var fishID string
 
 	err := s.tx.WithinTx(ctx, func(ctx context.Context) error {
-		fish, err := catalog.NewFish(cmd.FishID, cmd.Name, cmd.Description)
+		fish, err := catalog.NewFish(s.idGenerator.NewFishID(), cmd.Name, cmd.Description)
 		if err != nil {
 			return err
 		}
@@ -79,8 +86,9 @@ func (s *CatalogService) CreateProduct(ctx context.Context, cmd CreateProductCom
 			return err
 		}
 
+		productID = s.idGenerator.NewProductID()
 		product, evs, err := catalog.NewProduct(
-			cmd.ProductID,
+			productID,
 			cmd.FishID,
 			cmd.Weight,
 			cmd.Unit,
@@ -176,8 +184,9 @@ func (s *CatalogService) CreateLot(ctx context.Context, cmd CreateLotCommand) (s
 		}
 
 		schedule := catalog.NewAuctionScheduleAt(cmd.AuctionStartsAt)
+		lotID = s.idGenerator.NewLotID()
 		lot, evs, err := catalog.NewLot(
-			cmd.LotID,
+			lotID,
 			cmd.ProductID,
 			cmd.SellerCompanyID,
 			cmd.Photo,

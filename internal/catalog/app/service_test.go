@@ -38,6 +38,16 @@ func (noopTx) WithinTx(ctx context.Context, fn func(ctx context.Context) error) 
 	return fn(ctx)
 }
 
+type stubIDGenerator struct {
+	fishID    string
+	productID string
+	lotID     string
+}
+
+func (g stubIDGenerator) NewFishID() string    { return g.fishID }
+func (g stubIDGenerator) NewProductID() string { return g.productID }
+func (g stubIDGenerator) NewLotID() string     { return g.lotID }
+
 func newMemoryFishRepo() *memoryFishRepo {
 	return &memoryFishRepo{data: make(map[string]*catalog.Fish)}
 }
@@ -165,7 +175,12 @@ func newTestDeps() *testDeps {
 	productRepo := newMemoryProductRepo()
 	lotRepo := newMemoryLotRepo()
 	outbox := &memoryOutbox{}
-	svc := NewCatalogService(fishRepo, unitRepo, processingTypeRepo, productRepo, lotRepo, outbox, noopTx{})
+	idGenerator := stubIDGenerator{
+		fishID:    "fish-generated",
+		productID: "prod-1",
+		lotID:     "lot-generated",
+	}
+	svc := NewCatalogService(fishRepo, unitRepo, processingTypeRepo, productRepo, lotRepo, outbox, idGenerator, noopTx{})
 	return &testDeps{
 		svc:                svc,
 		fishRepo:           fishRepo,
@@ -192,12 +207,35 @@ func newProductSnapshot() catalog.ProductSnapshot {
 	}
 }
 
+func TestCreateFishGeneratesID(t *testing.T) {
+	deps := newTestDeps()
+	ctx := context.Background()
+
+	fishID, err := deps.svc.CreateFish(ctx, CreateFishCommand{
+		Name:        "Cod",
+		Description: "desc",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if fishID != "fish-generated" {
+		t.Fatalf("expected generated fish id, got %s", fishID)
+	}
+
+	stored, err := deps.fishRepo.Get(ctx, fishID)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if stored.ID() != fishID {
+		t.Fatalf("expected stored fish id to match, got %s", stored.ID())
+	}
+}
+
 func TestCreateProductRequiresFish(t *testing.T) {
 	deps := newTestDeps()
 	seedRefs(deps, "kg", "frozen")
 
 	_, _, err := deps.svc.CreateProduct(context.Background(), CreateProductCommand{
-		ProductID:      "prod-1",
 		FishID:         "fish-1",
 		Weight:         10,
 		Unit:           "kg",
@@ -226,7 +264,6 @@ func TestCreateProductRequiresUnit(t *testing.T) {
 	deps.processingTypeRepo.Add("frozen")
 
 	_, _, err = deps.svc.CreateProduct(ctx, CreateProductCommand{
-		ProductID:      "prod-1",
 		FishID:         "fish-1",
 		Weight:         10,
 		Unit:           "kg",
@@ -252,7 +289,6 @@ func TestCreateProductRequiresProcessingType(t *testing.T) {
 	deps.unitRepo.Add("kg")
 
 	_, _, err = deps.svc.CreateProduct(ctx, CreateProductCommand{
-		ProductID:      "prod-1",
 		FishID:         "fish-1",
 		Weight:         10,
 		Unit:           "kg",
@@ -278,7 +314,6 @@ func TestCreateProductWritesOutbox(t *testing.T) {
 	seedRefs(deps, "kg", "frozen")
 
 	productID, events, err := deps.svc.CreateProduct(ctx, CreateProductCommand{
-		ProductID:      "prod-1",
 		FishID:         "fish-1",
 		Weight:         10,
 		Unit:           "kg",
@@ -299,6 +334,48 @@ func TestCreateProductWritesOutbox(t *testing.T) {
 	}
 	if deps.outbox.Count() != 1 {
 		t.Fatalf("expected 1 outbox event, got %d", deps.outbox.Count())
+	}
+}
+
+func TestCreateLotGeneratesID(t *testing.T) {
+	deps := newTestDeps()
+	ctx := context.Background()
+
+	product, _, err := catalog.NewProduct("prod-existing", "fish-1", 10, "kg", "M", catalog.ProcessingType("frozen"))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if err := deps.productRepo.Save(ctx, product); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	lotID, events, err := deps.svc.CreateLot(ctx, CreateLotCommand{
+		ProductID:       "prod-existing",
+		SellerCompanyID: "seller-1",
+		Photo:           "",
+		Quantity:        10,
+		StartPrice:      100,
+		AuctionStartsAt: time.Now().Add(time.Hour),
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if lotID != "lot-generated" {
+		t.Fatalf("expected generated lot id, got %s", lotID)
+	}
+	if len(events) != 1 {
+		t.Fatalf("expected 1 event, got %d", len(events))
+	}
+	if _, ok := events[0].(catalog.LotCreated); !ok {
+		t.Fatalf("expected LotCreated event")
+	}
+
+	stored, err := deps.lotRepo.Get(ctx, lotID)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if stored.ID() != lotID {
+		t.Fatalf("expected stored lot id to match, got %s", stored.ID())
 	}
 }
 
@@ -638,5 +715,56 @@ func TestHandleAuctionWonClosesByAuctionID(t *testing.T) {
 	}
 	if _, ok := deps.outbox.Last().(catalog.LotClosed); !ok {
 		t.Fatalf("expected LotClosed event")
+	}
+}
+
+func TestHandleBidPlacedWritesLotPriceUpdatedToOutbox(t *testing.T) {
+	deps := newTestDeps()
+	ctx := context.Background()
+
+	schedule := catalog.NewAuctionScheduleAt(time.Now().Add(time.Hour))
+	lot, _, err := catalog.NewLot("lot-6", "prod-6", "seller-6", "", 10.0, int64(100), schedule)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	_, err = lot.AssignAuctionID("auc-6")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	_, err = lot.Publish(true, newProductSnapshot())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if err := deps.lotRepo.Save(ctx, lot); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if err := deps.svc.HandleBidPlaced(ctx, BidPlacedDTO{AuctionID: "auc-6", Amount: int64(145)}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	stored, err := deps.lotRepo.Get(ctx, "lot-6")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if stored.CurPrice() != int64(145) {
+		t.Fatalf("expected current price to be updated, got %d", stored.CurPrice())
+	}
+	if deps.outbox.Count() != 1 {
+		t.Fatalf("expected 1 outbox event, got %d", deps.outbox.Count())
+	}
+
+	updated, ok := deps.outbox.Last().(catalog.LotPriceUpdated)
+	if !ok {
+		t.Fatalf("expected LotPriceUpdated event")
+	}
+	if updated.LotID != "lot-6" {
+		t.Fatalf("expected lot id to match, got %s", updated.LotID)
+	}
+	if updated.AuctionID != "auc-6" {
+		t.Fatalf("expected auction id to match, got %s", updated.AuctionID)
+	}
+	if updated.CurrentPrice != int64(145) {
+		t.Fatalf("expected current price to match, got %d", updated.CurrentPrice)
 	}
 }

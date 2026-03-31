@@ -3,7 +3,6 @@ package dto
 import "time"
 
 // RequestMetadataDTO содержит транспортные метаданные запроса.
-// Это не бизнес-данные домена, а контекст трассировки и безопасности.
 type RequestMetadataDTO struct {
 	CompanyID     string `json:"company_id,omitempty"`
 	UserID        string `json:"user_id,omitempty"`
@@ -12,15 +11,14 @@ type RequestMetadataDTO struct {
 }
 
 // EventMetadataDTO содержит метаданные event envelope для outbox/broker.
-// В этой структуре нет бизнес-логики, только служебные поля события.
 type EventMetadataDTO struct {
-	EventID       string    `json:"event_id,omitempty"`
-	EventType     string    `json:"event_type,omitempty"`
-	EventVersion  string    `json:"event_version,omitempty"`
-	OccurredAt    time.Time `json:"occurred_at,omitempty"`
-	CorrelationID string    `json:"correlation_id,omitempty"`
-	CausationID   string    `json:"causation_id,omitempty"`
-	Producer      string    `json:"producer,omitempty"`
+	EventID       string     `json:"event_id,omitempty"`
+	EventType     string     `json:"event_type,omitempty"`
+	EventVersion  string     `json:"event_version,omitempty"`
+	OccurredAt    *time.Time `json:"occurred_at,omitempty"`
+	CorrelationID string     `json:"correlation_id,omitempty"`
+	CausationID   string     `json:"causation_id,omitempty"`
+	Producer      string     `json:"producer,omitempty"`
 }
 
 type ProductStatusDTO string
@@ -39,21 +37,19 @@ const (
 
 // CreateFishDTO используется для создания записи Fish.
 type CreateFishDTO struct {
-	FishID      string `json:"fish_id"`
 	Name        string `json:"name"`
 	Description string `json:"description,omitempty"`
 }
 
 // UpdateFishDTO используется для обновления Fish.
+// Идентификатор Fish должен приходить из path params, а не из body.
 type UpdateFishDTO struct {
-	FishID      string `json:"fish_id"`
 	Name        string `json:"name"`
 	Description string `json:"description,omitempty"`
 }
 
 // CreateProductDTO описывает входные данные для создания Product.
 type CreateProductDTO struct {
-	ProductID      string  `json:"product_id"`
 	FishID         string  `json:"fish_id"`
 	Weight         float64 `json:"weight"`
 	Unit           string  `json:"unit"`
@@ -62,8 +58,8 @@ type CreateProductDTO struct {
 }
 
 // UpdateProductDTO описывает входные данные для изменения Product.
+// Идентификатор Product должен приходить из path params, а не из body.
 type UpdateProductDTO struct {
-	ProductID      string  `json:"product_id"`
 	FishID         string  `json:"fish_id"`
 	Weight         float64 `json:"weight"`
 	Unit           string  `json:"unit"`
@@ -72,20 +68,16 @@ type UpdateProductDTO struct {
 }
 
 // PublishProductDTO используется для публикации Product.
-type PublishProductDTO struct {
-	ProductID string `json:"product_id"`
-}
+// Идентификатор Product должен приходить из path params; body не требуется.
+type PublishProductDTO struct{}
 
 // UnpublishProductDTO используется для снятия Product с публикации.
-type UnpublishProductDTO struct {
-	ProductID string `json:"product_id"`
-}
+// Идентификатор Product должен приходить из path params; body не требуется.
+type UnpublishProductDTO struct{}
 
 // CreateLotDTO описывает входные данные для создания Lot.
 type CreateLotDTO struct {
-	LotID           string    `json:"lot_id"`
 	ProductID       string    `json:"product_id"`
-	SellerCompanyID string    `json:"seller_company_id"`
 	Photo           string    `json:"photo,omitempty"`
 	Quantity        float64   `json:"quantity"`
 	StartPrice      int64     `json:"start_price"`
@@ -93,25 +85,25 @@ type CreateLotDTO struct {
 }
 
 // AssignAuctionIDDTO используется для привязки auctionID к Lot.
+// Это DTO для integration event, а не для публичного HTTP body.
 type AssignAuctionIDDTO struct {
 	LotID     string `json:"lot_id"`
 	AuctionID string `json:"auction_id"`
 }
 
 // PublishLotDTO используется для публикации Lot.
-type PublishLotDTO struct {
-	LotID string `json:"lot_id"`
-}
+// Идентификатор Lot должен приходить из path params; body не требуется.
+type PublishLotDTO struct{}
 
 // UnpublishLotDTO используется для снятия Lot с публикации.
-type UnpublishLotDTO struct {
-	LotID string `json:"lot_id"`
-}
+// Идентификатор Lot должен приходить из path params; body не требуется.
+type UnpublishLotDTO struct{}
 
 // CloseLotDTO используется для закрытия Lot с финальной ценой.
+// Идентификатор Lot должен приходить из path params.
+// Используется только для административного override-сценария, если он существует.
 type CloseLotDTO struct {
-	LotID      string `json:"lot_id"`
-	FinalPrice int64  `json:"final_price"`
+	FinalPrice int64 `json:"final_price"`
 }
 
 // FishDTO представляет Fish на выходе из application/transport слоя.
@@ -145,13 +137,13 @@ type ProductSnapshotDTO struct {
 type LotDTO struct {
 	LotID           string       `json:"lot_id"`
 	ProductID       string       `json:"product_id"`
-	AuctionID       string       `json:"auction_id,omitempty"`
+	AuctionID       *string      `json:"auction_id,omitempty"`
 	SellerCompanyID string       `json:"seller_company_id"`
 	Photo           string       `json:"photo,omitempty"`
 	Quantity        float64      `json:"quantity"`
 	StartPrice      int64        `json:"start_price"`
-	CurPrice        int64        `json:"cur_price"`
-	FinalPrice      int64        `json:"final_price"`
+	CurrentPrice    *int64       `json:"current_price,omitempty"`
+	FinalPrice      *int64       `json:"final_price,omitempty"`
 	Status          LotStatusDTO `json:"status"`
 	AuctionStartsAt time.Time    `json:"auction_starts_at"`
 }
@@ -202,6 +194,8 @@ type LotCreatedDTO struct {
 	SellerCompanyID string           `json:"seller_company_id"`
 	Photo           string           `json:"photo,omitempty"`
 	Quantity        float64          `json:"quantity"`
+	StartPrice      int64            `json:"start_price"`
+	AuctionStartsAt time.Time        `json:"auction_starts_at"`
 	Status          LotStatusDTO     `json:"status"`
 }
 
@@ -232,14 +226,13 @@ type LotClosedDTO struct {
 	Status     LotStatusDTO     `json:"status"`
 }
 
-// LotPriceUpdatedDTO можно использовать как DTO для проекций/UI,
-// когда нужно передать обновлённую текущую цену лота.
+// LotPriceUpdatedDTO публикуется после обновления текущей цены Lot.
 type LotPriceUpdatedDTO struct {
-	Metadata  EventMetadataDTO `json:"metadata"`
-	LotID     string           `json:"lot_id"`
-	AuctionID string           `json:"auction_id,omitempty"`
-	CurPrice  int64            `json:"cur_price"`
-	Status    LotStatusDTO     `json:"status"`
+	Metadata     EventMetadataDTO `json:"metadata"`
+	LotID        string           `json:"lot_id"`
+	AuctionID    string           `json:"auction_id"`
+	CurrentPrice int64            `json:"current_price"`
+	Status       LotStatusDTO     `json:"status"`
 }
 
 // AuctionWonDTO описывает событие Trading, на которое реагирует Catalog.

@@ -201,3 +201,48 @@ func TestLotStartPriceInt64(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
+
+func TestLotUpdateCurrentPriceEmitsEvent(t *testing.T) {
+	lot, _, err := NewLot("lot-11", "prod-11", "seller-11", "", 10.0, int64(100), newSchedule())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	_, err = lot.AssignAuctionID("auc-11")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	_, err = lot.Publish(true, newProductSnapshot())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	events, err := lot.UpdateCurrentPrice(int64(135))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if lot.CurPrice() != int64(135) {
+		t.Fatalf("expected current price to be updated, got %d", lot.CurPrice())
+	}
+	if len(events) != 1 {
+		t.Fatalf("expected one event, got %d", len(events))
+	}
+
+	updated, ok := events[0].(LotPriceUpdated)
+	if !ok {
+		t.Fatalf("expected LotPriceUpdated event")
+	}
+	if updated.LotID != lot.ID() {
+		t.Fatalf("expected lot id to match")
+	}
+	if updated.AuctionID != "auc-11" {
+		t.Fatalf("expected auction id to match, got %s", updated.AuctionID)
+	}
+	if updated.CurrentPrice != int64(135) {
+		t.Fatalf("expected current price in event, got %d", updated.CurrentPrice)
+	}
+	if updated.Status != LotStatusPublished {
+		t.Fatalf("expected published status in event, got %s", updated.Status)
+	}
+}

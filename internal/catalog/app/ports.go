@@ -41,7 +41,6 @@ type TransactionManager interface {
 }
 
 type CreateFishCommand struct {
-	FishID      string
 	Name        string
 	Description string
 }
@@ -53,7 +52,6 @@ type UpdateFishCommand struct {
 }
 
 type CreateProductCommand struct {
-	ProductID      string
 	FishID         string
 	Weight         float64
 	Unit           string
@@ -71,7 +69,6 @@ type UpdateProductCommand struct {
 }
 
 type CreateLotCommand struct {
-	LotID           string
 	ProductID       string
 	SellerCompanyID string
 	Photo           string

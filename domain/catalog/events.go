@@ -70,6 +70,13 @@ type LotClosed struct {
 	Status     LotStatus
 }
 
+type LotPriceUpdated struct {
+	LotID        string
+	AuctionID    string
+	CurrentPrice int64
+	Status       LotStatus
+}
+
 func (ProductCreated) isCatalogEvent()     {}
 func (ProductUpdated) isCatalogEvent()     {}
 func (ProductPublished) isCatalogEvent()   {}
@@ -78,6 +85,7 @@ func (LotCreated) isCatalogEvent()         {}
 func (LotPublished) isCatalogEvent()       {}
 func (LotUnpublished) isCatalogEvent()     {}
 func (LotClosed) isCatalogEvent()          {}
+func (LotPriceUpdated) isCatalogEvent()    {}
 
 type ProductSnapshot struct {
 	FishID         string
