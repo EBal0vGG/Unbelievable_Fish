@@ -1,0 +1,7 @@
+.idea/
+test-log/*.log
+
+# Go build/test artifacts
+*.test
+*.out
+coverage.out

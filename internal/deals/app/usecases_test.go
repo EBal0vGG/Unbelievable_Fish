@@ -174,3 +174,21 @@ func testMeta() CommandMeta {
 		CausationID:   "cause-1",
 	}
 }
+
+func createPendingDeal(t *testing.T) *deal.Deal {
+	t.Helper()
+
+	factory := deal.NewFactory()
+	projection := deal.NewDealProjection(
+		"auc-test",
+		"sup-test",
+		deal.ProductSnapshot{ProductID: "prod-test", Name: "Fish"},
+		100,
+		time.Now().Add(-time.Hour),
+	)
+	item, _, err := factory.CreateFromProjection(projection, "buyer-test", 120, time.Now())
+	if err != nil {
+		t.Fatalf("factory error: %v", err)
+	}
+	return item
+}

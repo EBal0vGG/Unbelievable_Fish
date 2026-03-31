@@ -3,10 +3,6 @@ package app
 import "errors"
 
 var (
-	ErrDealRepositoryRequired       = errors.New("app: deal repository is required")
-	ErrProjectionRepositoryRequired = errors.New("app: projection repository is required")
-	ErrEventPublisherRequired       = errors.New("app: event publisher is required")
-
 	ErrDealNotFound = errors.New("app: deal not found")
 
 	ErrAuctionIDRequired     = errors.New("app: auction ID is required")
