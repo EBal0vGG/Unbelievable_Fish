@@ -2,80 +2,86 @@ package app
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/hex"
 	"time"
 
 	"github.com/EBal0vGG/Unbelievable_Fish/internal/trading/auction"
 )
 
 type CreateAuction struct {
-	repo      AuctionRepository
-	publisher EventPublisher
+	uow       UnitOfWork
+	factory   AuctionIDFactory
 }
 
-func NewCreateAuction(repo AuctionRepository, publisher EventPublisher) *CreateAuction {
+func NewCreateAuction(uow UnitOfWork, factory AuctionIDFactory) *CreateAuction {
+	if uow == nil {
+		panic("nil UnitOfWork")
+	}
+	if factory == nil {
+		panic("nil AuctionIDFactory")
+	}
 	return &CreateAuction{
-		repo:      repo,
-		publisher: publisher,
+		uow:     uow,
+		factory: factory,
 	}
 }
 
 func (uc *CreateAuction) Execute(ctx context.Context, meta CommandMeta, lotID string, startsAt, endsAt time.Time) error {
-	_ = meta
-	id, err := generateAuctionID()
+	id, err := uc.factory.NewID()
 	if err != nil {
 		return err
 	}
-	a, err := auction.NewAuction(id, lotID, startsAt, endsAt)
+	a, err := auction.NewAuction(string(id), lotID, startsAt, endsAt)
 	if err != nil {
 		return err
 	}
-	if err := uc.repo.Save(ctx, a); err != nil {
-		return err
-	}
-	return publishEvents(ctx, uc.publisher, nil)
+	return uc.uow.Do(ctx, func(tx Tx) error {
+		return tx.Auctions().Save(ctx, a)
+	})
 }
 
 type PublishAuction struct {
-	repo      AuctionRepository
-	publisher EventPublisher
+	uow UnitOfWork
 }
 
-func NewPublishAuction(repo AuctionRepository, publisher EventPublisher) *PublishAuction {
+func NewPublishAuction(uow UnitOfWork) *PublishAuction {
+	if uow == nil {
+		panic("nil UnitOfWork")
+	}
 	return &PublishAuction{
-		repo:      repo,
-		publisher: publisher,
+		uow: uow,
 	}
 }
 
 func (uc *PublishAuction) Execute(ctx context.Context, meta CommandMeta, id AuctionID) error {
-	_ = meta
-	a, err := uc.repo.Load(ctx, id)
-	if err != nil {
-		return err
-	}
-	events, err := a.Publish()
-	if err != nil {
-		return err
-	}
-	if err := uc.repo.Save(ctx, a); err != nil {
-		return err
-	}
-	return publishEvents(ctx, uc.publisher, events)
+	return uc.uow.Do(ctx, func(tx Tx) error {
+		a, err := tx.Auctions().Load(ctx, id)
+		if err != nil {
+			return err
+		}
+		events, err := a.Publish()
+		if err != nil {
+			return err
+		}
+		if err := tx.Auctions().Save(ctx, a); err != nil {
+			return err
+		}
+		if len(events) == 0 {
+			return nil
+		}
+		return tx.Outbox().Save(ctx, NewEnvelope(meta, events))
+	})
 }
 
 type PlaceBid struct {
-	repo      AuctionRepository
-	bidRepo   BidRepository
-	pub       EventPublisher
+	uow UnitOfWork
 }
 
-func NewPlaceBid(repo AuctionRepository, bidRepo BidRepository, pub EventPublisher) *PlaceBid {
+func NewPlaceBid(uow UnitOfWork) *PlaceBid {
+	if uow == nil {
+		panic("nil UnitOfWork")
+	}
 	return &PlaceBid{
-		repo:    repo,
-		bidRepo: bidRepo,
-		pub:     pub,
+		uow: uow,
 	}
 }
 
@@ -86,100 +92,98 @@ func (uc *PlaceBid) Execute(
 	amount int64,
 	placedAt time.Time,
 ) error {
-	a, err := uc.repo.Load(ctx, id)
-	if err != nil {
-		return err
-	}
-	bid, err := auction.NewBid(meta.CompanyID, amount, placedAt)
-	if err != nil {
-		return err
-	}
-	events, err := a.PlaceBid(bid)
-	if err != nil {
-		return err
-	}
-	if err := uc.bidRepo.Save(ctx, id, bid); err != nil {
-		return err
-	}
-	if err := uc.repo.Save(ctx, a); err != nil {
-		return err
-	}
-	return publishEvents(ctx, uc.pub, events)
+	return uc.uow.Do(ctx, func(tx Tx) error {
+		a, err := tx.Auctions().Load(ctx, id)
+		if err != nil {
+			return err
+		}
+		bid, err := auction.NewBid(meta.CompanyID, amount, placedAt)
+		if err != nil {
+			return err
+		}
+		events, err := a.PlaceBid(bid)
+		if err != nil {
+			return err
+		}
+		if err := tx.Bids().Save(ctx, id, bid); err != nil {
+			return err
+		}
+		if err := tx.Auctions().Save(ctx, a); err != nil {
+			return err
+		}
+		if len(events) == 0 {
+			return nil
+		}
+		return tx.Outbox().Save(ctx, NewEnvelope(meta, events))
+	})
 }
 
 type CloseAuction struct {
-	repo      AuctionRepository
-	bidRepo   BidRepository
-	publisher EventPublisher
+	uow UnitOfWork
 }
 
-func NewCloseAuction(repo AuctionRepository, bidRepo BidRepository, publisher EventPublisher) *CloseAuction {
+func NewCloseAuction(uow UnitOfWork) *CloseAuction {
+	if uow == nil {
+		panic("nil UnitOfWork")
+	}
 	return &CloseAuction{
-		repo:      repo,
-		bidRepo:   bidRepo,
-		publisher: publisher,
+		uow: uow,
 	}
 }
 
 func (uc *CloseAuction) Execute(ctx context.Context, meta CommandMeta, id AuctionID) error {
-	_ = meta
-	a, err := uc.repo.Load(ctx, id)
-	if err != nil {
-		return err
-	}
-	bids, err := uc.bidRepo.TopBids(ctx, id)
-	if err != nil {
-		return err
-	}
-	events, err := a.Close(bids)
-	if err != nil {
-		return err
-	}
-	if err := uc.repo.Save(ctx, a); err != nil {
-		return err
-	}
-	return publishEvents(ctx, uc.publisher, events)
+	return uc.uow.Do(ctx, func(tx Tx) error {
+		a, err := tx.Auctions().Load(ctx, id)
+		if err != nil {
+			return err
+		}
+		bids, err := tx.Bids().TopBids(ctx, id)
+		if err != nil {
+			return err
+		}
+		events, err := a.Close(bids)
+		if err != nil {
+			return err
+		}
+		if err := tx.Auctions().Save(ctx, a); err != nil {
+			return err
+		}
+		if len(events) == 0 {
+			return nil
+		}
+		return tx.Outbox().Save(ctx, NewEnvelope(meta, events))
+	})
 }
 
 type CancelAuction struct {
-	repo      AuctionRepository
-	publisher EventPublisher
+	uow UnitOfWork
 }
 
-func NewCancelAuction(repo AuctionRepository, publisher EventPublisher) *CancelAuction {
+func NewCancelAuction(uow UnitOfWork) *CancelAuction {
+	if uow == nil {
+		panic("nil UnitOfWork")
+	}
 	return &CancelAuction{
-		repo:      repo,
-		publisher: publisher,
+		uow: uow,
 	}
 }
 
 func (uc *CancelAuction) Execute(ctx context.Context, meta CommandMeta, id AuctionID) error {
-	_ = meta
-	a, err := uc.repo.Load(ctx, id)
-	if err != nil {
-		return err
-	}
-	events, err := a.Cancel()
-	if err != nil {
-		return err
-	}
-	if err := uc.repo.Save(ctx, a); err != nil {
-		return err
-	}
-	return publishEvents(ctx, uc.publisher, events)
-}
-
-func publishEvents(ctx context.Context, publisher EventPublisher, events []auction.Event) error {
-	if publisher == nil || len(events) == 0 {
-		return nil
-	}
-	return publisher.Publish(ctx, events)
-}
-
-func generateAuctionID() (string, error) {
-	buf := make([]byte, 16)
-	if _, err := rand.Read(buf); err != nil {
-		return "", err
-	}
-	return hex.EncodeToString(buf), nil
+	return uc.uow.Do(ctx, func(tx Tx) error {
+		a, err := tx.Auctions().Load(ctx, id)
+		if err != nil {
+			return err
+		}
+		events, err := a.Cancel()
+		if err != nil {
+			return err
+		}
+		if err := tx.Auctions().Save(ctx, a); err != nil {
+			return err
+		}
+		if len(events) == 0 {
+			return nil
+		}
+		return tx.Outbox().Save(ctx, NewEnvelope(meta, events))
+	})
 }

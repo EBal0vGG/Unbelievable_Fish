@@ -34,3 +34,9 @@
 {"time":"2026-03-13T11:12:47.679852783+03:00","package":"httpapi_test","test":"TestCommandFlowSmoke","message":"status=202 load=1 save=1 publish=1 bid_save=1"}
 {"time":"2026-03-13T11:12:47.679923568+03:00","package":"httpapi_test","test":"TestCommandFlowSmoke","message":"END"}
 ========== END TestCommandFlowSmoke (httpapi_test) ==========
+========== START TestCommandFlowSmoke (httpapi_test) ==========
+{"time":"2026-03-31T19:37:39.004121403+03:00","package":"httpapi_test","test":"TestCommandFlowSmoke","message":"START"}
+{"time":"2026-03-31T19:37:39.004227849+03:00","package":"httpapi_test","test":"TestCommandFlowSmoke","message":"request auction_id=a-1 amount=100 placed_at=2026-03-31 17:36:39.004166083 +0000 UTC"}
+{"time":"2026-03-31T19:37:39.004340455+03:00","package":"httpapi_test","test":"TestCommandFlowSmoke","message":"status=202 load=1 save=1 outbox=1 bid_save=1"}
+{"time":"2026-03-31T19:37:39.004369181+03:00","package":"httpapi_test","test":"TestCommandFlowSmoke","message":"END"}
+========== END TestCommandFlowSmoke (httpapi_test) ==========

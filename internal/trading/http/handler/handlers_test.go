@@ -56,11 +56,46 @@ func (s *spyBidRepo) TopBids(ctx context.Context, auctionID app.AuctionID) ([]au
 	return nil, nil
 }
 
+type spyOutbox struct {
+	saveCount int
+}
+
+func (s *spyOutbox) Save(ctx context.Context, envelope app.EventEnvelope) error {
+	s.saveCount++
+	return nil
+}
+
+type spyTx struct {
+	repo   *spyRepo
+	bids   *spyBidRepo
+	outbox *spyOutbox
+}
+
+func (s *spyTx) Auctions() app.AuctionRepository { return s.repo }
+func (s *spyTx) Bids() app.BidRepository         { return s.bids }
+func (s *spyTx) Outbox() app.OutboxRepository    { return s.outbox }
+
+type spyUOW struct {
+	tx *spyTx
+}
+
+func (s *spyUOW) Do(ctx context.Context, fn func(app.Tx) error) error {
+	return fn(s.tx)
+}
+
+type fakeIDFactory struct {
+	id app.AuctionID
+}
+
+func (f fakeIDFactory) NewID() (app.AuctionID, error) { return f.id, nil }
+
 func TestCreateAuctionHandlerSuccess(t *testing.T) {
 	logTest(t)
 	repo := &spyRepo{}
-	publisher := &spyPublisher{}
-	uc := app.NewCreateAuction(repo, publisher)
+	bidRepo := &spyBidRepo{}
+	outbox := &spyOutbox{}
+	uow := &spyUOW{tx: &spyTx{repo: repo, bids: bidRepo, outbox: outbox}}
+	uc := app.NewCreateAuction(uow, fakeIDFactory{id: "gen-1"})
 	handler := NewCreateAuctionHandler(uc)
 
 	startsAt := time.Now().Add(-time.Hour).UTC()
@@ -93,8 +128,10 @@ func TestPublishAuctionHandlerMissingCompanyID(t *testing.T) {
 	endsAt := startsAt.Add(time.Hour)
 	a, _ := auction.NewAuction("a-1", "lot-1", startsAt, endsAt)
 	repo := &spyRepo{auction: a}
-	publisher := &spyPublisher{}
-	uc := app.NewPublishAuction(repo, publisher)
+	bidRepo := &spyBidRepo{}
+	outbox := &spyOutbox{}
+	uow := &spyUOW{tx: &spyTx{repo: repo, bids: bidRepo, outbox: outbox}}
+	uc := app.NewPublishAuction(uow)
 	handler := NewPublishAuctionHandler(uc)
 
 	req := httptest.NewRequest(http.MethodPost, "/auctions/a-1/publish", nil)
@@ -116,9 +153,10 @@ func TestPlaceBidHandlerInvalidJSON(t *testing.T) {
 	endsAt := startsAt.Add(time.Hour)
 	a, _ := auction.NewAuction("a-1", "lot-1", startsAt, endsAt)
 	repo := &spyRepo{auction: a}
-	publisher := &spyPublisher{}
 	bidRepo := &spyBidRepo{}
-	uc := app.NewPlaceBid(repo, bidRepo, publisher)
+	outbox := &spyOutbox{}
+	uow := &spyUOW{tx: &spyTx{repo: repo, bids: bidRepo, outbox: outbox}}
+	uc := app.NewPlaceBid(uow)
 	handler := NewPlaceBidHandler(uc)
 
 	req := httptest.NewRequest(http.MethodPost, "/auctions/a-1/bids", bytes.NewBufferString("{"))
@@ -141,8 +179,10 @@ func TestPublishAuctionHandlerInvalidPath(t *testing.T) {
 	endsAt := startsAt.Add(time.Hour)
 	a, _ := auction.NewAuction("a-1", "lot-1", startsAt, endsAt)
 	repo := &spyRepo{auction: a}
-	publisher := &spyPublisher{}
-	uc := app.NewPublishAuction(repo, publisher)
+	bidRepo := &spyBidRepo{}
+	outbox := &spyOutbox{}
+	uow := &spyUOW{tx: &spyTx{repo: repo, bids: bidRepo, outbox: outbox}}
+	uc := app.NewPublishAuction(uow)
 	handler := NewPublishAuctionHandler(uc)
 
 	req := httptest.NewRequest(http.MethodPost, "/auctions//publish", nil)

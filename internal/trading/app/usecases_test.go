@@ -68,13 +68,52 @@ func (s *spyBidRepo) TopBids(ctx context.Context, auctionID AuctionID) ([]auctio
 	return nil, nil
 }
 
+type spyOutbox struct {
+	calls     *[]string
+	saveCount int
+	lastSaved EventEnvelope
+}
+
+func (s *spyOutbox) Save(ctx context.Context, envelope EventEnvelope) error {
+	s.saveCount++
+	s.lastSaved = envelope
+	*s.calls = append(*s.calls, "outbox")
+	return nil
+}
+
+type spyTx struct {
+	repo    *spyRepo
+	bids    *spyBidRepo
+	outbox  *spyOutbox
+}
+
+func (s *spyTx) Auctions() AuctionRepository { return s.repo }
+func (s *spyTx) Bids() BidRepository         { return s.bids }
+func (s *spyTx) Outbox() OutboxRepository    { return s.outbox }
+
+type spyUOW struct {
+	tx *spyTx
+}
+
+func (s *spyUOW) Do(ctx context.Context, fn func(Tx) error) error {
+	return fn(s.tx)
+}
+
+type fakeIDFactory struct {
+	id AuctionID
+}
+
+func (f fakeIDFactory) NewID() (AuctionID, error) { return f.id, nil }
+
 func TestCreateAuctionSavesAggregate(t *testing.T) {
 	logTest(t)
 	calls := []string{}
 	repo := &spyRepo{calls: &calls}
-	publisher := &spyPublisher{calls: &calls}
+	bidRepo := &spyBidRepo{calls: &calls}
+	outbox := &spyOutbox{calls: &calls}
+	uow := &spyUOW{tx: &spyTx{repo: repo, bids: bidRepo, outbox: outbox}}
 
-	uc := NewCreateAuction(repo, publisher)
+	uc := NewCreateAuction(uow, fakeIDFactory{id: "gen-1"})
 	startsAt := time.Now().Add(-time.Hour)
 	endsAt := startsAt.Add(time.Hour)
 	logf(t, "create auction lot_id=%s starts_at=%s ends_at=%s", "lot-1", startsAt, endsAt)
@@ -83,8 +122,8 @@ func TestCreateAuctionSavesAggregate(t *testing.T) {
 	}
 	assertCalls(t, calls, []string{"save"})
 	assertCreatedAggregate(t, repo, "lot-1")
-	if len(publisher.published) != 0 {
-		t.Fatalf("expected no events to be published, got %d", len(publisher.published))
+	if outbox.saveCount != 0 {
+		t.Fatalf("expected no outbox save, got %d", outbox.saveCount)
 	}
 }
 
@@ -96,16 +135,18 @@ func TestPublishAuctionOrchestratesLoadSavePublish(t *testing.T) {
 	a, _ := auction.NewAuction("1", "lot-1", startsAt, endsAt)
 	logf(t, "auction id=%s lot_id=%s state=%s", a.ID, a.LotID, a.State())
 	repo := &spyRepo{auction: a, calls: &calls}
-	publisher := &spyPublisher{calls: &calls}
+	bidRepo := &spyBidRepo{calls: &calls}
+	outbox := &spyOutbox{calls: &calls}
+	uow := &spyUOW{tx: &spyTx{repo: repo, bids: bidRepo, outbox: outbox}}
 
-	uc := NewPublishAuction(repo, publisher)
+	uc := NewPublishAuction(uow)
 	if err := uc.Execute(context.Background(), testMeta(), "1"); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	logf(t, "calls=%v", calls)
-	assertCalls(t, calls, []string{"load", "save", "publish"})
+	assertCalls(t, calls, []string{"load", "save", "outbox"})
 	assertSavedAggregate(t, repo)
-	assertPublished(t, publisher)
+	assertOutbox(t, outbox, testMeta())
 }
 
 func TestPlaceBidOrchestratesLoadSavePublish(t *testing.T) {
@@ -118,18 +159,19 @@ func TestPlaceBidOrchestratesLoadSavePublish(t *testing.T) {
 	_, _ = a.Publish()
 	repo := &spyRepo{auction: a, calls: &calls}
 	bidRepo := &spyBidRepo{calls: &calls}
-	publisher := &spyPublisher{calls: &calls}
+	outbox := &spyOutbox{calls: &calls}
+	uow := &spyUOW{tx: &spyTx{repo: repo, bids: bidRepo, outbox: outbox}}
 
-	uc := NewPlaceBid(repo, bidRepo, publisher)
+	uc := NewPlaceBid(uow)
 	placedAt := endsAt.Add(-time.Minute)
 	logf(t, "place bid amount=%d placed_at=%s", 100, placedAt)
 	if err := uc.Execute(context.Background(), testMeta(), "1", 100, placedAt); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	logf(t, "calls=%v bid_saved_amount=%d", calls, bidRepo.lastSaved.Amount())
-	assertCalls(t, calls, []string{"load", "save_bid", "save", "publish"})
+	assertCalls(t, calls, []string{"load", "save_bid", "save", "outbox"})
 	assertSavedAggregate(t, repo)
-	assertPublished(t, publisher)
+	assertOutbox(t, outbox, testMeta())
 }
 
 func TestCloseAuctionOrchestratesLoadSavePublish(t *testing.T) {
@@ -144,16 +186,17 @@ func TestCloseAuctionOrchestratesLoadSavePublish(t *testing.T) {
 	_, _ = a.PlaceBid(bid)
 	repo := &spyRepo{auction: a, calls: &calls}
 	bidRepo := &spyBidRepo{calls: &calls, topBids: []auction.Bid{bid}}
-	publisher := &spyPublisher{calls: &calls}
+	outbox := &spyOutbox{calls: &calls}
+	uow := &spyUOW{tx: &spyTx{repo: repo, bids: bidRepo, outbox: outbox}}
 
-	uc := NewCloseAuction(repo, bidRepo, publisher)
+	uc := NewCloseAuction(uow)
 	if err := uc.Execute(context.Background(), testMeta(), "1"); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	logf(t, "calls=%v", calls)
-	assertCalls(t, calls, []string{"load", "top_bids", "save", "publish"})
+	assertCalls(t, calls, []string{"load", "top_bids", "save", "outbox"})
 	assertSavedAggregate(t, repo)
-	assertPublished(t, publisher)
+	assertOutbox(t, outbox, testMeta())
 }
 
 func TestCancelAuctionOrchestratesLoadSavePublish(t *testing.T) {
@@ -165,16 +208,18 @@ func TestCancelAuctionOrchestratesLoadSavePublish(t *testing.T) {
 	logf(t, "auction id=%s lot_id=%s state=%s", a.ID, a.LotID, a.State())
 	_, _ = a.Publish()
 	repo := &spyRepo{auction: a, calls: &calls}
-	publisher := &spyPublisher{calls: &calls}
+	bidRepo := &spyBidRepo{calls: &calls}
+	outbox := &spyOutbox{calls: &calls}
+	uow := &spyUOW{tx: &spyTx{repo: repo, bids: bidRepo, outbox: outbox}}
 
-	uc := NewCancelAuction(repo, publisher)
+	uc := NewCancelAuction(uow)
 	if err := uc.Execute(context.Background(), testMeta(), "1"); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	logf(t, "calls=%v", calls)
-	assertCalls(t, calls, []string{"load", "save", "publish"})
+	assertCalls(t, calls, []string{"load", "save", "outbox"})
 	assertSavedAggregate(t, repo)
-	assertPublished(t, publisher)
+	assertOutbox(t, outbox, testMeta())
 }
 
 func assertCalls(t *testing.T, got, want []string) {
@@ -184,13 +229,16 @@ func assertCalls(t *testing.T, got, want []string) {
 	}
 }
 
-func assertPublished(t *testing.T, publisher *spyPublisher) {
+func assertOutbox(t *testing.T, outbox *spyOutbox, meta CommandMeta) {
 	t.Helper()
-	if len(publisher.published) == 0 {
-		t.Fatal("expected events to be published")
+	if outbox.saveCount == 0 {
+		t.Fatal("expected outbox to be saved")
 	}
-	if len(publisher.published[0]) == 0 {
-		t.Fatal("expected published events to be non-empty")
+	if outbox.lastSaved.Meta.CorrelationID != meta.CorrelationID {
+		t.Fatalf("expected correlation id %s, got %s", meta.CorrelationID, outbox.lastSaved.Meta.CorrelationID)
+	}
+	if len(outbox.lastSaved.Events) == 0 {
+		t.Fatal("expected outbox events to be non-empty")
 	}
 }
 

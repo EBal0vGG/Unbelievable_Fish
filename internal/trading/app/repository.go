@@ -17,3 +17,17 @@ type BidRepository interface {
 	Save(ctx context.Context, auctionID AuctionID, bid auction.Bid) error
 	TopBids(ctx context.Context, auctionID AuctionID) ([]auction.Bid, error)
 }
+
+type OutboxRepository interface {
+	Save(ctx context.Context, envelope EventEnvelope) error
+}
+
+type Tx interface {
+	Auctions() AuctionRepository
+	Bids() BidRepository
+	Outbox() OutboxRepository
+}
+
+type UnitOfWork interface {
+	Do(ctx context.Context, fn func(Tx) error) error
+}

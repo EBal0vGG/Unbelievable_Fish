@@ -2,6 +2,8 @@ package handler
 
 import (
 	"encoding/json"
+	"errors"
+	"io"
 	"net/http"
 	"strings"
 
@@ -27,21 +29,27 @@ func readCommandMeta(r *http.Request) (app.CommandMeta, error) {
 }
 
 func readAuctionIDFromPath(path, suffix string) (app.AuctionID, error) {
-	if !strings.HasPrefix(path, "/auctions/") {
+	trimmed := strings.Trim(path, "/")
+	parts := strings.Split(trimmed, "/")
+	if len(parts) != 3 {
 		return "", httpapi.ErrInvalidPath
 	}
-	rest := strings.TrimPrefix(path, "/auctions/")
-	parts := strings.Split(rest, "/")
-	if len(parts) != 2 || parts[1] != suffix || parts[0] == "" {
+	if parts[0] != "auctions" || parts[2] != suffix || parts[1] == "" {
 		return "", httpapi.ErrInvalidPath
 	}
-	return app.AuctionID(parts[0]), nil
+	return app.AuctionID(parts[1]), nil
 }
 
 func decodeJSON(r *http.Request, dst any) error {
 	decoder := json.NewDecoder(r.Body)
 	decoder.DisallowUnknownFields()
-	return decoder.Decode(dst)
+	if err := decoder.Decode(dst); err != nil {
+		return err
+	}
+	if err := decoder.Decode(&struct{}{}); !errors.Is(err, io.EOF) {
+		return errors.New("multiple JSON values")
+	}
+	return nil
 }
 
 func writeError(w http.ResponseWriter, status int, code, message string, meta app.CommandMeta) {
@@ -53,4 +61,22 @@ func writeError(w http.ResponseWriter, status int, code, message string, meta ap
 		CorrelationID: meta.CorrelationID,
 		CausationID:   meta.CausationID,
 	})
+}
+
+func writeAccepted(w http.ResponseWriter) {
+	w.WriteHeader(http.StatusAccepted)
+}
+
+func requirePost(w http.ResponseWriter, r *http.Request, meta app.CommandMeta) bool {
+	if r.Method == http.MethodPost {
+		return true
+	}
+	httpErr := httpapi.MethodNotAllowed("METHOD_NOT_ALLOWED", "method not allowed")
+	writeError(w, httpErr.Status, httpErr.Code, httpErr.Message, meta)
+	return false
+}
+
+func handleCommandError(w http.ResponseWriter, err error, meta app.CommandMeta) {
+	httpErr := httpapi.MapError(err)
+	writeError(w, httpErr.Status, httpErr.Code, httpErr.Message, meta)
 }

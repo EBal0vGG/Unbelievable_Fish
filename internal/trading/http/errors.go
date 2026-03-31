@@ -59,3 +59,7 @@ func MapError(err error) HTTPError {
 func BadRequest(code, message string) HTTPError {
 	return HTTPError{http.StatusBadRequest, code, message}
 }
+
+func MethodNotAllowed(code, message string) HTTPError {
+	return HTTPError{http.StatusMethodNotAllowed, code, message}
+}

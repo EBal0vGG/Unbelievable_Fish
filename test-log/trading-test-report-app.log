@@ -178,3 +178,93 @@
 {"time":"2026-03-13T11:12:47.540168212+03:00","package":"app","test":"TestCancelAuctionOrchestratesLoadSavePublish","message":"calls=[load save publish]"}
 {"time":"2026-03-13T11:12:47.540195359+03:00","package":"app","test":"TestCancelAuctionOrchestratesLoadSavePublish","message":"END"}
 ========== END TestCancelAuctionOrchestratesLoadSavePublish (app) ==========
+========== START TestCreateAuctionSavesAggregate (app) ==========
+{"time":"2026-03-31T19:36:49.661252036+03:00","package":"app","test":"TestCreateAuctionSavesAggregate","message":"START"}
+{"time":"2026-03-31T19:36:49.661394903+03:00","package":"app","test":"TestCreateAuctionSavesAggregate","message":"create auction lot_id=lot-1 starts_at=2026-03-31 18:36:49.661374491 +0300 MSK m=-3599.999318707 ends_at=2026-03-31 19:36:49.661374491 +0300 MSK m=+0.000681293"}
+{"time":"2026-03-31T19:36:49.661474802+03:00","package":"app","test":"TestCreateAuctionSavesAggregate","message":"END"}
+========== END TestCreateAuctionSavesAggregate (app) ==========
+========== START TestPublishAuctionOrchestratesLoadSavePublish (app) ==========
+{"time":"2026-03-31T19:36:49.661592784+03:00","package":"app","test":"TestPublishAuctionOrchestratesLoadSavePublish","message":"START"}
+{"time":"2026-03-31T19:36:49.661619743+03:00","package":"app","test":"TestPublishAuctionOrchestratesLoadSavePublish","message":"auction id=1 lot_id=lot-1 state=DRAFT"}
+{"time":"2026-03-31T19:36:49.661663225+03:00","package":"app","test":"TestPublishAuctionOrchestratesLoadSavePublish","message":"calls=[load save outbox]"}
+{"time":"2026-03-31T19:36:49.661697553+03:00","package":"app","test":"TestPublishAuctionOrchestratesLoadSavePublish","message":"END"}
+========== END TestPublishAuctionOrchestratesLoadSavePublish (app) ==========
+========== START TestPlaceBidOrchestratesLoadSavePublish (app) ==========
+{"time":"2026-03-31T19:36:49.661819927+03:00","package":"app","test":"TestPlaceBidOrchestratesLoadSavePublish","message":"START"}
+{"time":"2026-03-31T19:36:49.661851265+03:00","package":"app","test":"TestPlaceBidOrchestratesLoadSavePublish","message":"auction id=1 lot_id=lot-1 state=DRAFT"}
+{"time":"2026-03-31T19:36:49.661876512+03:00","package":"app","test":"TestPlaceBidOrchestratesLoadSavePublish","message":"place bid amount=100 placed_at=2026-03-31 19:35:49.661833577 +0300 MSK m=-59.998859620"}
+{"time":"2026-03-31T19:36:49.661909953+03:00","package":"app","test":"TestPlaceBidOrchestratesLoadSavePublish","message":"calls=[load save_bid save outbox] bid_saved_amount=100"}
+{"time":"2026-03-31T19:36:49.661940573+03:00","package":"app","test":"TestPlaceBidOrchestratesLoadSavePublish","message":"END"}
+========== END TestPlaceBidOrchestratesLoadSavePublish (app) ==========
+========== START TestCloseAuctionOrchestratesLoadSavePublish (app) ==========
+{"time":"2026-03-31T19:36:49.662035053+03:00","package":"app","test":"TestCloseAuctionOrchestratesLoadSavePublish","message":"START"}
+{"time":"2026-03-31T19:36:49.662066342+03:00","package":"app","test":"TestCloseAuctionOrchestratesLoadSavePublish","message":"auction id=1 lot_id=lot-1 state=DRAFT"}
+{"time":"2026-03-31T19:36:49.662094962+03:00","package":"app","test":"TestCloseAuctionOrchestratesLoadSavePublish","message":"calls=[load top_bids save outbox]"}
+{"time":"2026-03-31T19:36:49.66214848+03:00","package":"app","test":"TestCloseAuctionOrchestratesLoadSavePublish","message":"END"}
+========== END TestCloseAuctionOrchestratesLoadSavePublish (app) ==========
+========== START TestCancelAuctionOrchestratesLoadSavePublish (app) ==========
+{"time":"2026-03-31T19:36:49.662272684+03:00","package":"app","test":"TestCancelAuctionOrchestratesLoadSavePublish","message":"START"}
+{"time":"2026-03-31T19:36:49.662298438+03:00","package":"app","test":"TestCancelAuctionOrchestratesLoadSavePublish","message":"auction id=1 lot_id=lot-1 state=DRAFT"}
+{"time":"2026-03-31T19:36:49.662330228+03:00","package":"app","test":"TestCancelAuctionOrchestratesLoadSavePublish","message":"calls=[load save outbox]"}
+{"time":"2026-03-31T19:36:49.662359956+03:00","package":"app","test":"TestCancelAuctionOrchestratesLoadSavePublish","message":"END"}
+========== END TestCancelAuctionOrchestratesLoadSavePublish (app) ==========
+========== START TestCreateAuctionSavesAggregate (app) ==========
+{"time":"2026-03-31T19:37:19.54220703+03:00","package":"app","test":"TestCreateAuctionSavesAggregate","message":"START"}
+{"time":"2026-03-31T19:37:19.542480834+03:00","package":"app","test":"TestCreateAuctionSavesAggregate","message":"create auction lot_id=lot-1 starts_at=2026-03-31 18:37:19.542447109 +0300 MSK m=-3599.998563288 ends_at=2026-03-31 19:37:19.542447109 +0300 MSK m=+0.001436712"}
+{"time":"2026-03-31T19:37:19.542613368+03:00","package":"app","test":"TestCreateAuctionSavesAggregate","message":"END"}
+========== END TestCreateAuctionSavesAggregate (app) ==========
+========== START TestPublishAuctionOrchestratesLoadSavePublish (app) ==========
+{"time":"2026-03-31T19:37:19.542795941+03:00","package":"app","test":"TestPublishAuctionOrchestratesLoadSavePublish","message":"START"}
+{"time":"2026-03-31T19:37:19.542840015+03:00","package":"app","test":"TestPublishAuctionOrchestratesLoadSavePublish","message":"auction id=1 lot_id=lot-1 state=DRAFT"}
+{"time":"2026-03-31T19:37:19.542903265+03:00","package":"app","test":"TestPublishAuctionOrchestratesLoadSavePublish","message":"calls=[load save outbox]"}
+{"time":"2026-03-31T19:37:19.542962593+03:00","package":"app","test":"TestPublishAuctionOrchestratesLoadSavePublish","message":"END"}
+========== END TestPublishAuctionOrchestratesLoadSavePublish (app) ==========
+========== START TestPlaceBidOrchestratesLoadSavePublish (app) ==========
+{"time":"2026-03-31T19:37:19.54313024+03:00","package":"app","test":"TestPlaceBidOrchestratesLoadSavePublish","message":"START"}
+{"time":"2026-03-31T19:37:19.543168608+03:00","package":"app","test":"TestPlaceBidOrchestratesLoadSavePublish","message":"auction id=1 lot_id=lot-1 state=DRAFT"}
+{"time":"2026-03-31T19:37:19.543240992+03:00","package":"app","test":"TestPlaceBidOrchestratesLoadSavePublish","message":"place bid amount=100 placed_at=2026-03-31 19:36:19.543141668 +0300 MSK m=-59.997868736"}
+{"time":"2026-03-31T19:37:19.543305609+03:00","package":"app","test":"TestPlaceBidOrchestratesLoadSavePublish","message":"calls=[load save_bid save outbox] bid_saved_amount=100"}
+{"time":"2026-03-31T19:37:19.543348721+03:00","package":"app","test":"TestPlaceBidOrchestratesLoadSavePublish","message":"END"}
+========== END TestPlaceBidOrchestratesLoadSavePublish (app) ==========
+========== START TestCloseAuctionOrchestratesLoadSavePublish (app) ==========
+{"time":"2026-03-31T19:37:19.543467626+03:00","package":"app","test":"TestCloseAuctionOrchestratesLoadSavePublish","message":"START"}
+{"time":"2026-03-31T19:37:19.543506796+03:00","package":"app","test":"TestCloseAuctionOrchestratesLoadSavePublish","message":"auction id=1 lot_id=lot-1 state=DRAFT"}
+{"time":"2026-03-31T19:37:19.54354472+03:00","package":"app","test":"TestCloseAuctionOrchestratesLoadSavePublish","message":"calls=[load top_bids save outbox]"}
+{"time":"2026-03-31T19:37:19.543606876+03:00","package":"app","test":"TestCloseAuctionOrchestratesLoadSavePublish","message":"END"}
+========== END TestCloseAuctionOrchestratesLoadSavePublish (app) ==========
+========== START TestCancelAuctionOrchestratesLoadSavePublish (app) ==========
+{"time":"2026-03-31T19:37:19.543766197+03:00","package":"app","test":"TestCancelAuctionOrchestratesLoadSavePublish","message":"START"}
+{"time":"2026-03-31T19:37:19.543804242+03:00","package":"app","test":"TestCancelAuctionOrchestratesLoadSavePublish","message":"auction id=1 lot_id=lot-1 state=DRAFT"}
+{"time":"2026-03-31T19:37:19.543840201+03:00","package":"app","test":"TestCancelAuctionOrchestratesLoadSavePublish","message":"calls=[load save outbox]"}
+{"time":"2026-03-31T19:37:19.543894663+03:00","package":"app","test":"TestCancelAuctionOrchestratesLoadSavePublish","message":"END"}
+========== END TestCancelAuctionOrchestratesLoadSavePublish (app) ==========
+========== START TestCreateAuctionSavesAggregate (app) ==========
+{"time":"2026-03-31T19:37:38.674286536+03:00","package":"app","test":"TestCreateAuctionSavesAggregate","message":"START"}
+{"time":"2026-03-31T19:37:38.674489769+03:00","package":"app","test":"TestCreateAuctionSavesAggregate","message":"create auction lot_id=lot-1 starts_at=2026-03-31 18:37:38.674456176 +0300 MSK m=-3599.999103034 ends_at=2026-03-31 19:37:38.674456176 +0300 MSK m=+0.000896966"}
+{"time":"2026-03-31T19:37:38.674594631+03:00","package":"app","test":"TestCreateAuctionSavesAggregate","message":"END"}
+========== END TestCreateAuctionSavesAggregate (app) ==========
+========== START TestPublishAuctionOrchestratesLoadSavePublish (app) ==========
+{"time":"2026-03-31T19:37:38.674765905+03:00","package":"app","test":"TestPublishAuctionOrchestratesLoadSavePublish","message":"START"}
+{"time":"2026-03-31T19:37:38.674813052+03:00","package":"app","test":"TestPublishAuctionOrchestratesLoadSavePublish","message":"auction id=1 lot_id=lot-1 state=DRAFT"}
+{"time":"2026-03-31T19:37:38.674881588+03:00","package":"app","test":"TestPublishAuctionOrchestratesLoadSavePublish","message":"calls=[load save outbox]"}
+{"time":"2026-03-31T19:37:38.6749309+03:00","package":"app","test":"TestPublishAuctionOrchestratesLoadSavePublish","message":"END"}
+========== END TestPublishAuctionOrchestratesLoadSavePublish (app) ==========
+========== START TestPlaceBidOrchestratesLoadSavePublish (app) ==========
+{"time":"2026-03-31T19:37:38.675106665+03:00","package":"app","test":"TestPlaceBidOrchestratesLoadSavePublish","message":"START"}
+{"time":"2026-03-31T19:37:38.67514456+03:00","package":"app","test":"TestPlaceBidOrchestratesLoadSavePublish","message":"auction id=1 lot_id=lot-1 state=DRAFT"}
+{"time":"2026-03-31T19:37:38.675190158+03:00","package":"app","test":"TestPlaceBidOrchestratesLoadSavePublish","message":"place bid amount=100 placed_at=2026-03-31 19:36:38.67512115 +0300 MSK m=-59.998438064"}
+{"time":"2026-03-31T19:37:38.675253139+03:00","package":"app","test":"TestPlaceBidOrchestratesLoadSavePublish","message":"calls=[load save_bid save outbox] bid_saved_amount=100"}
+{"time":"2026-03-31T19:37:38.675308654+03:00","package":"app","test":"TestPlaceBidOrchestratesLoadSavePublish","message":"END"}
+========== END TestPlaceBidOrchestratesLoadSavePublish (app) ==========
+========== START TestCloseAuctionOrchestratesLoadSavePublish (app) ==========
+{"time":"2026-03-31T19:37:38.675485279+03:00","package":"app","test":"TestCloseAuctionOrchestratesLoadSavePublish","message":"START"}
+{"time":"2026-03-31T19:37:38.675546415+03:00","package":"app","test":"TestCloseAuctionOrchestratesLoadSavePublish","message":"auction id=1 lot_id=lot-1 state=DRAFT"}
+{"time":"2026-03-31T19:37:38.675585597+03:00","package":"app","test":"TestCloseAuctionOrchestratesLoadSavePublish","message":"calls=[load top_bids save outbox]"}
+{"time":"2026-03-31T19:37:38.675655816+03:00","package":"app","test":"TestCloseAuctionOrchestratesLoadSavePublish","message":"END"}
+========== END TestCloseAuctionOrchestratesLoadSavePublish (app) ==========
+========== START TestCancelAuctionOrchestratesLoadSavePublish (app) ==========
+{"time":"2026-03-31T19:37:38.675804076+03:00","package":"app","test":"TestCancelAuctionOrchestratesLoadSavePublish","message":"START"}
+{"time":"2026-03-31T19:37:38.675838518+03:00","package":"app","test":"TestCancelAuctionOrchestratesLoadSavePublish","message":"auction id=1 lot_id=lot-1 state=DRAFT"}
+{"time":"2026-03-31T19:37:38.675906811+03:00","package":"app","test":"TestCancelAuctionOrchestratesLoadSavePublish","message":"calls=[load save outbox]"}
+{"time":"2026-03-31T19:37:38.675959426+03:00","package":"app","test":"TestCancelAuctionOrchestratesLoadSavePublish","message":"END"}
+========== END TestCancelAuctionOrchestratesLoadSavePublish (app) ==========

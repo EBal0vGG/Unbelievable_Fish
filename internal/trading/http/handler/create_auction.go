@@ -16,14 +16,12 @@ func NewCreateAuctionHandler(uc *app.CreateAuction) *CreateAuctionHandler {
 }
 
 func (h *CreateAuctionHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
-	}
 	meta, err := readCommandMeta(r)
 	if err != nil {
-		httpErr := httpapi.MapError(err)
-		writeError(w, httpErr.Status, httpErr.Code, httpErr.Message, meta)
+		handleCommandError(w, err, meta)
+		return
+	}
+	if !requirePost(w, r, meta) {
 		return
 	}
 	var req httpapi.CreateAuctionRequest
@@ -43,9 +41,8 @@ func (h *CreateAuctionHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	if err := h.uc.Execute(r.Context(), meta, req.LotID, req.StartsAt, req.EndsAt); err != nil {
-		httpErr := httpapi.MapError(err)
-		writeError(w, httpErr.Status, httpErr.Code, httpErr.Message, meta)
+		handleCommandError(w, err, meta)
 		return
 	}
-	w.WriteHeader(http.StatusAccepted)
+	writeAccepted(w)
 }

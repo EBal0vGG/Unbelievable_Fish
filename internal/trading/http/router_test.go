@@ -53,6 +53,39 @@ func (s *spyBidRepo) TopBids(ctx context.Context, auctionID app.AuctionID) ([]au
 	return []auction.Bid{}, nil
 }
 
+type spyOutbox struct {
+	saveCount int
+}
+
+func (s *spyOutbox) Save(ctx context.Context, envelope app.EventEnvelope) error {
+	s.saveCount++
+	return nil
+}
+
+type spyTx struct {
+	repo   *spyRepo
+	bids   *spyBidRepo
+	outbox *spyOutbox
+}
+
+func (s *spyTx) Auctions() app.AuctionRepository { return s.repo }
+func (s *spyTx) Bids() app.BidRepository         { return s.bids }
+func (s *spyTx) Outbox() app.OutboxRepository    { return s.outbox }
+
+type spyUOW struct {
+	tx *spyTx
+}
+
+func (s *spyUOW) Do(ctx context.Context, fn func(app.Tx) error) error {
+	return fn(s.tx)
+}
+
+type fakeIDFactory struct {
+	id app.AuctionID
+}
+
+func (f fakeIDFactory) NewID() (app.AuctionID, error) { return f.id, nil }
+
 func TestCommandFlowSmoke(t *testing.T) {
 	logTest(t)
 	startsAt := time.Now().Add(-time.Hour)
@@ -61,14 +94,15 @@ func TestCommandFlowSmoke(t *testing.T) {
 	_, _ = a.Publish()
 
 	repo := &spyRepo{auction: a}
-	publisher := &spyPublisher{}
 	bidRepo := &spyBidRepo{}
+	outbox := &spyOutbox{}
+	uow := &spyUOW{tx: &spyTx{repo: repo, bids: bidRepo, outbox: outbox}}
 
-	createUC := app.NewCreateAuction(repo, publisher)
-	publishUC := app.NewPublishAuction(repo, publisher)
-	placeBidUC := app.NewPlaceBid(repo, bidRepo, publisher)
-	closeUC := app.NewCloseAuction(repo, bidRepo, publisher)
-	cancelUC := app.NewCancelAuction(repo, publisher)
+	createUC := app.NewCreateAuction(uow, fakeIDFactory{id: "gen-1"})
+	publishUC := app.NewPublishAuction(uow)
+	placeBidUC := app.NewPlaceBid(uow)
+	closeUC := app.NewCloseAuction(uow)
+	cancelUC := app.NewCancelAuction(uow)
 
 	router := httpapi.NewRouter(
 		handler.NewCreateAuctionHandler(createUC),
@@ -90,7 +124,7 @@ func TestCommandFlowSmoke(t *testing.T) {
 
 	router.ServeHTTP(rec, req)
 
-	logf(t, "status=%d load=%d save=%d publish=%d bid_save=%d", rec.Code, repo.loadCount, repo.saveCount, publisher.publishCount, bidRepo.saveCount)
+	logf(t, "status=%d load=%d save=%d outbox=%d bid_save=%d", rec.Code, repo.loadCount, repo.saveCount, outbox.saveCount, bidRepo.saveCount)
 	if rec.Code != http.StatusAccepted {
 		t.Fatalf("expected status %d, got %d", http.StatusAccepted, rec.Code)
 	}
@@ -100,7 +134,7 @@ func TestCommandFlowSmoke(t *testing.T) {
 	if repo.saveCount != 1 {
 		t.Fatalf("expected Save to be called once, got %d", repo.saveCount)
 	}
-	if publisher.publishCount != 1 {
-		t.Fatalf("expected Publish to be called once, got %d", publisher.publishCount)
+	if outbox.saveCount != 1 {
+		t.Fatalf("expected Outbox.Save to be called once, got %d", outbox.saveCount)
 	}
 }
