@@ -1,0 +1,36 @@
+========== START TestHandler_CreateProjection (http) ==========
+{"time":"2026-03-31T14:43:34.515938497+03:00","package":"http","test":"TestHandler_CreateProjection","message":"START"}
+{"time":"2026-03-31T14:43:34.516160135+03:00","package":"http","test":"TestHandler_CreateProjection","message":"POST /deal-projections auction=auc_1"}
+{"time":"2026-03-31T14:43:34.516242476+03:00","package":"http","test":"TestHandler_CreateProjection","message":"projection created response auction=auc_1"}
+{"time":"2026-03-31T14:43:34.516263543+03:00","package":"http","test":"TestHandler_CreateProjection","message":"END"}
+========== END TestHandler_CreateProjection (http) ==========
+========== START TestHandler_ConfirmDeal (http) ==========
+{"time":"2026-03-31T14:43:34.516351688+03:00","package":"http","test":"TestHandler_ConfirmDeal","message":"START"}
+{"time":"2026-03-31T14:43:34.516419453+03:00","package":"http","test":"TestHandler_ConfirmDeal","message":"POST /deals/deal_20260331144334/confirm"}
+{"time":"2026-03-31T14:43:34.516552526+03:00","package":"http","test":"TestHandler_ConfirmDeal","message":"deal confirmed response status=confirmed"}
+{"time":"2026-03-31T14:43:34.516580869+03:00","package":"http","test":"TestHandler_ConfirmDeal","message":"END"}
+========== END TestHandler_ConfirmDeal (http) ==========
+========== START TestHandler_ReturnsBadRequestOnInvalidPayload (http) ==========
+{"time":"2026-03-31T14:43:34.516650538+03:00","package":"http","test":"TestHandler_ReturnsBadRequestOnInvalidPayload","message":"START"}
+{"time":"2026-03-31T14:43:34.51671773+03:00","package":"http","test":"TestHandler_ReturnsBadRequestOnInvalidPayload","message":"POST /deals/from-auction-won invalid payload"}
+{"time":"2026-03-31T14:43:34.516772855+03:00","package":"http","test":"TestHandler_ReturnsBadRequestOnInvalidPayload","message":"invalid payload mapped to bad request"}
+{"time":"2026-03-31T14:43:34.516792017+03:00","package":"http","test":"TestHandler_ReturnsBadRequestOnInvalidPayload","message":"END"}
+========== END TestHandler_ReturnsBadRequestOnInvalidPayload (http) ==========
+========== START TestHandler_CreateProjection (http) ==========
+{"time":"2026-03-31T14:43:44.622985375+03:00","package":"http","test":"TestHandler_CreateProjection","message":"START"}
+{"time":"2026-03-31T14:43:44.623495292+03:00","package":"http","test":"TestHandler_CreateProjection","message":"POST /deal-projections auction=auc_1"}
+{"time":"2026-03-31T14:43:44.623677103+03:00","package":"http","test":"TestHandler_CreateProjection","message":"projection created response auction=auc_1"}
+{"time":"2026-03-31T14:43:44.62373289+03:00","package":"http","test":"TestHandler_CreateProjection","message":"END"}
+========== END TestHandler_CreateProjection (http) ==========
+========== START TestHandler_ConfirmDeal (http) ==========
+{"time":"2026-03-31T14:43:44.623939696+03:00","package":"http","test":"TestHandler_ConfirmDeal","message":"START"}
+{"time":"2026-03-31T14:43:44.624075543+03:00","package":"http","test":"TestHandler_ConfirmDeal","message":"POST /deals/deal_20260331144344/confirm"}
+{"time":"2026-03-31T14:43:44.624383592+03:00","package":"http","test":"TestHandler_ConfirmDeal","message":"deal confirmed response status=confirmed"}
+{"time":"2026-03-31T14:43:44.624445112+03:00","package":"http","test":"TestHandler_ConfirmDeal","message":"END"}
+========== END TestHandler_ConfirmDeal (http) ==========
+========== START TestHandler_ReturnsBadRequestOnInvalidPayload (http) ==========
+{"time":"2026-03-31T14:43:44.624625725+03:00","package":"http","test":"TestHandler_ReturnsBadRequestOnInvalidPayload","message":"START"}
+{"time":"2026-03-31T14:43:44.62476643+03:00","package":"http","test":"TestHandler_ReturnsBadRequestOnInvalidPayload","message":"POST /deals/from-auction-won invalid payload"}
+{"time":"2026-03-31T14:43:44.624905093+03:00","package":"http","test":"TestHandler_ReturnsBadRequestOnInvalidPayload","message":"invalid payload mapped to bad request"}
+{"time":"2026-03-31T14:43:44.624957177+03:00","package":"http","test":"TestHandler_ReturnsBadRequestOnInvalidPayload","message":"END"}
+========== END TestHandler_ReturnsBadRequestOnInvalidPayload (http) ==========
