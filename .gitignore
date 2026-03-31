@@ -1,0 +1,13 @@
+.DS_Store
+
+# Go build and test artifacts
+*.test
+coverage.out
+
+# Local build output
+bin/
+dist/
+
+# Editor settings
+.idea/
+.vscode/
