@@ -16,16 +16,16 @@ func NewCreateAuctionHandler(uc *app.CreateAuction) *CreateAuctionHandler {
 }
 
 func (h *CreateAuctionHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if !requirePost(w, r, app.CommandMeta{}) {
+		return
+	}
 	meta, err := readCommandMeta(r)
 	if err != nil {
 		handleCommandError(w, err, meta)
 		return
 	}
-	if !requirePost(w, r, meta) {
-		return
-	}
 	var req httpapi.CreateAuctionRequest
-	if err := decodeJSON(r, &req); err != nil {
+	if err := decodeJSON(w, r, &req); err != nil {
 		httpErr := httpapi.BadRequest("INVALID_BODY", "invalid request body")
 		writeError(w, httpErr.Status, httpErr.Code, httpErr.Message, meta)
 		return

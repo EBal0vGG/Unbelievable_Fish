@@ -81,15 +81,30 @@ func (s *spyOutbox) Save(ctx context.Context, envelope EventEnvelope) error {
 	return nil
 }
 
+type spyWinners struct {
+	calls     *[]string
+	saveCount int
+	lastSaved []WinnerRecord
+}
+
+func (s *spyWinners) Save(ctx context.Context, auctionID AuctionID, winners []WinnerRecord) error {
+	s.saveCount++
+	s.lastSaved = winners
+	*s.calls = append(*s.calls, "winners")
+	return nil
+}
+
 type spyTx struct {
 	repo    *spyRepo
 	bids    *spyBidRepo
 	outbox  *spyOutbox
+	winners *spyWinners
 }
 
 func (s *spyTx) Auctions() AuctionRepository { return s.repo }
 func (s *spyTx) Bids() BidRepository         { return s.bids }
 func (s *spyTx) Outbox() OutboxRepository    { return s.outbox }
+func (s *spyTx) Winners() AuctionWinnersRepository { return s.winners }
 
 type spyUOW struct {
 	tx *spyTx
@@ -111,9 +126,13 @@ func TestCreateAuctionSavesAggregate(t *testing.T) {
 	repo := &spyRepo{calls: &calls}
 	bidRepo := &spyBidRepo{calls: &calls}
 	outbox := &spyOutbox{calls: &calls}
-	uow := &spyUOW{tx: &spyTx{repo: repo, bids: bidRepo, outbox: outbox}}
+	winners := &spyWinners{calls: &calls}
+	uow := &spyUOW{tx: &spyTx{repo: repo, bids: bidRepo, outbox: outbox, winners: winners}}
 
-	uc := NewCreateAuction(uow, fakeIDFactory{id: "gen-1"})
+	uc, err := NewCreateAuction(uow, fakeIDFactory{id: "gen-1"})
+	if err != nil {
+		t.Fatalf("unexpected constructor error: %v", err)
+	}
 	startsAt := time.Now().Add(-time.Hour)
 	endsAt := startsAt.Add(time.Hour)
 	logf(t, "create auction lot_id=%s starts_at=%s ends_at=%s", "lot-1", startsAt, endsAt)
@@ -137,9 +156,13 @@ func TestPublishAuctionOrchestratesLoadSavePublish(t *testing.T) {
 	repo := &spyRepo{auction: a, calls: &calls}
 	bidRepo := &spyBidRepo{calls: &calls}
 	outbox := &spyOutbox{calls: &calls}
-	uow := &spyUOW{tx: &spyTx{repo: repo, bids: bidRepo, outbox: outbox}}
+	winners := &spyWinners{calls: &calls}
+	uow := &spyUOW{tx: &spyTx{repo: repo, bids: bidRepo, outbox: outbox, winners: winners}}
 
-	uc := NewPublishAuction(uow)
+	uc, err := NewPublishAuction(uow)
+	if err != nil {
+		t.Fatalf("unexpected constructor error: %v", err)
+	}
 	if err := uc.Execute(context.Background(), testMeta(), "1"); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -160,9 +183,13 @@ func TestPlaceBidOrchestratesLoadSavePublish(t *testing.T) {
 	repo := &spyRepo{auction: a, calls: &calls}
 	bidRepo := &spyBidRepo{calls: &calls}
 	outbox := &spyOutbox{calls: &calls}
-	uow := &spyUOW{tx: &spyTx{repo: repo, bids: bidRepo, outbox: outbox}}
+	winners := &spyWinners{calls: &calls}
+	uow := &spyUOW{tx: &spyTx{repo: repo, bids: bidRepo, outbox: outbox, winners: winners}}
 
-	uc := NewPlaceBid(uow)
+	uc, err := NewPlaceBid(uow)
+	if err != nil {
+		t.Fatalf("unexpected constructor error: %v", err)
+	}
 	placedAt := endsAt.Add(-time.Minute)
 	logf(t, "place bid amount=%d placed_at=%s", 100, placedAt)
 	if err := uc.Execute(context.Background(), testMeta(), "1", 100, placedAt); err != nil {
@@ -187,14 +214,18 @@ func TestCloseAuctionOrchestratesLoadSavePublish(t *testing.T) {
 	repo := &spyRepo{auction: a, calls: &calls}
 	bidRepo := &spyBidRepo{calls: &calls, topBids: []auction.Bid{bid}}
 	outbox := &spyOutbox{calls: &calls}
-	uow := &spyUOW{tx: &spyTx{repo: repo, bids: bidRepo, outbox: outbox}}
+	winners := &spyWinners{calls: &calls}
+	uow := &spyUOW{tx: &spyTx{repo: repo, bids: bidRepo, outbox: outbox, winners: winners}}
 
-	uc := NewCloseAuction(uow)
+	uc, err := NewCloseAuction(uow)
+	if err != nil {
+		t.Fatalf("unexpected constructor error: %v", err)
+	}
 	if err := uc.Execute(context.Background(), testMeta(), "1"); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	logf(t, "calls=%v", calls)
-	assertCalls(t, calls, []string{"load", "top_bids", "save", "outbox"})
+	assertCalls(t, calls, []string{"load", "top_bids", "winners", "save", "outbox"})
 	assertSavedAggregate(t, repo)
 	assertOutbox(t, outbox, testMeta())
 }
@@ -210,9 +241,13 @@ func TestCancelAuctionOrchestratesLoadSavePublish(t *testing.T) {
 	repo := &spyRepo{auction: a, calls: &calls}
 	bidRepo := &spyBidRepo{calls: &calls}
 	outbox := &spyOutbox{calls: &calls}
-	uow := &spyUOW{tx: &spyTx{repo: repo, bids: bidRepo, outbox: outbox}}
+	winners := &spyWinners{calls: &calls}
+	uow := &spyUOW{tx: &spyTx{repo: repo, bids: bidRepo, outbox: outbox, winners: winners}}
 
-	uc := NewCancelAuction(uow)
+	uc, err := NewCancelAuction(uow)
+	if err != nil {
+		t.Fatalf("unexpected constructor error: %v", err)
+	}
 	if err := uc.Execute(context.Background(), testMeta(), "1"); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

@@ -1,5 +1,7 @@
 package app
 
+import "time"
+
 import (
 	"context"
 
@@ -22,10 +24,22 @@ type OutboxRepository interface {
 	Save(ctx context.Context, envelope EventEnvelope) error
 }
 
+type WinnerRecord struct {
+	Place     int
+	CompanyID string
+	Amount    int64
+	PlacedAt  time.Time
+}
+
+type AuctionWinnersRepository interface {
+	Save(ctx context.Context, auctionID AuctionID, winners []WinnerRecord) error
+}
+
 type Tx interface {
 	Auctions() AuctionRepository
 	Bids() BidRepository
 	Outbox() OutboxRepository
+	Winners() AuctionWinnersRepository
 }
 
 type UnitOfWork interface {

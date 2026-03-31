@@ -32,17 +32,6 @@ func (s *spyRepo) Save(ctx context.Context, a *auction.Auction) error {
 	return nil
 }
 
-type spyPublisher struct {
-	publishCount int
-	lastEvents   []auction.Event
-}
-
-func (s *spyPublisher) Publish(ctx context.Context, events []auction.Event) error {
-	s.publishCount++
-	s.lastEvents = events
-	return nil
-}
-
 type spyBidRepo struct {
 	saveCount int
 }
@@ -69,11 +58,13 @@ type spyTx struct {
 	repo   *spyRepo
 	bids   *spyBidRepo
 	outbox *spyOutbox
+	winners *spyWinners
 }
 
 func (s *spyTx) Auctions() app.AuctionRepository { return s.repo }
 func (s *spyTx) Bids() app.BidRepository         { return s.bids }
 func (s *spyTx) Outbox() app.OutboxRepository    { return s.outbox }
+func (s *spyTx) Winners() app.AuctionWinnersRepository { return s.winners }
 
 type spyUOW struct {
 	tx *spyTx
@@ -89,13 +80,26 @@ type fakeIDFactory struct {
 
 func (f fakeIDFactory) NewID() (app.AuctionID, error) { return f.id, nil }
 
+type spyWinners struct {
+	saveCount int
+}
+
+func (s *spyWinners) Save(ctx context.Context, auctionID app.AuctionID, winners []app.WinnerRecord) error {
+	s.saveCount++
+	return nil
+}
+
 func TestCreateAuctionHandlerSuccess(t *testing.T) {
 	logTest(t)
 	repo := &spyRepo{}
 	bidRepo := &spyBidRepo{}
 	outbox := &spyOutbox{}
-	uow := &spyUOW{tx: &spyTx{repo: repo, bids: bidRepo, outbox: outbox}}
-	uc := app.NewCreateAuction(uow, fakeIDFactory{id: "gen-1"})
+	winners := &spyWinners{}
+	uow := &spyUOW{tx: &spyTx{repo: repo, bids: bidRepo, outbox: outbox, winners: winners}}
+	uc, err := app.NewCreateAuction(uow, fakeIDFactory{id: "gen-1"})
+	if err != nil {
+		t.Fatalf("unexpected constructor error: %v", err)
+	}
 	handler := NewCreateAuctionHandler(uc)
 
 	startsAt := time.Now().Add(-time.Hour).UTC()
@@ -130,8 +134,12 @@ func TestPublishAuctionHandlerMissingCompanyID(t *testing.T) {
 	repo := &spyRepo{auction: a}
 	bidRepo := &spyBidRepo{}
 	outbox := &spyOutbox{}
-	uow := &spyUOW{tx: &spyTx{repo: repo, bids: bidRepo, outbox: outbox}}
-	uc := app.NewPublishAuction(uow)
+	winners := &spyWinners{}
+	uow := &spyUOW{tx: &spyTx{repo: repo, bids: bidRepo, outbox: outbox, winners: winners}}
+	uc, err := app.NewPublishAuction(uow)
+	if err != nil {
+		t.Fatalf("unexpected constructor error: %v", err)
+	}
 	handler := NewPublishAuctionHandler(uc)
 
 	req := httptest.NewRequest(http.MethodPost, "/auctions/a-1/publish", nil)
@@ -155,8 +163,12 @@ func TestPlaceBidHandlerInvalidJSON(t *testing.T) {
 	repo := &spyRepo{auction: a}
 	bidRepo := &spyBidRepo{}
 	outbox := &spyOutbox{}
-	uow := &spyUOW{tx: &spyTx{repo: repo, bids: bidRepo, outbox: outbox}}
-	uc := app.NewPlaceBid(uow)
+	winners := &spyWinners{}
+	uow := &spyUOW{tx: &spyTx{repo: repo, bids: bidRepo, outbox: outbox, winners: winners}}
+	uc, err := app.NewPlaceBid(uow)
+	if err != nil {
+		t.Fatalf("unexpected constructor error: %v", err)
+	}
 	handler := NewPlaceBidHandler(uc)
 
 	req := httptest.NewRequest(http.MethodPost, "/auctions/a-1/bids", bytes.NewBufferString("{"))
@@ -181,8 +193,12 @@ func TestPublishAuctionHandlerInvalidPath(t *testing.T) {
 	repo := &spyRepo{auction: a}
 	bidRepo := &spyBidRepo{}
 	outbox := &spyOutbox{}
-	uow := &spyUOW{tx: &spyTx{repo: repo, bids: bidRepo, outbox: outbox}}
-	uc := app.NewPublishAuction(uow)
+	winners := &spyWinners{}
+	uow := &spyUOW{tx: &spyTx{repo: repo, bids: bidRepo, outbox: outbox, winners: winners}}
+	uc, err := app.NewPublishAuction(uow)
+	if err != nil {
+		t.Fatalf("unexpected constructor error: %v", err)
+	}
 	handler := NewPublishAuctionHandler(uc)
 
 	req := httptest.NewRequest(http.MethodPost, "/auctions//publish", nil)

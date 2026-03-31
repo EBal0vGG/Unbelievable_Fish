@@ -11,6 +11,8 @@ import (
 	httpapi "github.com/EBal0vGG/Unbelievable_Fish/internal/trading/http"
 )
 
+const maxBodyBytes = 1 << 20
+
 func readCommandMeta(r *http.Request) (app.CommandMeta, error) {
 	companyID := r.Header.Get("X-Company-ID")
 	if companyID == "" {
@@ -40,7 +42,8 @@ func readAuctionIDFromPath(path, suffix string) (app.AuctionID, error) {
 	return app.AuctionID(parts[1]), nil
 }
 
-func decodeJSON(r *http.Request, dst any) error {
+func decodeJSON(w http.ResponseWriter, r *http.Request, dst any) error {
+	r.Body = http.MaxBytesReader(w, r.Body, maxBodyBytes)
 	decoder := json.NewDecoder(r.Body)
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(dst); err != nil {
@@ -64,6 +67,7 @@ func writeError(w http.ResponseWriter, status int, code, message string, meta ap
 }
 
 func writeAccepted(w http.ResponseWriter) {
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusAccepted)
 }
 

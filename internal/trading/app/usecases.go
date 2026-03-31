@@ -12,17 +12,17 @@ type CreateAuction struct {
 	factory   AuctionIDFactory
 }
 
-func NewCreateAuction(uow UnitOfWork, factory AuctionIDFactory) *CreateAuction {
+func NewCreateAuction(uow UnitOfWork, factory AuctionIDFactory) (*CreateAuction, error) {
 	if uow == nil {
-		panic("nil UnitOfWork")
+		return nil, ErrNilUnitOfWork
 	}
 	if factory == nil {
-		panic("nil AuctionIDFactory")
+		return nil, ErrNilAuctionIDFactory
 	}
 	return &CreateAuction{
 		uow:     uow,
 		factory: factory,
-	}
+	}, nil
 }
 
 func (uc *CreateAuction) Execute(ctx context.Context, meta CommandMeta, lotID string, startsAt, endsAt time.Time) error {
@@ -43,13 +43,13 @@ type PublishAuction struct {
 	uow UnitOfWork
 }
 
-func NewPublishAuction(uow UnitOfWork) *PublishAuction {
+func NewPublishAuction(uow UnitOfWork) (*PublishAuction, error) {
 	if uow == nil {
-		panic("nil UnitOfWork")
+		return nil, ErrNilUnitOfWork
 	}
 	return &PublishAuction{
 		uow: uow,
-	}
+	}, nil
 }
 
 func (uc *PublishAuction) Execute(ctx context.Context, meta CommandMeta, id AuctionID) error {
@@ -76,13 +76,13 @@ type PlaceBid struct {
 	uow UnitOfWork
 }
 
-func NewPlaceBid(uow UnitOfWork) *PlaceBid {
+func NewPlaceBid(uow UnitOfWork) (*PlaceBid, error) {
 	if uow == nil {
-		panic("nil UnitOfWork")
+		return nil, ErrNilUnitOfWork
 	}
 	return &PlaceBid{
 		uow: uow,
-	}
+	}, nil
 }
 
 func (uc *PlaceBid) Execute(
@@ -122,13 +122,13 @@ type CloseAuction struct {
 	uow UnitOfWork
 }
 
-func NewCloseAuction(uow UnitOfWork) *CloseAuction {
+func NewCloseAuction(uow UnitOfWork) (*CloseAuction, error) {
 	if uow == nil {
-		panic("nil UnitOfWork")
+		return nil, ErrNilUnitOfWork
 	}
 	return &CloseAuction{
 		uow: uow,
-	}
+	}, nil
 }
 
 func (uc *CloseAuction) Execute(ctx context.Context, meta CommandMeta, id AuctionID) error {
@@ -145,6 +145,9 @@ func (uc *CloseAuction) Execute(ctx context.Context, meta CommandMeta, id Auctio
 		if err != nil {
 			return err
 		}
+		if err := tx.Winners().Save(ctx, id, winnerRecordsFromBids(bids, 3)); err != nil {
+			return err
+		}
 		if err := tx.Auctions().Save(ctx, a); err != nil {
 			return err
 		}
@@ -159,13 +162,13 @@ type CancelAuction struct {
 	uow UnitOfWork
 }
 
-func NewCancelAuction(uow UnitOfWork) *CancelAuction {
+func NewCancelAuction(uow UnitOfWork) (*CancelAuction, error) {
 	if uow == nil {
-		panic("nil UnitOfWork")
+		return nil, ErrNilUnitOfWork
 	}
 	return &CancelAuction{
 		uow: uow,
-	}
+	}, nil
 }
 
 func (uc *CancelAuction) Execute(ctx context.Context, meta CommandMeta, id AuctionID) error {
@@ -186,4 +189,24 @@ func (uc *CancelAuction) Execute(ctx context.Context, meta CommandMeta, id Aucti
 		}
 		return tx.Outbox().Save(ctx, NewEnvelope(meta, events))
 	})
+}
+
+func winnerRecordsFromBids(bids []auction.Bid, limit int) []WinnerRecord {
+	if len(bids) == 0 || limit <= 0 {
+		return nil
+	}
+	if limit > len(bids) {
+		limit = len(bids)
+	}
+	out := make([]WinnerRecord, 0, limit)
+	for i := 0; i < limit; i++ {
+		bid := bids[i]
+		out = append(out, WinnerRecord{
+			Place:     i + 1,
+			CompanyID: bid.BidderCompanyID(),
+			Amount:    bid.Amount(),
+			PlacedAt:  bid.PlacedAt(),
+		})
+	}
+	return out
 }

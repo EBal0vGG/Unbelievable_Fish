@@ -66,11 +66,13 @@ type spyTx struct {
 	repo   *spyRepo
 	bids   *spyBidRepo
 	outbox *spyOutbox
+	winners *spyWinners
 }
 
 func (s *spyTx) Auctions() app.AuctionRepository { return s.repo }
 func (s *spyTx) Bids() app.BidRepository         { return s.bids }
 func (s *spyTx) Outbox() app.OutboxRepository    { return s.outbox }
+func (s *spyTx) Winners() app.AuctionWinnersRepository { return s.winners }
 
 type spyUOW struct {
 	tx *spyTx
@@ -86,6 +88,15 @@ type fakeIDFactory struct {
 
 func (f fakeIDFactory) NewID() (app.AuctionID, error) { return f.id, nil }
 
+type spyWinners struct {
+	saveCount int
+}
+
+func (s *spyWinners) Save(ctx context.Context, auctionID app.AuctionID, winners []app.WinnerRecord) error {
+	s.saveCount++
+	return nil
+}
+
 func TestCommandFlowSmoke(t *testing.T) {
 	logTest(t)
 	startsAt := time.Now().Add(-time.Hour)
@@ -96,13 +107,29 @@ func TestCommandFlowSmoke(t *testing.T) {
 	repo := &spyRepo{auction: a}
 	bidRepo := &spyBidRepo{}
 	outbox := &spyOutbox{}
-	uow := &spyUOW{tx: &spyTx{repo: repo, bids: bidRepo, outbox: outbox}}
+	winners := &spyWinners{}
+	uow := &spyUOW{tx: &spyTx{repo: repo, bids: bidRepo, outbox: outbox, winners: winners}}
 
-	createUC := app.NewCreateAuction(uow, fakeIDFactory{id: "gen-1"})
-	publishUC := app.NewPublishAuction(uow)
-	placeBidUC := app.NewPlaceBid(uow)
-	closeUC := app.NewCloseAuction(uow)
-	cancelUC := app.NewCancelAuction(uow)
+	createUC, err := app.NewCreateAuction(uow, fakeIDFactory{id: "gen-1"})
+	if err != nil {
+		t.Fatalf("unexpected constructor error: %v", err)
+	}
+	publishUC, err := app.NewPublishAuction(uow)
+	if err != nil {
+		t.Fatalf("unexpected constructor error: %v", err)
+	}
+	placeBidUC, err := app.NewPlaceBid(uow)
+	if err != nil {
+		t.Fatalf("unexpected constructor error: %v", err)
+	}
+	closeUC, err := app.NewCloseAuction(uow)
+	if err != nil {
+		t.Fatalf("unexpected constructor error: %v", err)
+	}
+	cancelUC, err := app.NewCancelAuction(uow)
+	if err != nil {
+		t.Fatalf("unexpected constructor error: %v", err)
+	}
 
 	router := httpapi.NewRouter(
 		handler.NewCreateAuctionHandler(createUC),

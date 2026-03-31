@@ -16,12 +16,12 @@ func NewPlaceBidHandler(uc *app.PlaceBid) *PlaceBidHandler {
 }
 
 func (h *PlaceBidHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if !requirePost(w, r, app.CommandMeta{}) {
+		return
+	}
 	meta, err := readCommandMeta(r)
 	if err != nil {
 		handleCommandError(w, err, meta)
-		return
-	}
-	if !requirePost(w, r, meta) {
 		return
 	}
 	auctionID, err := readAuctionIDFromPath(r.URL.Path, "bids")
@@ -30,7 +30,7 @@ func (h *PlaceBidHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req httpapi.PlaceBidRequest
-	if err := decodeJSON(r, &req); err != nil {
+	if err := decodeJSON(w, r, &req); err != nil {
 		httpErr := httpapi.BadRequest("INVALID_BODY", "invalid request body")
 		writeError(w, httpErr.Status, httpErr.Code, httpErr.Message, meta)
 		return
