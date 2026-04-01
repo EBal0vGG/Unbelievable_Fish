@@ -339,7 +339,7 @@ func TestCreateProductWritesOutbox(t *testing.T) {
 
 func TestCreateLotGeneratesID(t *testing.T) {
 	deps := newTestDeps()
-	ctx := context.Background()
+	ctx := WithCompanyID(context.Background(), "seller-1")
 
 	product, _, err := catalog.NewProduct("prod-existing", "fish-1", 10, "kg", "M", catalog.ProcessingType("frozen"))
 	if err != nil {
@@ -351,7 +351,6 @@ func TestCreateLotGeneratesID(t *testing.T) {
 
 	lotID, events, err := deps.svc.CreateLot(ctx, CreateLotCommand{
 		ProductID:       "prod-existing",
-		SellerCompanyID: "seller-1",
 		Photo:           "",
 		Quantity:        10,
 		StartPrice:      100,
@@ -376,6 +375,33 @@ func TestCreateLotGeneratesID(t *testing.T) {
 	}
 	if stored.ID() != lotID {
 		t.Fatalf("expected stored lot id to match, got %s", stored.ID())
+	}
+	if stored.SellerCompanyID() != "seller-1" {
+		t.Fatalf("expected seller company id from context, got %s", stored.SellerCompanyID())
+	}
+}
+
+func TestCreateLotRequiresCompanyIDInContext(t *testing.T) {
+	deps := newTestDeps()
+	ctx := context.Background()
+
+	product, _, err := catalog.NewProduct("prod-existing", "fish-1", 10, "kg", "M", catalog.ProcessingType("frozen"))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if err := deps.productRepo.Save(ctx, product); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	_, _, err = deps.svc.CreateLot(ctx, CreateLotCommand{
+		ProductID:       "prod-existing",
+		Photo:           "",
+		Quantity:        10,
+		StartPrice:      100,
+		AuctionStartsAt: time.Now().Add(time.Hour),
+	})
+	if err != ErrMissingCompanyID {
+		t.Fatalf("expected ErrMissingCompanyID, got %v", err)
 	}
 }
 

@@ -182,13 +182,17 @@ func (s *CatalogService) CreateLot(ctx context.Context, cmd CreateLotCommand) (s
 		if _, err := s.getProduct(ctx, cmd.ProductID); err != nil {
 			return err
 		}
+		companyID, ok := companyIDFromContext(ctx)
+		if !ok {
+			return ErrMissingCompanyID
+		}
 
 		schedule := catalog.NewAuctionScheduleAt(cmd.AuctionStartsAt)
 		lotID = s.idGenerator.NewLotID()
 		lot, evs, err := catalog.NewLot(
 			lotID,
 			cmd.ProductID,
-			cmd.SellerCompanyID,
+			companyID,
 			cmd.Photo,
 			cmd.Quantity,
 			cmd.StartPrice,

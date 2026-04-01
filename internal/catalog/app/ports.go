@@ -70,7 +70,6 @@ type UpdateProductCommand struct {
 
 type CreateLotCommand struct {
 	ProductID       string
-	SellerCompanyID string
 	Photo           string
 	Quantity        float64
 	StartPrice      int64
