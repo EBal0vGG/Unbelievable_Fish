@@ -1,0 +1,935 @@
+openapi: 3.0.3
+info:
+  title: Catalog API
+  version: 0.2.0
+  description: |
+    EN
+    ---
+    Catalog HTTP API.
+
+    This specification describes only HTTP commands and queries for Catalog.
+    It does not describe internal event consumers or broker contracts.
+    Event contracts are documented separately.
+
+    Business rules:
+    - Catalog manages Fish, Product, and Lot.
+    - Catalog does not manage auctions, bids, winners, deals, or contracts.
+    - `auction_id` must not be assigned through HTTP.
+      It arrives only from integration events produced by Trading.
+    - `seller_company_id` is business data of Lot ownership, but for HTTP commands
+      it is derived from the authenticated company context (`X-Company-ID`), not from request body.
+
+    Metadata vs business attributes:
+    - Headers carry transport/auth/tracing metadata.
+    - Request/response bodies carry business attributes.
+    - `fish_id`, `product_id`, `lot_id`, `auction_id`, `weight`, `quantity`,
+      `unit`, `processing_type`, `start_price`, `final_price` are business attributes.
+
+    Access model:
+    - Fish management is admin-only.
+    - Product management is available only to the owner of the product or admin.
+    - Lot management is available only to the owner of the lot or admin.
+
+    ---
+    RU
+    ---
+    HTTP API домена Catalog.
+
+    Эта спецификация описывает только HTTP-команды и HTTP-query Catalog.
+    Внутренние event consumer'ы и контракты брокера сюда не входят.
+    Event-контракты документируются отдельно.
+
+    Бизнес-правила:
+    - Catalog управляет Fish, Product и Lot.
+    - Catalog не управляет аукционами, ставками, победителями, сделками и контрактами.
+    - `auction_id` нельзя назначать через HTTP.
+      Он приходит только из integration event домена Trading.
+    - `seller_company_id` — бизнес-атрибут владения Lot, но в HTTP-командах
+      он выводится из контекста аутентифицированной компании (`X-Company-ID`), а не из request body.
+
+    Метаданные vs бизнес-атрибуты:
+    - Заголовки содержат transport/auth/tracing metadata.
+    - Request/response body содержат бизнес-атрибуты.
+    - `fish_id`, `product_id`, `lot_id`, `auction_id`, `weight`, `quantity`,
+      `unit`, `processing_type`, `start_price`, `final_price` — это бизнес-атрибуты.
+
+    Модель доступа:
+    - Управление Fish доступно только администратору.
+    - Управление Product доступно только владельцу продукта или администратору.
+    - Управление Lot доступно только владельцу лота или администратору.
+
+servers:
+  - url: /api
+
+tags:
+  - name: Fish
+    description: Fish dictionary management.
+  - name: Products
+    description: Product lifecycle management.
+  - name: Lots
+    description: Lot lifecycle management.
+
+x-authz:
+  roles:
+    admin:
+      - create fish
+      - update fish
+      - force operations when explicitly allowed by policy
+    owner:
+      - create own product
+      - read own product
+      - create lot for own company
+      - update own product
+      - publish or unpublish own product
+      - read own lot
+      - publish or unpublish own lot
+  note: |
+    Ownership is evaluated by application policy using authenticated company context.
+    `X-Company-ID` identifies the actor company. It is not a replacement for business fields
+    inside persisted aggregates, but HTTP clients must not pass `seller_company_id` manually.
+
+paths:
+  /fish:
+    post:
+      tags: [Fish]
+      summary: CreateFish
+      operationId: CreateFish
+      description: |
+        Creates a Fish dictionary entry.
+        Access: admin only.
+      x-access:
+        roles: [admin]
+      parameters:
+        - $ref: '#/components/parameters/XCompanyID'
+        - $ref: '#/components/parameters/XUserID'
+        - $ref: '#/components/parameters/XCorrelationID'
+        - $ref: '#/components/parameters/XCausationID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateFishCommand'
+      responses:
+        '201':
+          description: Fish created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateFishResult'
+        '400':
+          description: Invalid request body or required field
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Access denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /fish/{fishID}:
+    put:
+      tags: [Fish]
+      summary: UpdateFish
+      operationId: UpdateFish
+      description: |
+        Updates an existing Fish dictionary entry.
+        Access: admin only.
+      x-access:
+        roles: [admin]
+      parameters:
+        - $ref: '#/components/parameters/FishID'
+        - $ref: '#/components/parameters/XCompanyID'
+        - $ref: '#/components/parameters/XUserID'
+        - $ref: '#/components/parameters/XCorrelationID'
+        - $ref: '#/components/parameters/XCausationID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateFishCommand'
+      responses:
+        '204':
+          description: Fish updated
+        '400':
+          description: Invalid request body or required field
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Access denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Fish not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                fish_not_found:
+                  value:
+                    code: FISH_NOT_FOUND
+                    message: fish not found
+  /products:
+    post:
+      tags: [Products]
+      summary: CreateProduct
+      operationId: CreateProduct
+      description: |
+        Creates a Product.
+        ID is generated by the server and returned in response.
+        Access: owner or admin.
+      x-access:
+        roles: [owner, admin]
+      parameters:
+        - $ref: '#/components/parameters/XCompanyID'
+        - $ref: '#/components/parameters/XUserID'
+        - $ref: '#/components/parameters/XCorrelationID'
+        - $ref: '#/components/parameters/XCausationID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateProductCommand'
+      responses:
+        '201':
+          description: Product created
+          headers:
+            Location:
+              description: Relative URI of the created product resource.
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateProductResult'
+        '400':
+          description: Invalid request body or field value
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Access denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Referenced Fish, Unit, or ProcessingType was not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                fish_not_found:
+                  value:
+                    code: FISH_NOT_FOUND
+                    message: fish not found
+                unit_not_found:
+                  value:
+                    code: UNIT_NOT_FOUND
+                    message: unit not found
+                processing_type_not_found:
+                  value:
+                    code: PROCESSING_TYPE_NOT_FOUND
+                    message: processing type not found
+  /products/{productID}:
+    get:
+      tags: [Products]
+      summary: GetProduct
+      operationId: GetProduct
+      description: |
+        Returns Product read model data.
+        Access: owner of the product or admin.
+      x-access:
+        roles: [owner, admin]
+      parameters:
+        - $ref: '#/components/parameters/ProductID'
+        - $ref: '#/components/parameters/XCompanyID'
+        - $ref: '#/components/parameters/XUserID'
+        - $ref: '#/components/parameters/XCorrelationID'
+        - $ref: '#/components/parameters/XCausationID'
+      responses:
+        '200':
+          description: Product found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductView'
+        '403':
+          description: Access denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Product not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                product_not_found:
+                  value:
+                    code: PRODUCT_NOT_FOUND
+                    message: product not found
+    put:
+      tags: [Products]
+      summary: UpdateProduct
+      operationId: UpdateProduct
+      description: |
+        Updates Product data.
+        Access: owner of the product or admin.
+        Domain restriction: Product can be updated only in DRAFT state.
+      x-access:
+        roles: [owner, admin]
+      parameters:
+        - $ref: '#/components/parameters/ProductID'
+        - $ref: '#/components/parameters/XCompanyID'
+        - $ref: '#/components/parameters/XUserID'
+        - $ref: '#/components/parameters/XCorrelationID'
+        - $ref: '#/components/parameters/XCausationID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProductCommand'
+      responses:
+        '204':
+          description: Product updated
+        '400':
+          description: Invalid request body or field value
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Access denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Product, Fish, Unit, or ProcessingType was not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                product_not_found:
+                  value:
+                    code: PRODUCT_NOT_FOUND
+                    message: product not found
+                fish_not_found:
+                  value:
+                    code: FISH_NOT_FOUND
+                    message: fish not found
+                unit_not_found:
+                  value:
+                    code: UNIT_NOT_FOUND
+                    message: unit not found
+                processing_type_not_found:
+                  value:
+                    code: PROCESSING_TYPE_NOT_FOUND
+                    message: processing type not found
+        '409':
+          description: Product state does not allow update
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                modification_not_allowed:
+                  value:
+                    code: MODIFICATION_NOT_ALLOWED
+                    message: product can be updated only in draft state
+  /products/{productID}/publish:
+    post:
+      tags: [Products]
+      summary: PublishProduct
+      operationId: PublishProduct
+      description: |
+        Publishes a Product.
+        Access: owner of the product or admin.
+        Domain restriction: Product can be published only from DRAFT state.
+      x-access:
+        roles: [owner, admin]
+      parameters:
+        - $ref: '#/components/parameters/ProductID'
+        - $ref: '#/components/parameters/XCompanyID'
+        - $ref: '#/components/parameters/XUserID'
+        - $ref: '#/components/parameters/XCorrelationID'
+        - $ref: '#/components/parameters/XCausationID'
+      responses:
+        '204':
+          description: Product published
+        '403':
+          description: Access denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Product not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                product_not_found:
+                  value:
+                    code: PRODUCT_NOT_FOUND
+                    message: product not found
+        '409':
+          description: Invalid state transition
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                forbidden_transition:
+                  value:
+                    code: FORBIDDEN_STATE_TRANSITION
+                    message: product can be published only from draft state
+  /products/{productID}/unpublish:
+    post:
+      tags: [Products]
+      summary: UnpublishProduct
+      operationId: UnpublishProduct
+      description: |
+        Unpublishes a Product.
+        Access: owner of the product or admin.
+        Domain restriction: Product can be unpublished only from PUBLISHED state.
+      x-access:
+        roles: [owner, admin]
+      parameters:
+        - $ref: '#/components/parameters/ProductID'
+        - $ref: '#/components/parameters/XCompanyID'
+        - $ref: '#/components/parameters/XUserID'
+        - $ref: '#/components/parameters/XCorrelationID'
+        - $ref: '#/components/parameters/XCausationID'
+      responses:
+        '204':
+          description: Product unpublished
+        '403':
+          description: Access denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Product not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                product_not_found:
+                  value:
+                    code: PRODUCT_NOT_FOUND
+                    message: product not found
+        '409':
+          description: Invalid state transition
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                forbidden_transition:
+                  value:
+                    code: FORBIDDEN_STATE_TRANSITION
+                    message: product can be unpublished only from published state
+  /lots:
+    post:
+      tags: [Lots]
+      summary: CreateLot
+      operationId: CreateLot
+      description: |
+        Creates a Lot.
+        ID is generated by the server and returned in response.
+        `seller_company_id` is not accepted from the client and is derived from `X-Company-ID`.
+        Access: owner or admin.
+      x-access:
+        roles: [owner, admin]
+      parameters:
+        - $ref: '#/components/parameters/XCompanyID'
+        - $ref: '#/components/parameters/XUserID'
+        - $ref: '#/components/parameters/XCorrelationID'
+        - $ref: '#/components/parameters/XCausationID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateLotCommand'
+      responses:
+        '201':
+          description: Lot created
+          headers:
+            Location:
+              description: Relative URI of the created lot resource.
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateLotResult'
+        '400':
+          description: Invalid request body or field value
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Access denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Product not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                product_not_found:
+                  value:
+                    code: PRODUCT_NOT_FOUND
+                    message: product not found
+  /lots/{lotID}:
+    get:
+      tags: [Lots]
+      summary: GetLot
+      operationId: GetLot
+      description: |
+        Returns Lot read model data.
+        Access: owner of the lot or admin.
+      x-access:
+        roles: [owner, admin]
+      parameters:
+        - $ref: '#/components/parameters/LotID'
+        - $ref: '#/components/parameters/XCompanyID'
+        - $ref: '#/components/parameters/XUserID'
+        - $ref: '#/components/parameters/XCorrelationID'
+        - $ref: '#/components/parameters/XCausationID'
+      responses:
+        '200':
+          description: Lot found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LotView'
+        '403':
+          description: Access denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Lot not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                lot_not_found:
+                  value:
+                    code: LOT_NOT_FOUND
+                    message: lot not found
+  /lots/{lotID}/publish:
+    post:
+      tags: [Lots]
+      summary: PublishLot
+      operationId: PublishLot
+      description: |
+        Publishes a Lot.
+        Access: owner of the lot or admin.
+
+        Domain restrictions:
+        - Lot must be in DRAFT state.
+        - Product linked to the Lot must be in PUBLISHED state.
+        - `auction_id` must already be linked from Trading integration event.
+        - Publishing is forbidden if Product is not published.
+      x-access:
+        roles: [owner, admin]
+      parameters:
+        - $ref: '#/components/parameters/LotID'
+        - $ref: '#/components/parameters/XCompanyID'
+        - $ref: '#/components/parameters/XUserID'
+        - $ref: '#/components/parameters/XCorrelationID'
+        - $ref: '#/components/parameters/XCausationID'
+      responses:
+        '204':
+          description: Lot published
+        '403':
+          description: Access denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Lot or linked Product was not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                lot_not_found:
+                  value:
+                    code: LOT_NOT_FOUND
+                    message: lot not found
+                product_not_found:
+                  value:
+                    code: PRODUCT_NOT_FOUND
+                    message: product not found
+        '409':
+          description: Domain restriction violation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                publishing_rule_violation:
+                  value:
+                    code: PUBLISHING_RULE_VIOLATION
+                    message: lot cannot be published while product is not published
+                auction_id_required:
+                  value:
+                    code: AUCTION_ID_REQUIRED
+                    message: lot cannot be published before auction is linked
+                forbidden_transition:
+                  value:
+                    code: FORBIDDEN_STATE_TRANSITION
+                    message: lot can be published only from draft state
+  /lots/{lotID}/unpublish:
+    post:
+      tags: [Lots]
+      summary: UnpublishLot
+      operationId: UnpublishLot
+      description: |
+        Unpublishes (cancels) a Lot.
+        Access: owner of the lot or admin.
+        Domain restriction: Lot can be unpublished only from PUBLISHED state.
+      x-access:
+        roles: [owner, admin]
+      parameters:
+        - $ref: '#/components/parameters/LotID'
+        - $ref: '#/components/parameters/XCompanyID'
+        - $ref: '#/components/parameters/XUserID'
+        - $ref: '#/components/parameters/XCorrelationID'
+        - $ref: '#/components/parameters/XCausationID'
+      responses:
+        '204':
+          description: Lot unpublished
+        '403':
+          description: Access denied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Lot not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                lot_not_found:
+                  value:
+                    code: LOT_NOT_FOUND
+                    message: lot not found
+        '409':
+          description: Invalid state transition
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                forbidden_transition:
+                  value:
+                    code: FORBIDDEN_STATE_TRANSITION
+                    message: lot can be unpublished only from published state
+
+components:
+  parameters:
+    FishID:
+      name: fishID
+      in: path
+      required: true
+      schema:
+        type: string
+        minLength: 1
+    ProductID:
+      name: productID
+      in: path
+      required: true
+      schema:
+        type: string
+        minLength: 1
+    LotID:
+      name: lotID
+      in: path
+      required: true
+      schema:
+        type: string
+        minLength: 1
+    XCompanyID:
+      name: X-Company-ID
+      in: header
+      required: true
+      schema:
+        type: string
+        minLength: 1
+      description: |
+        Authenticated actor company.
+        Used for authorization and ownership checks.
+    XUserID:
+      name: X-User-ID
+      in: header
+      required: true
+      schema:
+        type: string
+        minLength: 1
+      description: Authenticated actor user.
+    XCorrelationID:
+      name: X-Correlation-ID
+      in: header
+      required: false
+      schema:
+        type: string
+      description: Correlation ID for tracing across services.
+    XCausationID:
+      name: X-Causation-ID
+      in: header
+      required: false
+      schema:
+        type: string
+      description: Causation ID for command chains.
+  schemas:
+    CreateFishCommand:
+      type: object
+      additionalProperties: false
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        description:
+          type: string
+    UpdateFishCommand:
+      type: object
+      additionalProperties: false
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        description:
+          type: string
+    CreateProductCommand:
+      type: object
+      additionalProperties: false
+      required: [fish_id, weight, unit, processing_type]
+      properties:
+        fish_id:
+          type: string
+          minLength: 1
+        weight:
+          type: number
+          format: double
+          exclusiveMinimum: 0
+        unit:
+          type: string
+          minLength: 1
+        size:
+          type: string
+        processing_type:
+          type: string
+          minLength: 1
+    UpdateProductCommand:
+      type: object
+      additionalProperties: false
+      required: [fish_id, weight, unit, processing_type]
+      properties:
+        fish_id:
+          type: string
+          minLength: 1
+        weight:
+          type: number
+          format: double
+          exclusiveMinimum: 0
+        unit:
+          type: string
+          minLength: 1
+        size:
+          type: string
+        processing_type:
+          type: string
+          minLength: 1
+    CreateLotCommand:
+      type: object
+      additionalProperties: false
+      required: [product_id, quantity, start_price, auction_starts_at]
+      properties:
+        product_id:
+          type: string
+          minLength: 1
+        photo:
+          type: string
+          description: Public photo URL or object storage key.
+        quantity:
+          type: number
+          format: double
+          exclusiveMinimum: 0
+        start_price:
+          type: integer
+          format: int64
+          minimum: 1
+          description: Price in whole rubles.
+        auction_starts_at:
+          type: string
+          format: date-time
+    CreateFishResult:
+      type: object
+      additionalProperties: false
+      required: [fish_id]
+      properties:
+        fish_id:
+          type: string
+    CreateProductResult:
+      type: object
+      additionalProperties: false
+      required: [product_id]
+      properties:
+        product_id:
+          type: string
+    CreateLotResult:
+      type: object
+      additionalProperties: false
+      required: [lot_id]
+      properties:
+        lot_id:
+          type: string
+    ProductStatus:
+      type: string
+      enum: [DRAFT, PUBLISHED, UNPUBLISHED]
+    ProductView:
+      type: object
+      additionalProperties: false
+      required:
+        - product_id
+        - fish_id
+        - weight
+        - unit
+        - processing_type
+        - status
+      properties:
+        product_id:
+          type: string
+        fish_id:
+          type: string
+        weight:
+          type: number
+          format: double
+        unit:
+          type: string
+        size:
+          type: string
+        processing_type:
+          type: string
+        status:
+          $ref: '#/components/schemas/ProductStatus'
+    LotStatus:
+      type: string
+      enum: [DRAFT, PUBLISHED, CLOSED, CANCELLED]
+    LotView:
+      type: object
+      additionalProperties: false
+      required:
+        - lot_id
+        - product_id
+        - seller_company_id
+        - quantity
+        - start_price
+        - current_price
+        - final_price
+        - status
+      properties:
+        lot_id:
+          type: string
+        product_id:
+          type: string
+        auction_id:
+          type: string
+          nullable: true
+        seller_company_id:
+          type: string
+        photo:
+          type: string
+          nullable: true
+          description: Public photo URL or object storage key.
+        quantity:
+          type: number
+          format: double
+        start_price:
+          type: integer
+          format: int64
+        current_price:
+          type: integer
+          format: int64
+        final_price:
+          type: integer
+          format: int64
+        status:
+          $ref: '#/components/schemas/LotStatus'
+    ErrorResponse:
+      type: object
+      additionalProperties: false
+      required: [code, message]
+      properties:
+        code:
+          $ref: '#/components/schemas/ErrorCode'
+        message:
+          type: string
+        correlation_id:
+          type: string
+          nullable: true
+        causation_id:
+          type: string
+          nullable: true
+    ErrorCode:
+      type: string
+      enum:
+        - MISSING_COMPANY_ID
+        - MISSING_USER_ID
+        - FORBIDDEN
+        - OWNER_MISMATCH
+        - INVALID_BODY
+        - INVALID_IDENTIFIER
+        - INVALID_ENUM_VALUE
+        - INVALID_UNIT
+        - INVALID_WEIGHT
+        - INVALID_QUANTITY
+        - INVALID_PRICE
+        - INVALID_SCHEDULE
+        - FISH_NOT_FOUND
+        - PRODUCT_NOT_FOUND
+        - LOT_NOT_FOUND
+        - UNIT_NOT_FOUND
+        - PROCESSING_TYPE_NOT_FOUND
+        - MODIFICATION_NOT_ALLOWED
+        - FORBIDDEN_STATE_TRANSITION
+        - PUBLISHING_RULE_VIOLATION
+        - AUCTION_ID_REQUIRED
+        - INTERNAL_ERROR
