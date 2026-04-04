@@ -65,3 +65,4 @@ Desktop.ini
 *log
 tmp/
 temp/
+test-log/*.log
