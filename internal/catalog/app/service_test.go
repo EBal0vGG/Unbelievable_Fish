@@ -38,6 +38,19 @@ func (noopTx) WithinTx(ctx context.Context, fn func(ctx context.Context) error) 
 	return fn(ctx)
 }
 
+type spyTx struct {
+	calls int
+	err   error
+}
+
+func (t *spyTx) WithinTx(ctx context.Context, fn func(ctx context.Context) error) error {
+	t.calls++
+	if t.err != nil {
+		return t.err
+	}
+	return fn(ctx)
+}
+
 type stubIDGenerator struct {
 	fishID    string
 	productID string
@@ -231,6 +244,37 @@ func TestCreateFishGeneratesID(t *testing.T) {
 	}
 }
 
+func TestCreateFishUsesNoopTransactionWhenNil(t *testing.T) {
+	fishRepo := newMemoryFishRepo()
+	unitRepo := newMemoryUnitRepo()
+	processingTypeRepo := newMemoryProcessingTypeRepo()
+	productRepo := newMemoryProductRepo()
+	lotRepo := newMemoryLotRepo()
+	outbox := &memoryOutbox{}
+
+	svc := NewCatalogService(
+		fishRepo,
+		unitRepo,
+		processingTypeRepo,
+		productRepo,
+		lotRepo,
+		outbox,
+		stubIDGenerator{fishID: "fish-generated"},
+		nil,
+	)
+
+	fishID, err := svc.CreateFish(context.Background(), CreateFishCommand{
+		Name:        "Cod",
+		Description: "desc",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if fishID != "fish-generated" {
+		t.Fatalf("expected generated fish id, got %s", fishID)
+	}
+}
+
 func TestCreateProductRequiresFish(t *testing.T) {
 	deps := newTestDeps()
 	seedRefs(deps, "kg", "frozen")
@@ -334,6 +378,51 @@ func TestCreateProductWritesOutbox(t *testing.T) {
 	}
 	if deps.outbox.Count() != 1 {
 		t.Fatalf("expected 1 outbox event, got %d", deps.outbox.Count())
+	}
+}
+
+func TestCreateProductUsesTransactionBoundary(t *testing.T) {
+	fishRepo := newMemoryFishRepo()
+	unitRepo := newMemoryUnitRepo()
+	processingTypeRepo := newMemoryProcessingTypeRepo()
+	productRepo := newMemoryProductRepo()
+	lotRepo := newMemoryLotRepo()
+	outbox := &memoryOutbox{}
+	tx := &spyTx{}
+
+	svc := NewCatalogService(
+		fishRepo,
+		unitRepo,
+		processingTypeRepo,
+		productRepo,
+		lotRepo,
+		outbox,
+		stubIDGenerator{productID: "prod-1"},
+		tx,
+	)
+
+	fish, err := catalog.NewFish("fish-1", "Cod", "desc")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if err := fishRepo.Save(context.Background(), fish); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	unitRepo.Add("kg")
+	processingTypeRepo.Add("frozen")
+
+	_, _, err = svc.CreateProduct(context.Background(), CreateProductCommand{
+		FishID:         "fish-1",
+		Weight:         10,
+		Unit:           "kg",
+		Size:           "M",
+		ProcessingType: catalog.ProcessingType("frozen"),
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if tx.calls != 1 {
+		t.Fatalf("expected WithinTx to be called once, got %d", tx.calls)
 	}
 }
 

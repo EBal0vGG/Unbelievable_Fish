@@ -31,6 +31,9 @@ func NewCatalogService(
 	if idGenerator == nil {
 		idGenerator = NewRandomIDGenerator()
 	}
+	if tx == nil {
+		tx = noopTransactionManager{}
+	}
 
 	return &CatalogService{
 		fishRepo:           fishRepo,

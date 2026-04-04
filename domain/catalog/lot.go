@@ -118,6 +118,12 @@ func (l *Lot) Status() LotStatus       { return l.status }
 func (l *Lot) StartPrice() int64       { return l.startPrice }
 func (l *Lot) CurPrice() int64         { return l.curPrice }
 func (l *Lot) FinalPrice() int64       { return l.finalPrice }
+func (l *Lot) AuctionStartsAt() time.Time {
+	if l.auctionSchedule == nil {
+		return time.Time{}
+	}
+	return l.auctionSchedule.startsAt.Time()
+}
 
 func (l *Lot) Publish(productIsPublished bool, product ProductSnapshot) ([]Event, error) {
 	if !l.canTransition(LotStatusPublished) {
