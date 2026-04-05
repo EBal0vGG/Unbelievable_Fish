@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/EBal0vGG/Unbelievable_Fish/domain/catalog"
+	"github.com/EBal0vGG/Unbelievable_Fish/internal/catalog/domain"
 	"github.com/EBal0vGG/Unbelievable_Fish/internal/catalog/app"
 )
 
@@ -28,7 +28,7 @@ func newPublishedLotForServiceTest(t *testing.T, lotID, auctionID string) *catal
 		"photo-key",
 		10,
 		100,
-		catalog.NewAuctionScheduleAt(time.Now().Add(time.Hour)),
+		catalog.NewAuctionScheduleAt(time.Now().Add(time.Hour), time.Hour),
 	)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -120,8 +120,8 @@ func TestCloseLotCommitsAggregateAndOutbox(t *testing.T) {
 	if len(store.outbox) != 1 {
 		t.Fatalf("expected 1 committed outbox message, got %d", len(store.outbox))
 	}
-	if store.outbox[0].eventType != "LotClosed" {
-		t.Fatalf("expected LotClosed event type, got %s", store.outbox[0].eventType)
+	if store.outbox[0].eventType != "catalog.LotClosed" {
+		t.Fatalf("expected catalog.LotClosed event type, got %s", store.outbox[0].eventType)
 	}
 	if store.outbox[0].aggregateID != "lot-ok" {
 		t.Fatalf("expected aggregate id lot-ok, got %s", store.outbox[0].aggregateID)

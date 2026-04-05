@@ -24,6 +24,7 @@ type integrationLotRecord struct {
 	finalPrice      int64
 	status          string
 	auctionStartsAt time.Time
+	auctionDurationMinutes int64
 }
 
 type integrationOutboxRecord struct {
@@ -34,6 +35,7 @@ type integrationOutboxRecord struct {
 	payload     []byte
 	occurredAt  time.Time
 	createdAt   time.Time
+	sourceContext string
 	publishedAt sql.NullTime
 }
 
@@ -121,7 +123,7 @@ func (c *integrationConn) ExecContext(_ context.Context, query string, args []dr
 }
 
 func (c *integrationConn) execLotInsert(args []driver.NamedValue) (driver.Result, error) {
-	if len(args) != 11 {
+	if len(args) != 12 {
 		return nil, errors.New("unexpected lot args length")
 	}
 
@@ -137,6 +139,7 @@ func (c *integrationConn) execLotInsert(args []driver.NamedValue) (driver.Result
 		finalPrice:      args[8].Value.(int64),
 		status:          args[9].Value.(string),
 		auctionStartsAt: args[10].Value.(time.Time),
+		auctionDurationMinutes: args[11].Value.(int64),
 	}
 
 	if c.txLots != nil {
@@ -151,7 +154,7 @@ func (c *integrationConn) execLotInsert(args []driver.NamedValue) (driver.Result
 }
 
 func (c *integrationConn) execOutboxInsert(args []driver.NamedValue) (driver.Result, error) {
-	if len(args) != 8 {
+	if len(args) != 13 {
 		return nil, errors.New("unexpected outbox args length")
 	}
 
@@ -168,6 +171,7 @@ func (c *integrationConn) execOutboxInsert(args []driver.NamedValue) (driver.Res
 		payload:     append([]byte(nil), payload...),
 		occurredAt:  args[5].Value.(time.Time),
 		createdAt:   args[6].Value.(time.Time),
+		sourceContext: args[11].Value.(string),
 		publishedAt: sql.NullTime{},
 	}
 
@@ -218,6 +222,7 @@ func (c *integrationConn) QueryContext(_ context.Context, query string, args []d
 			record.finalPrice,
 			record.status,
 			record.auctionStartsAt,
+			record.auctionDurationMinutes,
 		}},
 	}, nil
 }
@@ -297,6 +302,7 @@ func (integrationRows) Columns() []string {
 		"final_price",
 		"status",
 		"auction_starts_at",
+		"auction_duration_minutes",
 	}
 }
 

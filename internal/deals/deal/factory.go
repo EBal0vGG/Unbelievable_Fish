@@ -68,3 +68,56 @@ func (f *Factory) CreateFromProjection(
 
 	return deal, events, nil
 }
+
+// CreateFromSelection creates a deal using winner-selection data without projection state changes.
+func (f *Factory) CreateFromSelection(
+	auctionID string,
+	supplierID string,
+	snapshot ProductSnapshot,
+	winnerCompanyID string,
+	finalPrice int64,
+	wonAt time.Time,
+) (*Deal, []Event, error) {
+	if auctionID == "" {
+		return nil, nil, ErrAuctionIDRequired
+	}
+	if supplierID == "" {
+		return nil, nil, ErrSupplierIDRequired
+	}
+	if winnerCompanyID == "" {
+		return nil, nil, ErrWinnerCompanyRequired
+	}
+	if finalPrice <= 0 {
+		return nil, nil, ErrPriceMustBePositive
+	}
+	if wonAt.IsZero() {
+		return nil, nil, ErrCreatedAtRequired
+	}
+
+	item := &Deal{
+		id:              generateID(),
+		customerID:      winnerCompanyID,
+		supplierID:      supplierID,
+		auctionID:       auctionID,
+		quantity:        1,
+		unitPrice:       finalPrice,
+		status:          DealStatusPending,
+		typeName:        DealTypeAuction,
+		createdAt:       wonAt,
+		productSnapshot: snapshot,
+	}
+
+	events := []Event{
+		DealCreated{
+			DealID:          item.id,
+			AuctionID:       auctionID,
+			CustomerID:      winnerCompanyID,
+			SupplierID:      supplierID,
+			ProductSnapshot: snapshot,
+			FinalPrice:      finalPrice,
+			CreatedAt:       wonAt,
+		},
+	}
+
+	return item, events, nil
+}

@@ -20,6 +20,18 @@ type spyRepo struct {
 func (s *spyRepo) Load(ctx context.Context, id AuctionID) (*auction.Auction, error) {
 	s.loadCount++
 	*s.calls = append(*s.calls, "load")
+	if s.auction == nil {
+		return nil, ErrNotFound
+	}
+	return s.auction, nil
+}
+
+func (s *spyRepo) LoadForUpdate(ctx context.Context, id AuctionID) (*auction.Auction, error) {
+	s.loadCount++
+	*s.calls = append(*s.calls, "load_for_update")
+	if s.auction == nil {
+		return nil, ErrNotFound
+	}
 	return s.auction, nil
 }
 
@@ -71,12 +83,16 @@ func (s *spyBidRepo) TopBids(ctx context.Context, auctionID AuctionID) ([]auctio
 type spyOutbox struct {
 	calls     *[]string
 	saveCount int
-	lastSaved EventEnvelope
+	lastEvents []auction.Event
+	lastMeta   CommandMeta
 }
 
-func (s *spyOutbox) Save(ctx context.Context, envelope EventEnvelope) error {
+func (s *spyOutbox) Add(ctx context.Context, events []auction.Event) error {
 	s.saveCount++
-	s.lastSaved = envelope
+	s.lastEvents = events
+	if meta, ok := CommandMetaFromContext(ctx); ok {
+		s.lastMeta = meta
+	}
 	*s.calls = append(*s.calls, "outbox")
 	return nil
 }
@@ -139,10 +155,38 @@ func TestCreateAuctionSavesAggregate(t *testing.T) {
 	if err := uc.Execute(context.Background(), testMeta(), "lot-1", startsAt, endsAt); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	assertCalls(t, calls, []string{"save"})
+	assertCalls(t, calls, []string{"load", "save"})
 	assertCreatedAggregate(t, repo, "lot-1")
 	if outbox.saveCount != 0 {
 		t.Fatalf("expected no outbox save, got %d", outbox.saveCount)
+	}
+}
+
+func TestCreateAuctionIsIdempotentWhenAuctionExists(t *testing.T) {
+	logTest(t)
+	calls := []string{}
+	startsAt := time.Now().Add(-time.Hour)
+	endsAt := startsAt.Add(time.Hour)
+	existing, err := auction.NewAuction("gen-1", "lot-1", startsAt, endsAt)
+	if err != nil {
+		t.Fatalf("unexpected auction constructor error: %v", err)
+	}
+	repo := &spyRepo{calls: &calls, auction: existing}
+	bidRepo := &spyBidRepo{calls: &calls}
+	outbox := &spyOutbox{calls: &calls}
+	winners := &spyWinners{calls: &calls}
+	uow := &spyUOW{tx: &spyTx{repo: repo, bids: bidRepo, outbox: outbox, winners: winners}}
+
+	uc, err := NewCreateAuction(uow, fakeIDFactory{id: "gen-1"})
+	if err != nil {
+		t.Fatalf("unexpected constructor error: %v", err)
+	}
+	if err := uc.Execute(context.Background(), testMeta(), "lot-1", startsAt, endsAt); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	assertCalls(t, calls, []string{"load"})
+	if repo.saveCount != 0 {
+		t.Fatalf("expected no save, got %d", repo.saveCount)
 	}
 }
 
@@ -167,7 +211,7 @@ func TestPublishAuctionOrchestratesLoadSavePublish(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	logf(t, "calls=%v", calls)
-	assertCalls(t, calls, []string{"load", "save", "outbox"})
+	assertCalls(t, calls, []string{"load_for_update", "save", "outbox"})
 	assertSavedAggregate(t, repo)
 	assertOutbox(t, outbox, testMeta())
 }
@@ -196,7 +240,7 @@ func TestPlaceBidOrchestratesLoadSavePublish(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	logf(t, "calls=%v bid_saved_amount=%d", calls, bidRepo.lastSaved.Amount())
-	assertCalls(t, calls, []string{"load", "save_bid", "save", "outbox"})
+	assertCalls(t, calls, []string{"load_for_update", "save_bid", "save", "outbox"})
 	assertSavedAggregate(t, repo)
 	assertOutbox(t, outbox, testMeta())
 }
@@ -225,7 +269,7 @@ func TestCloseAuctionOrchestratesLoadSavePublish(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	logf(t, "calls=%v", calls)
-	assertCalls(t, calls, []string{"load", "top_bids", "winners", "save", "outbox"})
+	assertCalls(t, calls, []string{"load_for_update", "top_bids", "winners", "save", "outbox"})
 	assertSavedAggregate(t, repo)
 	assertOutbox(t, outbox, testMeta())
 }
@@ -252,9 +296,111 @@ func TestCancelAuctionOrchestratesLoadSavePublish(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	logf(t, "calls=%v", calls)
-	assertCalls(t, calls, []string{"load", "save", "outbox"})
+	assertCalls(t, calls, []string{"load_for_update", "save", "outbox"})
 	assertSavedAggregate(t, repo)
 	assertOutbox(t, outbox, testMeta())
+}
+
+func TestPlaceBidRejectsLowerAmount(t *testing.T) {
+	logTest(t)
+	calls := []string{}
+	startsAt := time.Now().Add(-time.Hour)
+	endsAt := startsAt.Add(time.Hour)
+	a, _ := auction.NewAuction("1", "lot-1", startsAt, endsAt)
+	_, _ = a.Publish()
+	repo := &spyRepo{auction: a, calls: &calls}
+	bidRepo := &spyBidRepo{calls: &calls}
+	outbox := &spyOutbox{calls: &calls}
+	winners := &spyWinners{calls: &calls}
+	uow := &spyUOW{tx: &spyTx{repo: repo, bids: bidRepo, outbox: outbox, winners: winners}}
+
+	uc, err := NewPlaceBid(uow)
+	if err != nil {
+		t.Fatalf("unexpected constructor error: %v", err)
+	}
+	placedAt := endsAt.Add(-time.Minute)
+	if err := uc.Execute(context.Background(), testMeta(), "1", 100, placedAt); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	err = uc.Execute(context.Background(), testMeta(), "1", 50, placedAt)
+	if err != auction.ErrBidTooLow {
+		t.Fatalf("expected ErrBidTooLow, got %v", err)
+	}
+}
+
+func TestPlaceBidRejectsAfterEnd(t *testing.T) {
+	logTest(t)
+	calls := []string{}
+	startsAt := time.Now().Add(-time.Hour)
+	endsAt := startsAt.Add(time.Hour)
+	a, _ := auction.NewAuction("1", "lot-1", startsAt, endsAt)
+	_, _ = a.Publish()
+	repo := &spyRepo{auction: a, calls: &calls}
+	bidRepo := &spyBidRepo{calls: &calls}
+	outbox := &spyOutbox{calls: &calls}
+	winners := &spyWinners{calls: &calls}
+	uow := &spyUOW{tx: &spyTx{repo: repo, bids: bidRepo, outbox: outbox, winners: winners}}
+
+	uc, err := NewPlaceBid(uow)
+	if err != nil {
+		t.Fatalf("unexpected constructor error: %v", err)
+	}
+	placedAt := endsAt.Add(time.Minute)
+	err = uc.Execute(context.Background(), testMeta(), "1", 100, placedAt)
+	if err != auction.ErrAuctionAlreadyEnded {
+		t.Fatalf("expected ErrAuctionAlreadyEnded, got %v", err)
+	}
+}
+
+func TestPublishAuctionRejectsAlreadyPublished(t *testing.T) {
+	logTest(t)
+	calls := []string{}
+	startsAt := time.Now().Add(-time.Hour)
+	endsAt := startsAt.Add(time.Hour)
+	a, _ := auction.NewAuction("1", "lot-1", startsAt, endsAt)
+	_, _ = a.Publish()
+	repo := &spyRepo{auction: a, calls: &calls}
+	bidRepo := &spyBidRepo{calls: &calls}
+	outbox := &spyOutbox{calls: &calls}
+	winners := &spyWinners{calls: &calls}
+	uow := &spyUOW{tx: &spyTx{repo: repo, bids: bidRepo, outbox: outbox, winners: winners}}
+
+	uc, err := NewPublishAuction(uow)
+	if err != nil {
+		t.Fatalf("unexpected constructor error: %v", err)
+	}
+	err = uc.Execute(context.Background(), testMeta(), "1")
+	if err != auction.ErrAuctionCannotBePublished {
+		t.Fatalf("expected ErrAuctionCannotBePublished, got %v", err)
+	}
+}
+
+func TestCloseAuctionRejectsAlreadyClosed(t *testing.T) {
+	logTest(t)
+	calls := []string{}
+	startsAt := time.Now().Add(-time.Hour)
+	endsAt := startsAt.Add(time.Hour)
+	a, _ := auction.NewAuction("1", "lot-1", startsAt, endsAt)
+	_, _ = a.Publish()
+	bid, _ := auction.NewBid("bidder-1", 100, time.Now())
+	_, _ = a.PlaceBid(bid)
+	repo := &spyRepo{auction: a, calls: &calls}
+	bidRepo := &spyBidRepo{calls: &calls, topBids: []auction.Bid{bid}}
+	outbox := &spyOutbox{calls: &calls}
+	winners := &spyWinners{calls: &calls}
+	uow := &spyUOW{tx: &spyTx{repo: repo, bids: bidRepo, outbox: outbox, winners: winners}}
+
+	uc, err := NewCloseAuction(uow)
+	if err != nil {
+		t.Fatalf("unexpected constructor error: %v", err)
+	}
+	if err := uc.Execute(context.Background(), testMeta(), "1"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	err = uc.Execute(context.Background(), testMeta(), "1")
+	if err != auction.ErrCannotCloseAuction {
+		t.Fatalf("expected ErrCannotCloseAuction, got %v", err)
+	}
 }
 
 func assertCalls(t *testing.T, got, want []string) {
@@ -269,10 +415,10 @@ func assertOutbox(t *testing.T, outbox *spyOutbox, meta CommandMeta) {
 	if outbox.saveCount == 0 {
 		t.Fatal("expected outbox to be saved")
 	}
-	if outbox.lastSaved.Meta.CorrelationID != meta.CorrelationID {
-		t.Fatalf("expected correlation id %s, got %s", meta.CorrelationID, outbox.lastSaved.Meta.CorrelationID)
+	if outbox.lastMeta.CorrelationID != meta.CorrelationID {
+		t.Fatalf("expected correlation id %s, got %s", meta.CorrelationID, outbox.lastMeta.CorrelationID)
 	}
-	if len(outbox.lastSaved.Events) == 0 {
+	if len(outbox.lastEvents) == 0 {
 		t.Fatal("expected outbox events to be non-empty")
 	}
 }

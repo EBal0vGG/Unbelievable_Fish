@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"unbelievable_fish/internal/deals/app"
-	"unbelievable_fish/internal/deals/deal"
-	httpapi "unbelievable_fish/internal/deals/http"
+	"github.com/EBal0vGG/Unbelievable_Fish/internal/deals/app"
+	"github.com/EBal0vGG/Unbelievable_Fish/internal/deals/deal"
+	httpapi "github.com/EBal0vGG/Unbelievable_Fish/internal/deals/http"
 )
 
 type spyDealRepo struct {
@@ -61,9 +61,23 @@ func (s *spyProjectionRepo) GetByAuctionID(ctx context.Context, auctionID string
 	return s.projection, nil
 }
 
-type spyPublisher struct{}
+type spySelectionRepo struct{}
 
-func (spyPublisher) Publish(context.Context, []deal.Event) error { return nil }
+func (spySelectionRepo) Save(ctx context.Context, item *deal.WinnerSelection) error {
+	_ = ctx
+	_ = item
+	return nil
+}
+
+func (spySelectionRepo) GetByAuctionID(ctx context.Context, auctionID string) (*deal.WinnerSelection, error) {
+	_ = ctx
+	_ = auctionID
+	return nil, deal.ErrSelectionNotFound
+}
+
+type spyOutbox struct{}
+
+func (spyOutbox) Add(context.Context, []deal.Event) error { return nil }
 
 func TestCreateProjectionHandlerSuccess(t *testing.T) {
 	logTest(t)
@@ -96,7 +110,12 @@ func TestCreateProjectionHandlerSuccess(t *testing.T) {
 func TestConfirmDealHandlerMissingCompanyID(t *testing.T) {
 	logTest(t)
 	repo := &spyDealRepo{deal: createPendingDeal(t)}
-	h := NewConfirmDealHandler(app.NewConfirmDeal(repo, spyPublisher{}))
+	uow := app.NewSimpleUnitOfWork(repo, &spyProjectionRepo{}, spySelectionRepo{}, spyOutbox{})
+	uc, err := app.NewConfirmDeal(uow)
+	if err != nil {
+		t.Fatalf("unexpected constructor error: %v", err)
+	}
+	h := NewConfirmDealHandler(uc)
 
 	req := httptest.NewRequest(http.MethodPost, "/deals/"+repo.deal.ID()+"/confirm", nil)
 	req.Header.Set("X-User-ID", "user-1")
@@ -115,7 +134,12 @@ func TestCreateDealHandlerInvalidJSON(t *testing.T) {
 	logTest(t)
 	repo := &spyDealRepo{}
 	projections := &spyProjectionRepo{}
-	h := NewCreateDealFromAuctionWonHandler(app.NewCreateDealFromAuctionWon(repo, projections, spyPublisher{}))
+	uow := app.NewSimpleUnitOfWork(repo, projections, spySelectionRepo{}, spyOutbox{})
+	uc, err := app.NewCreateDealSelectionFromAuctionWon(uow)
+	if err != nil {
+		t.Fatalf("unexpected constructor error: %v", err)
+	}
+	h := NewCreateDealFromAuctionWonHandler(uc)
 
 	req := httptest.NewRequest(http.MethodPost, "/deals/from-auction-won", bytes.NewBufferString("{"))
 	req.Header.Set("X-Company-ID", "company-1")

@@ -42,6 +42,7 @@ var (
 	ErrProjectionRequired  = errors.New("deal: projection is required")
 	ErrProjectionNotActive = errors.New("deal: projection is not active")
 	ErrProjectionNotFound  = errors.New("deal: projection not found")
+	ErrSelectionNotFound   = errors.New("deal: winner selection not found")
 
 	// Удаленные ошибки
 	// ErrOnlyDraftCanBeCompleted    = errors.New("deal: only draft deals can be completed from auction")

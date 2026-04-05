@@ -81,6 +81,7 @@ pure and infrastructure-agnostic.
 ```go
 type AuctionRepository interface {
     Load(ctx context.Context, id AuctionID) (*auction.Auction, error)
+    LoadForUpdate(ctx context.Context, id AuctionID) (*auction.Auction, error)
     Save(ctx context.Context, a *auction.Auction) error
 }
 ```
@@ -100,12 +101,12 @@ The domain has no knowledge of repositories or storage mechanisms.
 
 ## Event Publishing
 
-The application layer publishes domain events returned by aggregates
-via the `EventPublisher` interface.
+The application layer persists domain events to the **transactional outbox**
+inside the same `UnitOfWork` transaction that saves the aggregate state.
 
 ```go
-type EventPublisher interface {
-    Publish(ctx context.Context, events []auction.Event) error
+type OutboxRepository interface {
+    Add(ctx context.Context, events []auction.Event) error
 }
 ```
 
@@ -121,8 +122,8 @@ The application layer does not depend on any specific implementation.
 ---
 
 
-Слой приложения публикует доменные события,
-возвращаемые агрегатами, через интерфейс `EventPublisher`.
+Слой приложения сохраняет доменные события,
+возвращаемые агрегатами, через интерфейс outbox.
 
 Реализация publisher может быть любой:
 

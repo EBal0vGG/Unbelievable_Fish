@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/EBal0vGG/Unbelievable_Fish/domain/catalog"
+	"github.com/EBal0vGG/Unbelievable_Fish/internal/catalog/domain"
 )
 
 func TestOutboxRepositoryWorksOutsideTransaction(t *testing.T) {
@@ -23,8 +23,8 @@ func TestOutboxRepositoryWorksOutsideTransaction(t *testing.T) {
 	if len(store.outbox) != 1 {
 		t.Fatalf("expected 1 outbox message, got %d", len(store.outbox))
 	}
-	if store.outbox[0].eventType != "LotClosed" {
-		t.Fatalf("expected event type LotClosed, got %s", store.outbox[0].eventType)
+	if store.outbox[0].eventType != "catalog.LotClosed" {
+		t.Fatalf("expected event type catalog.LotClosed, got %s", store.outbox[0].eventType)
 	}
 	if store.outbox[0].aggregateID != "lot-1" {
 		t.Fatalf("expected aggregate id lot-1, got %s", store.outbox[0].aggregateID)

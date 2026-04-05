@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/EBal0vGG/Unbelievable_Fish/domain/catalog"
+	"github.com/EBal0vGG/Unbelievable_Fish/internal/catalog/domain"
 	"github.com/EBal0vGG/Unbelievable_Fish/internal/catalog/app"
 )
 
@@ -21,17 +21,18 @@ type lotStore struct {
 }
 
 type lotRecord struct {
-	lotID           string
-	productID       string
-	auctionID       sql.NullString
-	sellerCompanyID string
-	photo           sql.NullString
-	quantity        float64
-	startPrice      int64
-	curPrice        int64
-	finalPrice      int64
-	status          string
-	auctionStartsAt time.Time
+	lotID                  string
+	productID              string
+	auctionID              sql.NullString
+	sellerCompanyID        string
+	photo                  sql.NullString
+	quantity               float64
+	startPrice             int64
+	curPrice               int64
+	finalPrice             int64
+	status                 string
+	auctionStartsAt         time.Time
+	auctionDurationMinutes int64
 }
 
 func cloneRecords(src map[string]lotRecord) map[string]lotRecord {
@@ -89,7 +90,7 @@ func (c *lotRepoConn) BeginTx(context.Context, driver.TxOptions) (driver.Tx, err
 }
 
 func (c *lotRepoConn) ExecContext(_ context.Context, _ string, args []driver.NamedValue) (driver.Result, error) {
-	if len(args) != 11 {
+	if len(args) != 12 {
 		return nil, errors.New("unexpected args length")
 	}
 
@@ -105,6 +106,7 @@ func (c *lotRepoConn) ExecContext(_ context.Context, _ string, args []driver.Nam
 		finalPrice:      args[8].Value.(int64),
 		status:          args[9].Value.(string),
 		auctionStartsAt: args[10].Value.(time.Time),
+		auctionDurationMinutes: args[11].Value.(int64),
 	}
 
 	if c.txStore != nil {
@@ -151,6 +153,7 @@ func (c *lotRepoConn) QueryContext(_ context.Context, query string, args []drive
 			record.finalPrice,
 			record.status,
 			record.auctionStartsAt,
+			record.auctionDurationMinutes,
 		}},
 	}, nil
 }
@@ -224,6 +227,7 @@ func (lotRepoRows) Columns() []string {
 		"final_price",
 		"status",
 		"auction_starts_at",
+		"auction_duration_minutes",
 	}
 }
 
@@ -283,7 +287,7 @@ func newDraftLot(t *testing.T, lotID string) *catalog.Lot {
 		"photo-key",
 		10.5,
 		100,
-		catalog.NewAuctionScheduleAt(time.Now().Add(time.Hour)),
+		catalog.NewAuctionScheduleAt(time.Now().Add(time.Hour), time.Hour),
 	)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)

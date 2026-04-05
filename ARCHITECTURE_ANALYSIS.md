@@ -1,6 +1,6 @@
 
 **Project Map**  
-- `domain/catalog`: доменная модель Catalog (Fish, Product, Lot), события, FSM, ошибки, тесты.  
+- `internal/catalog/domain`: доменная модель Catalog (Fish, Product, Lot), события, FSM, ошибки, тесты.  
 - `internal/catalog/app`: application/use case слой Catalog, порты репозиториев, тесты.  
 - `migrations`: минимальные DDL/seed справочников (fish, units, processing_types).  
 - Инфраструктура (реализации репозиториев, outbox, брокер, HTTP handlers/consumers) отсутствует.  
@@ -13,7 +13,7 @@
 
 ---
 
-**Catalog Domain (domain/catalog)**
+**Catalog Domain (internal/catalog/domain)**
 
 **Fish (Entity)**  
 - Поля: `fishID`, `name`, `description`.  
@@ -62,7 +62,7 @@
 
 ---
 
-**Catalog Domain Events (domain/catalog/events.go)**  
+**Catalog Domain Events (internal/catalog/domain/events.go)**  
 - `ProductCreated`, `ProductUpdated`, `ProductPublished`, `ProductUnpublished`.  
 - `LotCreated`, `LotPublished`, `LotUnpublished`, `LotClosed`.  
 - `LotAuctionLinked` — существует, но в коде не используется.  
@@ -73,7 +73,7 @@
 
 ---
 
-**FSM & Invariants (domain/catalog/state.go, transitions.go)**  
+**FSM & Invariants (internal/catalog/domain/state.go, transitions.go)**  
 - ProductStatus: `DRAFT`, `PUBLISHED`, `UNPUBLISHED`.  
 - LotStatus: `DRAFT`, `PUBLISHED`, `CLOSED`, `CANCELLED`.  
 - `lotTransitions` используется в `Lot.canTransition`.  
@@ -319,7 +319,7 @@ Event‑flow: Trading event → consumer → use case → домен → save �
 Полный набор Catalog use cases: `Create/Update Fish`, `Create/Update/Publish/Unpublish Product`, `Create/AssignAuctionID/Publish/Unpublish/Close Lot`, `HandleAuctionWon/BidPlaced/AuctionClosed/AuctionCancelled`.  
 
 **E. Противоречия / слабые места / архитектурные риски**  
-1. `domain/catalog/README.md` устарел: описывает `LotSold/MarkSold/SOLD`, которых в коде нет.  
+1. `internal/catalog/domain/README.md` устарел: описывает `LotSold/MarkSold/SOLD`, которых в коде нет.  
 2. `ProductStatusUnpublished` существует, но `Unpublish` возвращает в `DRAFT`; статус `UNPUBLISHED` недостижим.  
 3. `productTransitions` объявлен, но нигде не используется (FSM не единообразен).  
 4. `LotAuctionLinked` событие объявлено, но нигде не эмитится и не используется.  
@@ -337,4 +337,4 @@ Event‑flow: Trading event → consumer → use case → домен → save �
 ---
 
 **go test ./...**  
-Проходит: `ok` для `domain/catalog` и `internal/catalog/app`.
+Проходит: `ok` для `internal/catalog/domain` и `internal/catalog/app`.

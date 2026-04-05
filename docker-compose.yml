@@ -1,0 +1,121 @@
+services:
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: fish
+      POSTGRES_PASSWORD: fish
+      POSTGRES_DB: fish
+    ports:
+      - "5433:5432"
+    volumes:
+      - fish_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fish -d fish"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+      start_period: 5s
+
+  migrate:
+    build:
+      context: .
+      args:
+        SERVICE: migrate
+    environment:
+      MIGRATIONS_DIR: /migrations
+      PGHOST: postgres
+      PGUSER: fish
+      PGPASSWORD: fish
+      PGDATABASE: fish
+      PGPORT: "5432"
+      PGSSLMODE: disable
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  catalog:
+    build:
+      context: .
+      args:
+        SERVICE: catalog
+    environment:
+      PGHOST: postgres
+      PGUSER: fish
+      PGPASSWORD: fish
+      PGDATABASE: fish
+      PGPORT: "5432"
+      PGSSLMODE: disable
+      CATALOG_PORT: "8081"
+    ports:
+      - "8081:8081"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
+  trading:
+    build:
+      context: .
+      args:
+        SERVICE: trading
+    environment:
+      PGHOST: postgres
+      PGUSER: fish
+      PGPASSWORD: fish
+      PGDATABASE: fish
+      PGPORT: "5432"
+      PGSSLMODE: disable
+      TRADING_PORT: "8082"
+    ports:
+      - "8082:8082"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
+  deals:
+    build:
+      context: .
+      args:
+        SERVICE: deals
+    environment:
+      PGHOST: postgres
+      PGUSER: fish
+      PGPASSWORD: fish
+      PGDATABASE: fish
+      PGPORT: "5432"
+      PGSSLMODE: disable
+      DEALS_PORT: "8083"
+    ports:
+      - "8083:8083"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
+  integration:
+    build:
+      context: .
+      args:
+        SERVICE: integration
+    environment:
+      PGHOST: postgres
+      PGUSER: fish
+      PGPASSWORD: fish
+      PGDATABASE: fish
+      PGPORT: "5432"
+      PGSSLMODE: disable
+      AUCTION_CLOSE_INTERVAL_SEC: "5"
+      AUCTION_CLOSE_BATCH: "100"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
+volumes:
+  fish_pgdata:

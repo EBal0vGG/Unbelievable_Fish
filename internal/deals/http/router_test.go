@@ -1,18 +1,16 @@
 package httpapi_test
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
 
-	"unbelievable_fish/internal/deals/app"
-	"unbelievable_fish/internal/deals/deal"
-	httpapi "unbelievable_fish/internal/deals/http"
-	"unbelievable_fish/internal/deals/http/handler"
+	"github.com/EBal0vGG/Unbelievable_Fish/internal/deals/app"
+	"github.com/EBal0vGG/Unbelievable_Fish/internal/deals/deal"
+	httpapi "github.com/EBal0vGG/Unbelievable_Fish/internal/deals/http"
+	"github.com/EBal0vGG/Unbelievable_Fish/internal/deals/http/handler"
 )
 
 type spyDealRepo struct {
@@ -53,14 +51,28 @@ func (s *spyProjectionRepo) GetByAuctionID(ctx context.Context, auctionID string
 	return s.projection, nil
 }
 
-type spyPublisher struct {
-	publishCount int
+type spySelectionRepo struct{}
+
+func (spySelectionRepo) Save(ctx context.Context, item *deal.WinnerSelection) error {
+	_ = ctx
+	_ = item
+	return nil
 }
 
-func (s *spyPublisher) Publish(ctx context.Context, events []deal.Event) error {
+func (spySelectionRepo) GetByAuctionID(ctx context.Context, auctionID string) (*deal.WinnerSelection, error) {
+	_ = ctx
+	_ = auctionID
+	return nil, deal.ErrSelectionNotFound
+}
+
+type spyOutbox struct {
+	addCount int
+}
+
+func (s *spyOutbox) Add(ctx context.Context, events []deal.Event) error {
 	_ = ctx
 	_ = events
-	s.publishCount++
+	s.addCount++
 	return nil
 }
 
@@ -74,52 +86,131 @@ func TestCommandFlowSmoke(t *testing.T) {
 		100,
 		now.Add(-time.Hour),
 	)
+	factory := deal.NewFactory()
+	createdDeal, _, err := factory.CreateFromProjection(projection, "buyer-1", 120, now)
+	if err != nil {
+		t.Fatalf("unexpected factory error: %v", err)
+	}
 	dealRepo := &spyDealRepo{}
+	dealRepo.deal = createdDeal
 	projectionRepo := &spyProjectionRepo{projection: projection}
-	publisher := &spyPublisher{}
+	outbox := &spyOutbox{}
+	uow := app.NewSimpleUnitOfWork(dealRepo, projectionRepo, spySelectionRepo{}, outbox)
 
-	createDealUC := app.NewCreateDealFromAuctionWon(dealRepo, projectionRepo, publisher)
-	confirmUC := app.NewConfirmDeal(dealRepo, publisher)
+	confirmUC, err := app.NewConfirmDeal(uow)
+	if err != nil {
+		t.Fatalf("unexpected constructor error: %v", err)
+	}
 
 	router := httpapi.NewRouter(
-		handler.NewCreateProjectionHandler(app.NewCreateProjection(projectionRepo)),
 		handler.NewGetProjectionByAuctionIDHandler(app.NewGetProjectionByAuctionID(projectionRepo)),
-		handler.NewCreateDealFromAuctionWonHandler(createDealUC),
 		handler.NewGetDealByIDHandler(app.NewGetDealByID(dealRepo)),
 		handler.NewGetDealByAuctionIDHandler(app.NewGetDealByAuctionID(dealRepo)),
 		handler.NewConfirmDealHandler(confirmUC),
-		handler.NewPrepareContractHandler(app.NewPrepareContract(dealRepo, publisher)),
-		handler.NewSignContractHandler(app.NewSignContract(dealRepo, publisher)),
-		handler.NewRequestPaymentHandler(app.NewRequestPayment(dealRepo, publisher)),
-		handler.NewMarkDealPaidHandler(app.NewMarkDealPaid(dealRepo, publisher)),
-		handler.NewRequestShipmentHandler(app.NewRequestShipment(dealRepo, publisher)),
-		handler.NewMarkDealShippedHandler(app.NewMarkDealShipped(dealRepo, publisher)),
-		handler.NewCompleteDealHandler(app.NewCompleteDeal(dealRepo, publisher)),
-		handler.NewCancelDealHandler(app.NewCancelDeal(dealRepo, publisher)),
-		handler.NewUpdateDealPriceHandler(app.NewUpdateDealPrice(dealRepo, publisher)),
+		handler.NewPrepareContractHandler(mustNewPrepareContract(t, uow)),
+		handler.NewSignContractHandler(mustNewSignContract(t, uow)),
+		handler.NewRequestPaymentHandler(mustNewRequestPayment(t, uow)),
+		handler.NewMarkDealPaidHandler(mustNewMarkDealPaid(t, uow)),
+		handler.NewRequestShipmentHandler(mustNewRequestShipment(t, uow)),
+		handler.NewMarkDealShippedHandler(mustNewMarkDealShipped(t, uow)),
+		handler.NewCompleteDealHandler(mustNewCompleteDeal(t, uow)),
+		handler.NewCancelDealHandler(mustNewCancelDeal(t, uow)),
+		handler.NewUpdateDealPriceHandler(mustNewUpdateDealPrice(t, uow)),
 	)
 
-	body, _ := json.Marshal(httpapi.CreateDealFromAuctionWonRequest{
-		AuctionID:       "auc-1",
-		WinnerCompanyID: "buyer-1",
-		FinalPrice:      120,
-		WonAt:           now,
-	})
-	req := httptest.NewRequest(http.MethodPost, "/deals/from-auction-won", bytes.NewReader(body))
+	req := httptest.NewRequest(http.MethodPost, "/deals/"+createdDeal.ID()+"/confirm", nil)
 	req.Header.Set("X-Company-ID", "company-1")
 	req.Header.Set("X-User-ID", "user-1")
 	rec := httptest.NewRecorder()
 
 	router.ServeHTTP(rec, req)
-	logf(t, "status=%d publish_count=%d", rec.Code, publisher.publishCount)
+	logf(t, "status=%d outbox_count=%d", rec.Code, outbox.addCount)
 
 	if rec.Code != http.StatusAccepted {
 		t.Fatalf("expected status %d, got %d", http.StatusAccepted, rec.Code)
 	}
-	if dealRepo.deal == nil {
-		t.Fatal("expected deal to be saved")
+	if outbox.addCount != 1 {
+		t.Fatalf("expected outbox count 1, got %d", outbox.addCount)
 	}
-	if publisher.publishCount != 1 {
-		t.Fatalf("expected publish count 1, got %d", publisher.publishCount)
+}
+
+func mustNewPrepareContract(t *testing.T, uow app.UnitOfWork) *app.PrepareContract {
+	t.Helper()
+	uc, err := app.NewPrepareContract(uow)
+	if err != nil {
+		t.Fatalf("prepare contract constructor error: %v", err)
 	}
+	return uc
+}
+
+func mustNewSignContract(t *testing.T, uow app.UnitOfWork) *app.SignContract {
+	t.Helper()
+	uc, err := app.NewSignContract(uow)
+	if err != nil {
+		t.Fatalf("sign contract constructor error: %v", err)
+	}
+	return uc
+}
+
+func mustNewRequestPayment(t *testing.T, uow app.UnitOfWork) *app.RequestPayment {
+	t.Helper()
+	uc, err := app.NewRequestPayment(uow)
+	if err != nil {
+		t.Fatalf("request payment constructor error: %v", err)
+	}
+	return uc
+}
+
+func mustNewMarkDealPaid(t *testing.T, uow app.UnitOfWork) *app.MarkDealPaid {
+	t.Helper()
+	uc, err := app.NewMarkDealPaid(uow)
+	if err != nil {
+		t.Fatalf("mark paid constructor error: %v", err)
+	}
+	return uc
+}
+
+func mustNewRequestShipment(t *testing.T, uow app.UnitOfWork) *app.RequestShipment {
+	t.Helper()
+	uc, err := app.NewRequestShipment(uow)
+	if err != nil {
+		t.Fatalf("request shipment constructor error: %v", err)
+	}
+	return uc
+}
+
+func mustNewMarkDealShipped(t *testing.T, uow app.UnitOfWork) *app.MarkDealShipped {
+	t.Helper()
+	uc, err := app.NewMarkDealShipped(uow)
+	if err != nil {
+		t.Fatalf("mark shipped constructor error: %v", err)
+	}
+	return uc
+}
+
+func mustNewCompleteDeal(t *testing.T, uow app.UnitOfWork) *app.CompleteDeal {
+	t.Helper()
+	uc, err := app.NewCompleteDeal(uow)
+	if err != nil {
+		t.Fatalf("complete deal constructor error: %v", err)
+	}
+	return uc
+}
+
+func mustNewCancelDeal(t *testing.T, uow app.UnitOfWork) *app.CancelDeal {
+	t.Helper()
+	uc, err := app.NewCancelDeal(uow)
+	if err != nil {
+		t.Fatalf("cancel deal constructor error: %v", err)
+	}
+	return uc
+}
+
+func mustNewUpdateDealPrice(t *testing.T, uow app.UnitOfWork) *app.UpdateDealPrice {
+	t.Helper()
+	uc, err := app.NewUpdateDealPrice(uow)
+	if err != nil {
+		t.Fatalf("update price constructor error: %v", err)
+	}
+	return uc
 }

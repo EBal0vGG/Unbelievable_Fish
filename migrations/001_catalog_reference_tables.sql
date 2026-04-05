@@ -12,5 +12,7 @@ CREATE TABLE IF NOT EXISTS processing_types (
 	code TEXT PRIMARY KEY
 );
 
-INSERT INTO units (code) VALUES ('kg'), ('g'), ('ton');
-INSERT INTO processing_types (code) VALUES ('frozen'), ('chilled'), ('live');
+INSERT INTO units (code) VALUES ('kg'), ('g'), ('ton')
+ON CONFLICT (code) DO NOTHING;
+INSERT INTO processing_types (code) VALUES ('frozen'), ('chilled'), ('live')
+ON CONFLICT (code) DO NOTHING;

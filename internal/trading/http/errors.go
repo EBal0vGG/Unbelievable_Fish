@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/EBal0vGG/Unbelievable_Fish/internal/trading/app"
 	"github.com/EBal0vGG/Unbelievable_Fish/internal/trading/auction"
 )
 
@@ -51,6 +52,8 @@ func MapError(err error) HTTPError {
 		return HTTPError{http.StatusBadRequest, "INVALID_BID", "invalid bid"}
 	case errors.Is(err, auction.ErrInvalidSchedule):
 		return HTTPError{http.StatusBadRequest, "INVALID_SCHEDULE", "invalid auction schedule"}
+	case errors.Is(err, app.ErrNotFound):
+		return HTTPError{http.StatusNotFound, "AUCTION_NOT_FOUND", "auction not found"}
 	default:
 		return HTTPError{http.StatusInternalServerError, "INTERNAL_ERROR", "internal error"}
 	}

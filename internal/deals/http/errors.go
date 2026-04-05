@@ -4,8 +4,8 @@ import (
 	"errors"
 	"net/http"
 
-	"unbelievable_fish/internal/deals/app"
-	"unbelievable_fish/internal/deals/deal"
+	"github.com/EBal0vGG/Unbelievable_Fish/internal/deals/app"
+	"github.com/EBal0vGG/Unbelievable_Fish/internal/deals/deal"
 )
 
 var (
@@ -36,6 +36,7 @@ func MapError(err error) HTTPError {
 	case errors.Is(err, app.ErrAuctionIDRequired),
 		errors.Is(err, app.ErrDealIDRequired),
 		errors.Is(err, app.ErrWinnerCompanyRequired),
+		errors.Is(err, app.ErrWinnerCandidatesRequired),
 		errors.Is(err, app.ErrFinalPriceRequired),
 		errors.Is(err, app.ErrPublishedAtRequired),
 		errors.Is(err, app.ErrWonAtRequired),
@@ -81,6 +82,8 @@ func MapError(err error) HTTPError {
 		errors.Is(err, deal.ErrProjectionRequired),
 		errors.Is(err, deal.ErrProjectionNotActive):
 		return HTTPError{http.StatusConflict, "INVALID_STATE", "invalid state transition"}
+	case errors.Is(err, app.ErrNoAvailableWinner):
+		return HTTPError{http.StatusConflict, "NO_AVAILABLE_WINNER", "no available winner candidates"}
 	default:
 		return HTTPError{http.StatusInternalServerError, "INTERNAL_ERROR", "internal error"}
 	}

@@ -23,6 +23,17 @@ type spyRepo struct {
 
 func (s *spyRepo) Load(ctx context.Context, id app.AuctionID) (*auction.Auction, error) {
 	s.loadCount++
+	if s.auction == nil {
+		return nil, app.ErrNotFound
+	}
+	return s.auction, nil
+}
+
+func (s *spyRepo) LoadForUpdate(ctx context.Context, id app.AuctionID) (*auction.Auction, error) {
+	s.loadCount++
+	if s.auction == nil {
+		return nil, app.ErrNotFound
+	}
 	return s.auction, nil
 }
 
@@ -49,7 +60,7 @@ type spyOutbox struct {
 	saveCount int
 }
 
-func (s *spyOutbox) Save(ctx context.Context, envelope app.EventEnvelope) error {
+func (s *spyOutbox) Add(ctx context.Context, events []auction.Event) error {
 	s.saveCount++
 	return nil
 }

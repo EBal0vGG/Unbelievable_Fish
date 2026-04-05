@@ -3,7 +3,7 @@ package httpapi
 import (
 	"time"
 
-	"unbelievable_fish/internal/deals/deal"
+	"github.com/EBal0vGG/Unbelievable_Fish/internal/deals/deal"
 )
 
 type CreateProjectionRequest struct {
@@ -54,13 +54,16 @@ type UpdateDealPriceRequest struct {
 }
 
 type ProductSnapshotDTO struct {
-	ProductID     string  `json:"product_id"`
-	Name          string  `json:"name"`
-	Description   string  `json:"description"`
-	Category      string  `json:"category"`
-	Weight        float64 `json:"weight"`
-	Volume        float64 `json:"volume"`
-	OriginCountry string  `json:"origin_country"`
+	ProductID      string  `json:"product_id"`
+	Name           string  `json:"name"`
+	Description    string  `json:"description"`
+	Category       string  `json:"category"`
+	Weight         float64 `json:"weight"`
+	Unit           string  `json:"unit"`
+	Size           string  `json:"size"`
+	ProcessingType string  `json:"processing_type"`
+	Volume         float64 `json:"volume"`
+	OriginCountry  string  `json:"origin_country"`
 }
 
 type ContractInfoDTO struct {
@@ -106,13 +109,16 @@ type ErrorResponse struct {
 
 func (d ProductSnapshotDTO) ToDomain() deal.ProductSnapshot {
 	return deal.ProductSnapshot{
-		ProductID:     d.ProductID,
-		Name:          d.Name,
-		Description:   d.Description,
-		Category:      d.Category,
-		Weight:        d.Weight,
-		Volume:        d.Volume,
-		OriginCountry: d.OriginCountry,
+		ProductID:      d.ProductID,
+		Name:           d.Name,
+		Description:    d.Description,
+		Category:       d.Category,
+		Weight:         d.Weight,
+		Unit:           d.Unit,
+		Size:           d.Size,
+		ProcessingType: d.ProcessingType,
+		Volume:         d.Volume,
+		OriginCountry:  d.OriginCountry,
 	}
 }
 
@@ -157,12 +163,15 @@ func NewProjectionResponse(item *deal.DealProjection) ProjectionResponse {
 
 func NewProductSnapshotDTO(snapshot deal.ProductSnapshot) ProductSnapshotDTO {
 	return ProductSnapshotDTO{
-		ProductID:     snapshot.ProductID,
-		Name:          snapshot.Name,
-		Description:   snapshot.Description,
-		Category:      snapshot.Category,
-		Weight:        snapshot.Weight,
-		Volume:        snapshot.Volume,
-		OriginCountry: snapshot.OriginCountry,
+		ProductID:      snapshot.ProductID,
+		Name:           snapshot.Name,
+		Description:    snapshot.Description,
+		Category:       snapshot.Category,
+		Weight:         snapshot.Weight,
+		Unit:           snapshot.Unit,
+		Size:           snapshot.Size,
+		ProcessingType: snapshot.ProcessingType,
+		Volume:         snapshot.Volume,
+		OriginCountry:  snapshot.OriginCountry,
 	}
 }

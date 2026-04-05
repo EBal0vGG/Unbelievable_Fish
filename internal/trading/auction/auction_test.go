@@ -1,6 +1,7 @@
 package auction
 
 import (
+	"errors"
 	"testing"
 	"time"
 )
@@ -164,6 +165,26 @@ func TestBidLowerThanCurrentPriceIsRejected(t *testing.T) {
 	logf(t, "place lower bid error=%v current_price=%d", err, a.CurrentPrice())
 	if err == nil {
 		t.Fatal("expected error")
+	}
+	if !errors.Is(err, ErrBidTooLow) {
+		t.Fatalf("expected ErrBidTooLow, got %v", err)
+	}
+}
+
+func TestBidEqualToCurrentPriceIsRejected(t *testing.T) {
+	logTest(t)
+	a := mustAuction(t)
+	_, _ = a.Publish()
+	now := time.Now()
+	_, _ = a.PlaceBid(mustBid(t, "x", 200, now))
+
+	_, err := a.PlaceBid(mustBid(t, "y", 200, now.Add(time.Second)))
+	logf(t, "place equal bid error=%v current_price=%d", err, a.CurrentPrice())
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !errors.Is(err, ErrBidTooLow) {
+		t.Fatalf("expected ErrBidTooLow, got %v", err)
 	}
 }
 

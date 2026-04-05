@@ -6,13 +6,16 @@ import (
 
 // ProductSnapshot - снимок продукта на момент создания сделки
 type ProductSnapshot struct {
-	ProductID     string
-	Name          string
-	Description   string
-	Category      string
-	Weight        float64
-	Volume        float64
-	OriginCountry string
+	ProductID      string
+	Name           string
+	Description    string
+	Category       string
+	Weight         float64
+	Unit           string
+	Size           string
+	ProcessingType string
+	Volume         float64
+	OriginCountry  string
 }
 
 // ContractInfo - информация о контракте сделки

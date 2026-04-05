@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"strings"
 
-	"unbelievable_fish/internal/deals/app"
-	httpapi "unbelievable_fish/internal/deals/http"
+	"github.com/EBal0vGG/Unbelievable_Fish/internal/deals/app"
+	httpapi "github.com/EBal0vGG/Unbelievable_Fish/internal/deals/http"
 )
 
 func readCommandMeta(r *http.Request) (app.CommandMeta, error) {

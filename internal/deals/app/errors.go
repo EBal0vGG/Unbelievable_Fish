@@ -4,6 +4,7 @@ import "errors"
 
 var (
 	ErrDealNotFound = errors.New("app: deal not found")
+	ErrNilUnitOfWork = errors.New("app: unit of work is required")
 
 	ErrAuctionIDRequired     = errors.New("app: auction ID is required")
 	ErrDealIDRequired        = errors.New("app: deal ID is required")
@@ -11,6 +12,8 @@ var (
 	ErrFinalPriceRequired    = errors.New("app: final price must be positive")
 	ErrPublishedAtRequired   = errors.New("app: published at is required")
 	ErrWonAtRequired         = errors.New("app: won at is required")
+	ErrWinnerCandidatesRequired = errors.New("app: winner candidates are required")
+	ErrNoAvailableWinner        = errors.New("app: no available winner candidates")
 
 	ErrSupplierIDRequired       = errors.New("app: supplier ID is required")
 	ErrInvoiceNumberRequired    = errors.New("app: invoice number is required")

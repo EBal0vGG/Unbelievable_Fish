@@ -2,6 +2,7 @@ package handler
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/EBal0vGG/Unbelievable_Fish/internal/trading/app"
 	httpapi "github.com/EBal0vGG/Unbelievable_Fish/internal/trading/http"
@@ -35,12 +36,13 @@ func (h *PlaceBidHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		writeError(w, httpErr.Status, httpErr.Code, httpErr.Message, meta)
 		return
 	}
-	if req.Amount <= 0 || req.PlacedAt.IsZero() {
-		httpErr := httpapi.BadRequest("INVALID_BODY", "amount and placed_at are required")
+	if req.Amount <= 0 {
+		httpErr := httpapi.BadRequest("INVALID_BODY", "amount is required")
 		writeError(w, httpErr.Status, httpErr.Code, httpErr.Message, meta)
 		return
 	}
-	if err := h.uc.Execute(r.Context(), meta, auctionID, req.Amount, req.PlacedAt); err != nil {
+	placedAt := time.Now().UTC()
+	if err := h.uc.Execute(r.Context(), meta, auctionID, req.Amount, placedAt); err != nil {
 		handleCommandError(w, err, meta)
 		return
 	}

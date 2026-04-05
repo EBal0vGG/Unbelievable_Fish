@@ -3,8 +3,9 @@ package app
 import (
 	"context"
 	"strings"
+	"time"
 
-	"github.com/EBal0vGG/Unbelievable_Fish/domain/catalog"
+	"github.com/EBal0vGG/Unbelievable_Fish/internal/catalog/domain"
 )
 
 type CatalogService struct {
@@ -190,7 +191,11 @@ func (s *CatalogService) CreateLot(ctx context.Context, cmd CreateLotCommand) (s
 			return ErrMissingCompanyID
 		}
 
-		schedule := catalog.NewAuctionScheduleAt(cmd.AuctionStartsAt)
+		duration := time.Hour
+		if cmd.AuctionDurationMinutes > 0 {
+			duration = time.Duration(cmd.AuctionDurationMinutes) * time.Minute
+		}
+		schedule := catalog.NewAuctionScheduleAt(cmd.AuctionStartsAt, duration)
 		lotID = s.idGenerator.NewLotID()
 		lot, evs, err := catalog.NewLot(
 			lotID,
@@ -235,6 +240,14 @@ func (s *CatalogService) AssignAuctionID(ctx context.Context, lotID, auctionID s
 	})
 }
 
+func (s *CatalogService) GetLotAuctionID(ctx context.Context, lotID string) (string, error) {
+	lot, err := s.getLot(ctx, lotID)
+	if err != nil {
+		return "", err
+	}
+	return lot.AuctionID(), nil
+}
+
 func (s *CatalogService) PublishLot(ctx context.Context, lotID string) error {
 	return s.tx.WithinTx(ctx, func(ctx context.Context) error {
 		lot, err := s.getLot(ctx, lotID)
@@ -246,9 +259,14 @@ func (s *CatalogService) PublishLot(ctx context.Context, lotID string) error {
 			return err
 		}
 		productIsPublished := product.Status() == catalog.ProductStatusPublished
+		fish, err := s.getFish(ctx, product.FishID())
+		if err != nil {
+			return err
+		}
 
 		productSnapshot := catalog.ProductSnapshot{
-			FishID:         product.FishID(),
+			ProductID:      product.ID(),
+			Name:           fish.Name(),
 			Weight:         product.Weight(),
 			Unit:           product.Unit(),
 			Size:           product.Size(),

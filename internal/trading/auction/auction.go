@@ -5,7 +5,7 @@
 // 3. Winner is determined only at close time
 // 4. Highest bid wins
 // 5. Tie chooses first
-// 6. Bid amount cannot be lower than current price
+// 6. Bid amount must be strictly greater than current price
 // 7. Auction with no bids can be cancelled
 // 8. No state transition backwards
 // 9. Bids before start or after end are rejected
@@ -18,7 +18,7 @@
 // 3. Победитель определяется только в момент закрытия
 // 4. Побеждает ставка с наибольшим значением
 // 5. В случае ничьей выигрывает первая ставка
-// 6. Ставка не может быть меньше текущей цены
+// 6. Ставка должна быть строго выше текущей цены
 // 7. Аукцион без ставок можно отменить
 // 8. Переход в исходное состояние невозможен
 // 9. Ставки до начала или после конца отклоняются
@@ -93,7 +93,7 @@ func (a *Auction) PlaceBid(b Bid) ([]Event, error) {
 	if b.PlacedAt().After(a.endsAt) {
 		return nil, ErrAuctionAlreadyEnded
 	}
-	if b.Amount() < a.currentPrice {
+	if b.Amount() <= a.currentPrice {
 		return nil, ErrBidTooLow
 	}
 	a.currentPrice = b.Amount()

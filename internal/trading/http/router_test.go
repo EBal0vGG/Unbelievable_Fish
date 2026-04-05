@@ -26,6 +26,11 @@ func (s *spyRepo) Load(ctx context.Context, id app.AuctionID) (*auction.Auction,
 	return s.auction, nil
 }
 
+func (s *spyRepo) LoadForUpdate(ctx context.Context, id app.AuctionID) (*auction.Auction, error) {
+	s.loadCount++
+	return s.auction, nil
+}
+
 func (s *spyRepo) Save(ctx context.Context, a *auction.Auction) error {
 	s.saveCount++
 	return nil
@@ -57,7 +62,7 @@ type spyOutbox struct {
 	saveCount int
 }
 
-func (s *spyOutbox) Save(ctx context.Context, envelope app.EventEnvelope) error {
+func (s *spyOutbox) Add(ctx context.Context, events []auction.Event) error {
 	s.saveCount++
 	return nil
 }
@@ -82,12 +87,6 @@ func (s *spyUOW) Do(ctx context.Context, fn func(app.Tx) error) error {
 	return fn(s.tx)
 }
 
-type fakeIDFactory struct {
-	id app.AuctionID
-}
-
-func (f fakeIDFactory) NewID() (app.AuctionID, error) { return f.id, nil }
-
 type spyWinners struct {
 	saveCount int
 }
@@ -110,33 +109,13 @@ func TestCommandFlowSmoke(t *testing.T) {
 	winners := &spyWinners{}
 	uow := &spyUOW{tx: &spyTx{repo: repo, bids: bidRepo, outbox: outbox, winners: winners}}
 
-	createUC, err := app.NewCreateAuction(uow, fakeIDFactory{id: "gen-1"})
-	if err != nil {
-		t.Fatalf("unexpected constructor error: %v", err)
-	}
-	publishUC, err := app.NewPublishAuction(uow)
-	if err != nil {
-		t.Fatalf("unexpected constructor error: %v", err)
-	}
 	placeBidUC, err := app.NewPlaceBid(uow)
-	if err != nil {
-		t.Fatalf("unexpected constructor error: %v", err)
-	}
-	closeUC, err := app.NewCloseAuction(uow)
-	if err != nil {
-		t.Fatalf("unexpected constructor error: %v", err)
-	}
-	cancelUC, err := app.NewCancelAuction(uow)
 	if err != nil {
 		t.Fatalf("unexpected constructor error: %v", err)
 	}
 
 	router := httpapi.NewRouter(
-		handler.NewCreateAuctionHandler(createUC),
-		handler.NewPublishAuctionHandler(publishUC),
 		handler.NewPlaceBidHandler(placeBidUC),
-		handler.NewCloseAuctionHandler(closeUC),
-		handler.NewCancelAuctionHandler(cancelUC),
 	)
 
 	body, _ := json.Marshal(httpapi.PlaceBidRequest{
