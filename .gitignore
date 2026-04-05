@@ -62,7 +62,7 @@ Desktop.ini
 ############################
 # Logs & temp
 ############################
-*log
+*.log
 tmp/
 temp/
 test-log/*.log
