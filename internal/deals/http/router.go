@@ -6,9 +6,7 @@ import (
 )
 
 type Router struct {
-	createProjection http.Handler
 	getProjection    http.Handler
-	createDeal       http.Handler
 	getDeal          http.Handler
 	getDealByAuction http.Handler
 	confirmDeal      http.Handler
@@ -24,9 +22,7 @@ type Router struct {
 }
 
 func NewRouter(
-	createProjection http.Handler,
 	getProjection http.Handler,
-	createDeal http.Handler,
 	getDeal http.Handler,
 	getDealByAuction http.Handler,
 	confirmDeal http.Handler,
@@ -41,9 +37,7 @@ func NewRouter(
 	updateDealPrice http.Handler,
 ) *Router {
 	return &Router{
-		createProjection: createProjection,
 		getProjection:    getProjection,
-		createDeal:       createDeal,
 		getDeal:          getDeal,
 		getDealByAuction: getDealByAuction,
 		confirmDeal:      confirmDeal,
@@ -60,16 +54,8 @@ func NewRouter(
 }
 
 func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	if req.Method == http.MethodPost && req.URL.Path == "/deal-projections" {
-		r.createProjection.ServeHTTP(w, req)
-		return
-	}
 	if req.Method == http.MethodGet && strings.HasPrefix(req.URL.Path, "/deal-projections/") {
 		r.getProjection.ServeHTTP(w, req)
-		return
-	}
-	if req.Method == http.MethodPost && req.URL.Path == "/deals/from-auction-won" {
-		r.createDeal.ServeHTTP(w, req)
 		return
 	}
 	if req.Method == http.MethodGet && strings.HasPrefix(req.URL.Path, "/deals/by-auction/") {

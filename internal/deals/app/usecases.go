@@ -2,9 +2,10 @@ package app
 
 import (
 	"context"
+	"errors"
 	"time"
 
-	"unbelievable_fish/internal/deals/deal"
+	"github.com/EBal0vGG/Unbelievable_Fish/internal/deals/deal"
 )
 
 type CreateProjection struct {
@@ -38,6 +39,12 @@ func (uc *CreateProjection) Execute(
 		return ErrPublishedAtRequired
 	}
 
+	if existing, err := uc.repo.GetByAuctionID(ctx, auctionID); err == nil && existing != nil {
+		return nil
+	} else if err != nil && !errors.Is(err, deal.ErrProjectionNotFound) {
+		return err
+	}
+
 	return uc.repo.Save(ctx, deal.NewDealProjection(auctionID, supplierID, snapshot, startPrice, publishedAt))
 }
 
@@ -57,23 +64,20 @@ func (uc *GetProjectionByAuctionID) Execute(ctx context.Context, auctionID strin
 }
 
 type CreateDealFromAuctionWon struct {
-	deals       DealRepository
-	projections ProjectionRepository
-	publisher   EventPublisher
+	uow     UnitOfWork
 	factory     *deal.Factory
 }
 
 func NewCreateDealFromAuctionWon(
-	deals DealRepository,
-	projections ProjectionRepository,
-	publisher EventPublisher,
-) *CreateDealFromAuctionWon {
-	return &CreateDealFromAuctionWon{
-		deals:       deals,
-		projections: projections,
-		publisher:   publisher,
-		factory:     deal.NewFactory(),
+	uow UnitOfWork,
+) (*CreateDealFromAuctionWon, error) {
+	if uow == nil {
+		return nil, ErrNilUnitOfWork
 	}
+	return &CreateDealFromAuctionWon{
+		uow:     uow,
+		factory: deal.NewFactory(),
+	}, nil
 }
 
 func (uc *CreateDealFromAuctionWon) Execute(
@@ -98,25 +102,203 @@ func (uc *CreateDealFromAuctionWon) Execute(
 		return ErrWonAtRequired
 	}
 
-	projection, err := uc.projections.GetByAuctionID(ctx, auctionID)
-	if err != nil {
-		return err
+	return uc.uow.Do(ctx, func(tx Tx) error {
+		projection, err := tx.Projections().GetByAuctionID(ctx, auctionID)
+		if err != nil {
+			return err
+		}
+
+		item, events, err := uc.factory.CreateFromProjection(projection, winnerCompanyID, finalPrice, wonAt)
+		if err != nil {
+			return err
+		}
+		if err := item.Validate(); err != nil {
+			return err
+		}
+		if err := tx.Deals().Save(ctx, item); err != nil {
+			return err
+		}
+		if err := tx.Projections().Save(ctx, projection); err != nil {
+			return err
+		}
+		return tx.Outbox().Add(ctx, events)
+	})
+}
+
+type CreateDealSelectionFromAuctionWon struct {
+	uow     UnitOfWork
+	factory *deal.Factory
+}
+
+func NewCreateDealSelectionFromAuctionWon(
+	uow UnitOfWork,
+) (*CreateDealSelectionFromAuctionWon, error) {
+	if uow == nil {
+		return nil, ErrNilUnitOfWork
+	}
+	return &CreateDealSelectionFromAuctionWon{
+		uow:     uow,
+		factory: deal.NewFactory(),
+	}, nil
+}
+
+func (uc *CreateDealSelectionFromAuctionWon) Execute(
+	ctx context.Context,
+	meta CommandMeta,
+	auctionID string,
+	winnerCandidates []string,
+	finalPrice int64,
+	wonAt time.Time,
+) error {
+	_ = meta
+	if auctionID == "" {
+		return ErrAuctionIDRequired
+	}
+	if len(winnerCandidates) == 0 {
+		return ErrWinnerCandidatesRequired
+	}
+	if finalPrice <= 0 {
+		return ErrFinalPriceRequired
+	}
+	if wonAt.IsZero() {
+		return ErrWonAtRequired
 	}
 
-	item, events, err := uc.factory.CreateFromProjection(projection, winnerCompanyID, finalPrice, wonAt)
-	if err != nil {
-		return err
+	return uc.uow.Do(ctx, func(tx Tx) error {
+		projection, err := tx.Projections().GetByAuctionID(ctx, auctionID)
+		if err != nil {
+			return err
+		}
+
+		selection, err := tx.Selections().GetByAuctionID(ctx, auctionID)
+		if err != nil && !errors.Is(err, deal.ErrSelectionNotFound) {
+			return err
+		}
+		if selection == nil {
+			selection = deal.NewWinnerSelection(
+				auctionID,
+				winnerCandidates,
+				finalPrice,
+				wonAt,
+				projection.SupplierID,
+				projection.ProductSnapshot,
+			)
+		}
+		if selection.DealID != "" {
+			return nil
+		}
+
+		current, ok := selection.CurrentCandidate()
+		if !ok {
+			selection.MarkExhausted()
+			if err := tx.Selections().Save(ctx, selection); err != nil {
+				return err
+			}
+			return ErrNoAvailableWinner
+		}
+
+		item, events, err := uc.factory.CreateFromSelection(
+			auctionID,
+			selection.SupplierID,
+			selection.ProductSnapshot,
+			current,
+			selection.FinalPrice,
+			selection.WonAt,
+		)
+		if err != nil {
+			return err
+		}
+		if err := item.Validate(); err != nil {
+			return err
+		}
+		if err := tx.Deals().Save(ctx, item); err != nil {
+			return err
+		}
+		projection.MarkAsConverted()
+		if err := tx.Projections().Save(ctx, projection); err != nil {
+			return err
+		}
+		selection.DealID = item.ID()
+		if err := tx.Selections().Save(ctx, selection); err != nil {
+			return err
+		}
+		return tx.Outbox().Add(ctx, events)
+	})
+}
+
+type HandleDealDeclined struct {
+	uow     UnitOfWork
+	factory *deal.Factory
+}
+
+func NewHandleDealDeclined(
+	uow UnitOfWork,
+) (*HandleDealDeclined, error) {
+	if uow == nil {
+		return nil, ErrNilUnitOfWork
 	}
-	if err := item.Validate(); err != nil {
-		return err
+	return &HandleDealDeclined{
+		uow:     uow,
+		factory: deal.NewFactory(),
+	}, nil
+}
+
+func (uc *HandleDealDeclined) Execute(ctx context.Context, meta CommandMeta, auctionID string, dealID string) error {
+	_ = meta
+	if auctionID == "" {
+		return ErrAuctionIDRequired
 	}
-	if err := uc.deals.Save(ctx, item); err != nil {
-		return err
-	}
-	if err := uc.projections.Save(ctx, projection); err != nil {
-		return err
-	}
-	return publishEvents(ctx, uc.publisher, events)
+
+	return uc.uow.Do(ctx, func(tx Tx) error {
+		selection, err := tx.Selections().GetByAuctionID(ctx, auctionID)
+		if err != nil {
+			return err
+		}
+		if dealID != "" && selection.DealID != "" && selection.DealID != dealID {
+			return nil
+		}
+		if selection == nil || selection.Status == deal.WinnerSelectionExhausted {
+			return ErrNoAvailableWinner
+		}
+		if !selection.Advance() {
+			if err := tx.Selections().Save(ctx, selection); err != nil {
+				return err
+			}
+			return ErrNoAvailableWinner
+		}
+
+		next, ok := selection.CurrentCandidate()
+		if !ok {
+			selection.MarkExhausted()
+			if err := tx.Selections().Save(ctx, selection); err != nil {
+				return err
+			}
+			return ErrNoAvailableWinner
+		}
+
+		item, events, err := uc.factory.CreateFromSelection(
+			selection.AuctionID,
+			selection.SupplierID,
+			selection.ProductSnapshot,
+			next,
+			selection.FinalPrice,
+			selection.WonAt,
+		)
+		if err != nil {
+			return err
+		}
+		if err := item.Validate(); err != nil {
+			return err
+		}
+		if err := tx.Deals().Save(ctx, item); err != nil {
+			return err
+		}
+		selection.DealID = item.ID()
+		if err := tx.Selections().Save(ctx, selection); err != nil {
+			return err
+		}
+		return tx.Outbox().Add(ctx, events)
+	})
 }
 
 type GetDealByID struct {
@@ -150,28 +332,32 @@ func (uc *GetDealByAuctionID) Execute(ctx context.Context, auctionID string) (*d
 }
 
 type ConfirmDeal struct {
-	repo      DealRepository
-	publisher EventPublisher
+	uow UnitOfWork
 }
 
-func NewConfirmDeal(repo DealRepository, publisher EventPublisher) *ConfirmDeal {
-	return &ConfirmDeal{repo: repo, publisher: publisher}
+func NewConfirmDeal(uow UnitOfWork) (*ConfirmDeal, error) {
+	if uow == nil {
+		return nil, ErrNilUnitOfWork
+	}
+	return &ConfirmDeal{uow: uow}, nil
 }
 
 func (uc *ConfirmDeal) Execute(ctx context.Context, meta CommandMeta, dealID string) error {
 	_ = meta
-	return executeDealMutation(ctx, uc.repo, uc.publisher, dealID, func(item *deal.Deal) ([]deal.Event, error) {
+	return executeDealMutation(ctx, uc.uow, dealID, func(item *deal.Deal) ([]deal.Event, error) {
 		return item.Confirm()
 	})
 }
 
 type PrepareContract struct {
-	repo      DealRepository
-	publisher EventPublisher
+	uow UnitOfWork
 }
 
-func NewPrepareContract(repo DealRepository, publisher EventPublisher) *PrepareContract {
-	return &PrepareContract{repo: repo, publisher: publisher}
+func NewPrepareContract(uow UnitOfWork) (*PrepareContract, error) {
+	if uow == nil {
+		return nil, ErrNilUnitOfWork
+	}
+	return &PrepareContract{uow: uow}, nil
 }
 
 func (uc *PrepareContract) Execute(ctx context.Context, meta CommandMeta, dealID, contractNumber, documentURL string) error {
@@ -179,18 +365,20 @@ func (uc *PrepareContract) Execute(ctx context.Context, meta CommandMeta, dealID
 	if contractNumber == "" {
 		return ErrContractNumberRequired
 	}
-	return executeDealMutation(ctx, uc.repo, uc.publisher, dealID, func(item *deal.Deal) ([]deal.Event, error) {
+	return executeDealMutation(ctx, uc.uow, dealID, func(item *deal.Deal) ([]deal.Event, error) {
 		return item.PrepareContract(contractNumber, documentURL)
 	})
 }
 
 type SignContract struct {
-	repo      DealRepository
-	publisher EventPublisher
+	uow UnitOfWork
 }
 
-func NewSignContract(repo DealRepository, publisher EventPublisher) *SignContract {
-	return &SignContract{repo: repo, publisher: publisher}
+func NewSignContract(uow UnitOfWork) (*SignContract, error) {
+	if uow == nil {
+		return nil, ErrNilUnitOfWork
+	}
+	return &SignContract{uow: uow}, nil
 }
 
 func (uc *SignContract) Execute(ctx context.Context, meta CommandMeta, dealID, signatureRef string) error {
@@ -201,18 +389,20 @@ func (uc *SignContract) Execute(ctx context.Context, meta CommandMeta, dealID, s
 	if signatureRef == "" {
 		return ErrSignatureRefRequired
 	}
-	return executeDealMutation(ctx, uc.repo, uc.publisher, dealID, func(item *deal.Deal) ([]deal.Event, error) {
+	return executeDealMutation(ctx, uc.uow, dealID, func(item *deal.Deal) ([]deal.Event, error) {
 		return item.SignContract(signedBy, signatureRef)
 	})
 }
 
 type RequestPayment struct {
-	repo      DealRepository
-	publisher EventPublisher
+	uow UnitOfWork
 }
 
-func NewRequestPayment(repo DealRepository, publisher EventPublisher) *RequestPayment {
-	return &RequestPayment{repo: repo, publisher: publisher}
+func NewRequestPayment(uow UnitOfWork) (*RequestPayment, error) {
+	if uow == nil {
+		return nil, ErrNilUnitOfWork
+	}
+	return &RequestPayment{uow: uow}, nil
 }
 
 func (uc *RequestPayment) Execute(
@@ -226,18 +416,20 @@ func (uc *RequestPayment) Execute(
 	if invoiceNumber == "" {
 		return ErrInvoiceNumberRequired
 	}
-	return executeDealMutation(ctx, uc.repo, uc.publisher, dealID, func(item *deal.Deal) ([]deal.Event, error) {
+	return executeDealMutation(ctx, uc.uow, dealID, func(item *deal.Deal) ([]deal.Event, error) {
 		return item.RequestPayment(invoiceNumber, dueDate)
 	})
 }
 
 type MarkDealPaid struct {
-	repo      DealRepository
-	publisher EventPublisher
+	uow UnitOfWork
 }
 
-func NewMarkDealPaid(repo DealRepository, publisher EventPublisher) *MarkDealPaid {
-	return &MarkDealPaid{repo: repo, publisher: publisher}
+func NewMarkDealPaid(uow UnitOfWork) (*MarkDealPaid, error) {
+	if uow == nil {
+		return nil, ErrNilUnitOfWork
+	}
+	return &MarkDealPaid{uow: uow}, nil
 }
 
 func (uc *MarkDealPaid) Execute(ctx context.Context, meta CommandMeta, dealID, paymentID, paymentType string) error {
@@ -248,34 +440,38 @@ func (uc *MarkDealPaid) Execute(ctx context.Context, meta CommandMeta, dealID, p
 	if paymentType == "" {
 		return ErrPaymentTypeRequired
 	}
-	return executeDealMutation(ctx, uc.repo, uc.publisher, dealID, func(item *deal.Deal) ([]deal.Event, error) {
+	return executeDealMutation(ctx, uc.uow, dealID, func(item *deal.Deal) ([]deal.Event, error) {
 		return item.MarkAsPaid(paymentID, paymentType)
 	})
 }
 
 type RequestShipment struct {
-	repo      DealRepository
-	publisher EventPublisher
+	uow UnitOfWork
 }
 
-func NewRequestShipment(repo DealRepository, publisher EventPublisher) *RequestShipment {
-	return &RequestShipment{repo: repo, publisher: publisher}
+func NewRequestShipment(uow UnitOfWork) (*RequestShipment, error) {
+	if uow == nil {
+		return nil, ErrNilUnitOfWork
+	}
+	return &RequestShipment{uow: uow}, nil
 }
 
 func (uc *RequestShipment) Execute(ctx context.Context, meta CommandMeta, dealID string) error {
 	_ = meta
-	return executeDealMutation(ctx, uc.repo, uc.publisher, dealID, func(item *deal.Deal) ([]deal.Event, error) {
+	return executeDealMutation(ctx, uc.uow, dealID, func(item *deal.Deal) ([]deal.Event, error) {
 		return item.RequestShipment()
 	})
 }
 
 type MarkDealShipped struct {
-	repo      DealRepository
-	publisher EventPublisher
+	uow UnitOfWork
 }
 
-func NewMarkDealShipped(repo DealRepository, publisher EventPublisher) *MarkDealShipped {
-	return &MarkDealShipped{repo: repo, publisher: publisher}
+func NewMarkDealShipped(uow UnitOfWork) (*MarkDealShipped, error) {
+	if uow == nil {
+		return nil, ErrNilUnitOfWork
+	}
+	return &MarkDealShipped{uow: uow}, nil
 }
 
 func (uc *MarkDealShipped) Execute(ctx context.Context, meta CommandMeta, dealID, trackingNumber, carrier string) error {
@@ -286,34 +482,38 @@ func (uc *MarkDealShipped) Execute(ctx context.Context, meta CommandMeta, dealID
 	if carrier == "" {
 		return ErrCarrierRequired
 	}
-	return executeDealMutation(ctx, uc.repo, uc.publisher, dealID, func(item *deal.Deal) ([]deal.Event, error) {
+	return executeDealMutation(ctx, uc.uow, dealID, func(item *deal.Deal) ([]deal.Event, error) {
 		return item.MarkAsShipped(trackingNumber, carrier)
 	})
 }
 
 type CompleteDeal struct {
-	repo      DealRepository
-	publisher EventPublisher
+	uow UnitOfWork
 }
 
-func NewCompleteDeal(repo DealRepository, publisher EventPublisher) *CompleteDeal {
-	return &CompleteDeal{repo: repo, publisher: publisher}
+func NewCompleteDeal(uow UnitOfWork) (*CompleteDeal, error) {
+	if uow == nil {
+		return nil, ErrNilUnitOfWork
+	}
+	return &CompleteDeal{uow: uow}, nil
 }
 
 func (uc *CompleteDeal) Execute(ctx context.Context, meta CommandMeta, dealID string) error {
 	_ = meta
-	return executeDealMutation(ctx, uc.repo, uc.publisher, dealID, func(item *deal.Deal) ([]deal.Event, error) {
+	return executeDealMutation(ctx, uc.uow, dealID, func(item *deal.Deal) ([]deal.Event, error) {
 		return item.Complete()
 	})
 }
 
 type CancelDeal struct {
-	repo      DealRepository
-	publisher EventPublisher
+	uow UnitOfWork
 }
 
-func NewCancelDeal(repo DealRepository, publisher EventPublisher) *CancelDeal {
-	return &CancelDeal{repo: repo, publisher: publisher}
+func NewCancelDeal(uow UnitOfWork) (*CancelDeal, error) {
+	if uow == nil {
+		return nil, ErrNilUnitOfWork
+	}
+	return &CancelDeal{uow: uow}, nil
 }
 
 func (uc *CancelDeal) Execute(ctx context.Context, meta CommandMeta, dealID, reason string) error {
@@ -324,18 +524,20 @@ func (uc *CancelDeal) Execute(ctx context.Context, meta CommandMeta, dealID, rea
 	if cancelledBy == "" {
 		return ErrCancelledByRequired
 	}
-	return executeDealMutation(ctx, uc.repo, uc.publisher, dealID, func(item *deal.Deal) ([]deal.Event, error) {
+	return executeDealMutation(ctx, uc.uow, dealID, func(item *deal.Deal) ([]deal.Event, error) {
 		return item.Cancel(reason, cancelledBy)
 	})
 }
 
 type UpdateDealPrice struct {
-	repo      DealRepository
-	publisher EventPublisher
+	uow UnitOfWork
 }
 
-func NewUpdateDealPrice(repo DealRepository, publisher EventPublisher) *UpdateDealPrice {
-	return &UpdateDealPrice{repo: repo, publisher: publisher}
+func NewUpdateDealPrice(uow UnitOfWork) (*UpdateDealPrice, error) {
+	if uow == nil {
+		return nil, ErrNilUnitOfWork
+	}
+	return &UpdateDealPrice{uow: uow}, nil
 }
 
 func (uc *UpdateDealPrice) Execute(ctx context.Context, meta CommandMeta, dealID string, newPrice int64) error {
@@ -346,40 +548,34 @@ func (uc *UpdateDealPrice) Execute(ctx context.Context, meta CommandMeta, dealID
 	if updatedBy == "" {
 		return ErrUpdatedByRequired
 	}
-	return executeDealMutation(ctx, uc.repo, uc.publisher, dealID, func(item *deal.Deal) ([]deal.Event, error) {
+	return executeDealMutation(ctx, uc.uow, dealID, func(item *deal.Deal) ([]deal.Event, error) {
 		return item.UpdatePrice(newPrice, updatedBy)
 	})
 }
 
 func executeDealMutation(
 	ctx context.Context,
-	repo DealRepository,
-	publisher EventPublisher,
+	uow UnitOfWork,
 	dealID string,
 	mutate func(item *deal.Deal) ([]deal.Event, error),
 ) error {
 	if dealID == "" {
 		return ErrDealIDRequired
 	}
-	item, err := repo.GetByID(ctx, dealID)
-	if err != nil {
-		return err
-	}
-	events, err := mutate(item)
-	if err != nil {
-		return err
-	}
-	if err := repo.Save(ctx, item); err != nil {
-		return err
-	}
-	return publishEvents(ctx, publisher, events)
-}
-
-func publishEvents(ctx context.Context, publisher EventPublisher, events []deal.Event) error {
-	if publisher == nil || len(events) == 0 {
-		return nil
-	}
-	return publisher.Publish(ctx, events)
+	return uow.Do(ctx, func(tx Tx) error {
+		item, err := tx.Deals().GetByID(ctx, dealID)
+		if err != nil {
+			return err
+		}
+		events, err := mutate(item)
+		if err != nil {
+			return err
+		}
+		if err := tx.Deals().Save(ctx, item); err != nil {
+			return err
+		}
+		return tx.Outbox().Add(ctx, events)
+	})
 }
 
 func actorFromMeta(meta CommandMeta) string {

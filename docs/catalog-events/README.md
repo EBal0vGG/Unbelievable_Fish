@@ -1,6 +1,6 @@
 # Catalog Events
 
-Источник: [events.go](/Users/alitagiev/Desktop/fish/domain/catalog/events.go)
+Источник: [events.go](/Users/alitagiev/Desktop/fish/internal/catalog/domain/events.go)
 
 ## Event Interface
 
@@ -132,7 +132,8 @@ type Event interface {
 Используется внутри `LotPublished`.
 
 Поля:
-- `FishID`
+- `ProductID`
+- `Name`
 - `Weight`
 - `Unit`
 - `Size`

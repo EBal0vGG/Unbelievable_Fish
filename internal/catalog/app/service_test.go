@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/EBal0vGG/Unbelievable_Fish/domain/catalog"
+	"github.com/EBal0vGG/Unbelievable_Fish/internal/catalog/domain"
 )
 
 type memoryFishRepo struct {
@@ -212,7 +212,8 @@ func seedRefs(deps *testDeps, unit, processingType string) {
 
 func newProductSnapshot() catalog.ProductSnapshot {
 	return catalog.ProductSnapshot{
-		FishID:         "fish-1",
+		ProductID:      "prod-1",
+		Name:           "Fish",
 		Weight:         10,
 		Unit:           "kg",
 		Size:           "M",
@@ -647,7 +648,7 @@ func TestPublishLotRequiresPublishedProduct(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	schedule := catalog.NewAuctionScheduleAt(time.Now().Add(time.Hour))
+	schedule := catalog.NewAuctionScheduleAt(time.Now().Add(time.Hour), time.Hour)
 	lot, _, err := catalog.NewLot("lot-2", "prod-2", "seller-2", "", 10.0, int64(100), schedule)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -676,7 +677,7 @@ func TestPublishLotRequiresPublishedProduct(t *testing.T) {
 	}
 }
 
-func TestPublishLotRequiresAuctionID(t *testing.T) {
+func TestPublishLotAllowsMissingAuctionID(t *testing.T) {
 	deps := newTestDeps()
 	ctx := context.Background()
 
@@ -699,7 +700,7 @@ func TestPublishLotRequiresAuctionID(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	schedule := catalog.NewAuctionScheduleAt(time.Now().Add(time.Hour))
+	schedule := catalog.NewAuctionScheduleAt(time.Now().Add(time.Hour), time.Hour)
 	lot, _, err := catalog.NewLot("lot-3", "prod-3", "seller-3", "", 10.0, int64(100), schedule)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -709,18 +710,18 @@ func TestPublishLotRequiresAuctionID(t *testing.T) {
 	}
 
 	err = deps.svc.PublishLot(ctx, "lot-3")
-	if err != catalog.ErrAuctionIDRequired {
-		t.Fatalf("expected ErrAuctionIDRequired, got %v", err)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
 	}
 	stored, err := deps.lotRepo.Get(ctx, "lot-3")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if stored.Status() != catalog.LotStatusDraft {
-		t.Fatalf("expected lot to remain draft, got %s", stored.Status())
+	if stored.Status() != catalog.LotStatusPublished {
+		t.Fatalf("expected lot to be published, got %s", stored.Status())
 	}
-	if deps.outbox.Count() != 0 {
-		t.Fatalf("expected no outbox events, got %d", deps.outbox.Count())
+	if deps.outbox.Count() == 0 {
+		t.Fatalf("expected outbox events to be published")
 	}
 }
 
@@ -728,7 +729,7 @@ func TestAssignAuctionIDSavesLot(t *testing.T) {
 	deps := newTestDeps()
 	ctx := context.Background()
 
-	schedule := catalog.NewAuctionScheduleAt(time.Now().Add(time.Hour))
+	schedule := catalog.NewAuctionScheduleAt(time.Now().Add(time.Hour), time.Hour)
 	lot, _, err := catalog.NewLot("lot-3", "prod-3", "seller-3", "", 10.0, int64(100), schedule)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -753,7 +754,7 @@ func TestCloseLotWritesOutbox(t *testing.T) {
 	deps := newTestDeps()
 	ctx := context.Background()
 
-	schedule := catalog.NewAuctionScheduleAt(time.Now().Add(time.Hour))
+	schedule := catalog.NewAuctionScheduleAt(time.Now().Add(time.Hour), time.Hour)
 	lot, _, err := catalog.NewLot("lot-4", "prod-4", "seller-4", "", 10.0, int64(100), schedule)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -795,7 +796,7 @@ func TestHandleAuctionWonClosesByAuctionID(t *testing.T) {
 	deps := newTestDeps()
 	ctx := context.Background()
 
-	schedule := catalog.NewAuctionScheduleAt(time.Now().Add(time.Hour))
+	schedule := catalog.NewAuctionScheduleAt(time.Now().Add(time.Hour), time.Hour)
 	lot, _, err := catalog.NewLot("lot-5", "prod-5", "seller-5", "", 10.0, int64(100), schedule)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -837,7 +838,7 @@ func TestHandleBidPlacedWritesLotPriceUpdatedToOutbox(t *testing.T) {
 	deps := newTestDeps()
 	ctx := context.Background()
 
-	schedule := catalog.NewAuctionScheduleAt(time.Now().Add(time.Hour))
+	schedule := catalog.NewAuctionScheduleAt(time.Now().Add(time.Hour), time.Hour)
 	lot, _, err := catalog.NewLot("lot-6", "prod-6", "seller-6", "", 10.0, int64(100), schedule)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)

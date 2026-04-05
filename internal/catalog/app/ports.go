@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/EBal0vGG/Unbelievable_Fish/domain/catalog"
+	"github.com/EBal0vGG/Unbelievable_Fish/internal/catalog/domain"
 )
 
 type FishRepository interface {
@@ -74,6 +74,7 @@ type CreateLotCommand struct {
 	Quantity        float64
 	StartPrice      int64
 	AuctionStartsAt time.Time
+	AuctionDurationMinutes int64
 }
 
 type AuctionWonDTO struct {

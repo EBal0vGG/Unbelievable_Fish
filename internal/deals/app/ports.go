@@ -3,7 +3,7 @@ package app
 import (
 	"context"
 
-	"unbelievable_fish/internal/deals/deal"
+	"github.com/EBal0vGG/Unbelievable_Fish/internal/deals/deal"
 )
 
 // DealRepository persists deal aggregates.
@@ -17,6 +17,30 @@ type DealRepository interface {
 type ProjectionRepository interface {
 	Save(ctx context.Context, item *deal.DealProjection) error
 	GetByAuctionID(ctx context.Context, auctionID string) (*deal.DealProjection, error)
+}
+
+// WinnerSelectionRepository persists winner selection process state.
+type WinnerSelectionRepository interface {
+	Save(ctx context.Context, item *deal.WinnerSelection) error
+	GetByAuctionID(ctx context.Context, auctionID string) (*deal.WinnerSelection, error)
+}
+
+// OutboxRepository persists deal events for publishing.
+type OutboxRepository interface {
+	Add(ctx context.Context, events []deal.Event) error
+}
+
+// Tx provides transaction-scoped repositories.
+type Tx interface {
+	Deals() DealRepository
+	Projections() ProjectionRepository
+	Selections() WinnerSelectionRepository
+	Outbox() OutboxRepository
+}
+
+// UnitOfWork executes operations in a transaction.
+type UnitOfWork interface {
+	Do(ctx context.Context, fn func(Tx) error) error
 }
 
 // EventPublisher delivers domain events to outer layers.

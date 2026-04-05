@@ -12,6 +12,7 @@ type AuctionID string
 
 type AuctionRepository interface {
 	Load(ctx context.Context, id AuctionID) (*auction.Auction, error)
+	LoadForUpdate(ctx context.Context, id AuctionID) (*auction.Auction, error)
 	Save(ctx context.Context, a *auction.Auction) error
 }
 
@@ -21,7 +22,7 @@ type BidRepository interface {
 }
 
 type OutboxRepository interface {
-	Save(ctx context.Context, envelope EventEnvelope) error
+	Add(ctx context.Context, events []auction.Event) error
 }
 
 type WinnerRecord struct {

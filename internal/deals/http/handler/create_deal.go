@@ -3,15 +3,15 @@ package handler
 import (
 	"net/http"
 
-	"unbelievable_fish/internal/deals/app"
-	httpapi "unbelievable_fish/internal/deals/http"
+	"github.com/EBal0vGG/Unbelievable_Fish/internal/deals/app"
+	httpapi "github.com/EBal0vGG/Unbelievable_Fish/internal/deals/http"
 )
 
 type CreateDealFromAuctionWonHandler struct {
-	uc *app.CreateDealFromAuctionWon
+	uc *app.CreateDealSelectionFromAuctionWon
 }
 
-func NewCreateDealFromAuctionWonHandler(uc *app.CreateDealFromAuctionWon) *CreateDealFromAuctionWonHandler {
+func NewCreateDealFromAuctionWonHandler(uc *app.CreateDealSelectionFromAuctionWon) *CreateDealFromAuctionWonHandler {
 	return &CreateDealFromAuctionWonHandler{uc: uc}
 }
 
@@ -30,7 +30,7 @@ func (h *CreateDealFromAuctionWonHandler) ServeHTTP(w http.ResponseWriter, r *ht
 		writeError(w, httpapi.BadRequest("INVALID_BODY", "invalid request body"), meta)
 		return
 	}
-	if err := h.uc.Execute(r.Context(), meta, req.AuctionID, req.WinnerCompanyID, req.FinalPrice, req.WonAt); err != nil {
+	if err := h.uc.Execute(r.Context(), meta, req.AuctionID, []string{req.WinnerCompanyID}, req.FinalPrice, req.WonAt); err != nil {
 		writeError(w, err, meta)
 		return
 	}

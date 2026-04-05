@@ -2,10 +2,22 @@ package httpapi
 
 import (
 	"errors"
+	"net/http"
 	"testing"
 
+	"github.com/EBal0vGG/Unbelievable_Fish/internal/trading/app"
 	"github.com/EBal0vGG/Unbelievable_Fish/internal/trading/auction"
 )
+
+func TestMapErrorNotFound(t *testing.T) {
+	httpErr := MapError(app.ErrNotFound)
+	if httpErr.Status != http.StatusNotFound {
+		t.Fatalf("expected status %d, got %d", http.StatusNotFound, httpErr.Status)
+	}
+	if httpErr.Code != "AUCTION_NOT_FOUND" {
+		t.Fatalf("expected code AUCTION_NOT_FOUND, got %s", httpErr.Code)
+	}
+}
 
 func TestMapErrorContract(t *testing.T) {
 	logTest(t)

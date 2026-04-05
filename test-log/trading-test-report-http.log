@@ -190,3 +190,843 @@
 ========== END TestMapErrorContract/default (http) ==========
 {"time":"2026-03-31T19:56:42.906050922+03:00","package":"http","test":"TestMapErrorContract","message":"END"}
 ========== END TestMapErrorContract (http) ==========
+========== START TestMapErrorContract (http) ==========
+{"time":"2026-04-04T22:55:12.282544208+03:00","package":"http","test":"TestMapErrorContract","message":"START"}
+========== START TestMapErrorContract/missing_company_id (http) ==========
+{"time":"2026-04-04T22:55:12.282731599+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"START"}
+{"time":"2026-04-04T22:55:12.282768325+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"mapped={Status:400 Code:MISSING_COMPANY_ID Message:missing X-Company-ID header}"}
+{"time":"2026-04-04T22:55:12.282838431+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"END"}
+========== END TestMapErrorContract/missing_company_id (http) ==========
+========== START TestMapErrorContract/invalid_state_transition (http) ==========
+{"time":"2026-04-04T22:55:12.282951356+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"START"}
+{"time":"2026-04-04T22:55:12.282993632+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"mapped={Status:409 Code:INVALID_STATE Message:invalid state transition}"}
+{"time":"2026-04-04T22:55:12.283088893+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"END"}
+========== END TestMapErrorContract/invalid_state_transition (http) ==========
+========== START TestMapErrorContract/invalid_bid (http) ==========
+{"time":"2026-04-04T22:55:12.283425906+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"START"}
+{"time":"2026-04-04T22:55:12.283519051+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"mapped={Status:400 Code:INVALID_BID Message:invalid bid}"}
+{"time":"2026-04-04T22:55:12.283647677+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"END"}
+========== END TestMapErrorContract/invalid_bid (http) ==========
+========== START TestMapErrorContract/default (http) ==========
+{"time":"2026-04-04T22:55:12.283969934+03:00","package":"http","test":"TestMapErrorContract/default","message":"START"}
+{"time":"2026-04-04T22:55:12.284084745+03:00","package":"http","test":"TestMapErrorContract/default","message":"mapped={Status:500 Code:INTERNAL_ERROR Message:internal error}"}
+{"time":"2026-04-04T22:55:12.284182696+03:00","package":"http","test":"TestMapErrorContract/default","message":"END"}
+========== END TestMapErrorContract/default (http) ==========
+{"time":"2026-04-04T22:55:12.284435803+03:00","package":"http","test":"TestMapErrorContract","message":"END"}
+========== END TestMapErrorContract (http) ==========
+========== START TestMapErrorContract (http) ==========
+{"time":"2026-04-04T22:57:37.171949029+03:00","package":"http","test":"TestMapErrorContract","message":"START"}
+========== START TestMapErrorContract/missing_company_id (http) ==========
+{"time":"2026-04-04T22:57:37.172149355+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"START"}
+{"time":"2026-04-04T22:57:37.172185016+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"mapped={Status:400 Code:MISSING_COMPANY_ID Message:missing X-Company-ID header}"}
+{"time":"2026-04-04T22:57:37.172251831+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"END"}
+========== END TestMapErrorContract/missing_company_id (http) ==========
+========== START TestMapErrorContract/invalid_state_transition (http) ==========
+{"time":"2026-04-04T22:57:37.172361742+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"START"}
+{"time":"2026-04-04T22:57:37.172402592+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"mapped={Status:409 Code:INVALID_STATE Message:invalid state transition}"}
+{"time":"2026-04-04T22:57:37.172446656+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"END"}
+========== END TestMapErrorContract/invalid_state_transition (http) ==========
+========== START TestMapErrorContract/invalid_bid (http) ==========
+{"time":"2026-04-04T22:57:37.172568482+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"START"}
+{"time":"2026-04-04T22:57:37.172622445+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"mapped={Status:400 Code:INVALID_BID Message:invalid bid}"}
+{"time":"2026-04-04T22:57:37.172692338+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"END"}
+========== END TestMapErrorContract/invalid_bid (http) ==========
+========== START TestMapErrorContract/default (http) ==========
+{"time":"2026-04-04T22:57:37.172862012+03:00","package":"http","test":"TestMapErrorContract/default","message":"START"}
+{"time":"2026-04-04T22:57:37.172912121+03:00","package":"http","test":"TestMapErrorContract/default","message":"mapped={Status:500 Code:INTERNAL_ERROR Message:internal error}"}
+{"time":"2026-04-04T22:57:37.172968763+03:00","package":"http","test":"TestMapErrorContract/default","message":"END"}
+========== END TestMapErrorContract/default (http) ==========
+{"time":"2026-04-04T22:57:37.173138732+03:00","package":"http","test":"TestMapErrorContract","message":"END"}
+========== END TestMapErrorContract (http) ==========
+========== START TestMapErrorContract (http) ==========
+{"time":"2026-04-04T23:04:26.61568099+03:00","package":"http","test":"TestMapErrorContract","message":"START"}
+========== START TestMapErrorContract/missing_company_id (http) ==========
+{"time":"2026-04-04T23:04:26.615834539+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"START"}
+{"time":"2026-04-04T23:04:26.615879197+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"mapped={Status:400 Code:MISSING_COMPANY_ID Message:missing X-Company-ID header}"}
+{"time":"2026-04-04T23:04:26.615947164+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"END"}
+========== END TestMapErrorContract/missing_company_id (http) ==========
+========== START TestMapErrorContract/invalid_state_transition (http) ==========
+{"time":"2026-04-04T23:04:26.616049661+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"START"}
+{"time":"2026-04-04T23:04:26.616109122+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"mapped={Status:409 Code:INVALID_STATE Message:invalid state transition}"}
+{"time":"2026-04-04T23:04:26.616144443+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"END"}
+========== END TestMapErrorContract/invalid_state_transition (http) ==========
+========== START TestMapErrorContract/invalid_bid (http) ==========
+{"time":"2026-04-04T23:04:26.616238742+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"START"}
+{"time":"2026-04-04T23:04:26.616264325+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"mapped={Status:400 Code:INVALID_BID Message:invalid bid}"}
+{"time":"2026-04-04T23:04:26.616302374+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"END"}
+========== END TestMapErrorContract/invalid_bid (http) ==========
+========== START TestMapErrorContract/default (http) ==========
+{"time":"2026-04-04T23:04:26.616417659+03:00","package":"http","test":"TestMapErrorContract/default","message":"START"}
+{"time":"2026-04-04T23:04:26.616457493+03:00","package":"http","test":"TestMapErrorContract/default","message":"mapped={Status:500 Code:INTERNAL_ERROR Message:internal error}"}
+{"time":"2026-04-04T23:04:26.61649055+03:00","package":"http","test":"TestMapErrorContract/default","message":"END"}
+========== END TestMapErrorContract/default (http) ==========
+{"time":"2026-04-04T23:04:26.616570969+03:00","package":"http","test":"TestMapErrorContract","message":"END"}
+========== END TestMapErrorContract (http) ==========
+========== START TestMapErrorContract (http) ==========
+{"time":"2026-04-04T23:19:28.069077369+03:00","package":"http","test":"TestMapErrorContract","message":"START"}
+========== START TestMapErrorContract/missing_company_id (http) ==========
+{"time":"2026-04-04T23:19:28.069319769+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"START"}
+{"time":"2026-04-04T23:19:28.069371413+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"mapped={Status:400 Code:MISSING_COMPANY_ID Message:missing X-Company-ID header}"}
+{"time":"2026-04-04T23:19:28.069447338+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"END"}
+========== END TestMapErrorContract/missing_company_id (http) ==========
+========== START TestMapErrorContract/invalid_state_transition (http) ==========
+{"time":"2026-04-04T23:19:28.069586064+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"START"}
+{"time":"2026-04-04T23:19:28.06964068+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"mapped={Status:409 Code:INVALID_STATE Message:invalid state transition}"}
+{"time":"2026-04-04T23:19:28.069696519+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"END"}
+========== END TestMapErrorContract/invalid_state_transition (http) ==========
+========== START TestMapErrorContract/invalid_bid (http) ==========
+{"time":"2026-04-04T23:19:28.069848234+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"START"}
+{"time":"2026-04-04T23:19:28.069892557+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"mapped={Status:400 Code:INVALID_BID Message:invalid bid}"}
+{"time":"2026-04-04T23:19:28.069949878+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"END"}
+========== END TestMapErrorContract/invalid_bid (http) ==========
+========== START TestMapErrorContract/default (http) ==========
+{"time":"2026-04-04T23:19:28.070097728+03:00","package":"http","test":"TestMapErrorContract/default","message":"START"}
+{"time":"2026-04-04T23:19:28.07014385+03:00","package":"http","test":"TestMapErrorContract/default","message":"mapped={Status:500 Code:INTERNAL_ERROR Message:internal error}"}
+{"time":"2026-04-04T23:19:28.070188827+03:00","package":"http","test":"TestMapErrorContract/default","message":"END"}
+========== END TestMapErrorContract/default (http) ==========
+{"time":"2026-04-04T23:19:28.070309459+03:00","package":"http","test":"TestMapErrorContract","message":"END"}
+========== END TestMapErrorContract (http) ==========
+========== START TestMapErrorContract (http) ==========
+{"time":"2026-04-04T23:21:13.613914937+03:00","package":"http","test":"TestMapErrorContract","message":"START"}
+========== START TestMapErrorContract/missing_company_id (http) ==========
+{"time":"2026-04-04T23:21:13.614014055+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"START"}
+{"time":"2026-04-04T23:21:13.614029678+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"mapped={Status:400 Code:MISSING_COMPANY_ID Message:missing X-Company-ID header}"}
+{"time":"2026-04-04T23:21:13.614064612+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"END"}
+========== END TestMapErrorContract/missing_company_id (http) ==========
+========== START TestMapErrorContract/invalid_state_transition (http) ==========
+{"time":"2026-04-04T23:21:13.614121862+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"START"}
+{"time":"2026-04-04T23:21:13.61413801+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"mapped={Status:409 Code:INVALID_STATE Message:invalid state transition}"}
+{"time":"2026-04-04T23:21:13.614157658+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"END"}
+========== END TestMapErrorContract/invalid_state_transition (http) ==========
+========== START TestMapErrorContract/invalid_bid (http) ==========
+{"time":"2026-04-04T23:21:13.614207001+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"START"}
+{"time":"2026-04-04T23:21:13.614223123+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"mapped={Status:400 Code:INVALID_BID Message:invalid bid}"}
+{"time":"2026-04-04T23:21:13.614240397+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"END"}
+========== END TestMapErrorContract/invalid_bid (http) ==========
+========== START TestMapErrorContract/default (http) ==========
+{"time":"2026-04-04T23:21:13.614284682+03:00","package":"http","test":"TestMapErrorContract/default","message":"START"}
+{"time":"2026-04-04T23:21:13.614300486+03:00","package":"http","test":"TestMapErrorContract/default","message":"mapped={Status:500 Code:INTERNAL_ERROR Message:internal error}"}
+{"time":"2026-04-04T23:21:13.614314443+03:00","package":"http","test":"TestMapErrorContract/default","message":"END"}
+========== END TestMapErrorContract/default (http) ==========
+{"time":"2026-04-04T23:21:13.614354686+03:00","package":"http","test":"TestMapErrorContract","message":"END"}
+========== END TestMapErrorContract (http) ==========
+========== START TestMapErrorContract (http) ==========
+{"time":"2026-04-04T23:21:24.025865782+03:00","package":"http","test":"TestMapErrorContract","message":"START"}
+========== START TestMapErrorContract/missing_company_id (http) ==========
+{"time":"2026-04-04T23:21:24.026194429+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"START"}
+{"time":"2026-04-04T23:21:24.026255003+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"mapped={Status:400 Code:MISSING_COMPANY_ID Message:missing X-Company-ID header}"}
+{"time":"2026-04-04T23:21:24.026358165+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"END"}
+========== END TestMapErrorContract/missing_company_id (http) ==========
+========== START TestMapErrorContract/invalid_state_transition (http) ==========
+{"time":"2026-04-04T23:21:24.02653772+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"START"}
+{"time":"2026-04-04T23:21:24.026608838+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"mapped={Status:409 Code:INVALID_STATE Message:invalid state transition}"}
+{"time":"2026-04-04T23:21:24.026685225+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"END"}
+========== END TestMapErrorContract/invalid_state_transition (http) ==========
+========== START TestMapErrorContract/invalid_bid (http) ==========
+{"time":"2026-04-04T23:21:24.026891691+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"START"}
+{"time":"2026-04-04T23:21:24.026948852+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"mapped={Status:400 Code:INVALID_BID Message:invalid bid}"}
+{"time":"2026-04-04T23:21:24.027016964+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"END"}
+========== END TestMapErrorContract/invalid_bid (http) ==========
+========== START TestMapErrorContract/default (http) ==========
+{"time":"2026-04-04T23:21:24.027254696+03:00","package":"http","test":"TestMapErrorContract/default","message":"START"}
+{"time":"2026-04-04T23:21:24.027325702+03:00","package":"http","test":"TestMapErrorContract/default","message":"mapped={Status:500 Code:INTERNAL_ERROR Message:internal error}"}
+{"time":"2026-04-04T23:21:24.027383087+03:00","package":"http","test":"TestMapErrorContract/default","message":"END"}
+========== END TestMapErrorContract/default (http) ==========
+{"time":"2026-04-04T23:21:24.027551422+03:00","package":"http","test":"TestMapErrorContract","message":"END"}
+========== END TestMapErrorContract (http) ==========
+========== START TestMapErrorContract (http) ==========
+{"time":"2026-04-04T23:28:53.12169578+03:00","package":"http","test":"TestMapErrorContract","message":"START"}
+========== START TestMapErrorContract/missing_company_id (http) ==========
+{"time":"2026-04-04T23:28:53.122019843+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"START"}
+{"time":"2026-04-04T23:28:53.122106682+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"mapped={Status:400 Code:MISSING_COMPANY_ID Message:missing X-Company-ID header}"}
+{"time":"2026-04-04T23:28:53.122231804+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"END"}
+========== END TestMapErrorContract/missing_company_id (http) ==========
+========== START TestMapErrorContract/invalid_state_transition (http) ==========
+{"time":"2026-04-04T23:28:53.122433217+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"START"}
+{"time":"2026-04-04T23:28:53.122513047+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"mapped={Status:409 Code:INVALID_STATE Message:invalid state transition}"}
+{"time":"2026-04-04T23:28:53.12259927+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"END"}
+========== END TestMapErrorContract/invalid_state_transition (http) ==========
+========== START TestMapErrorContract/invalid_bid (http) ==========
+{"time":"2026-04-04T23:28:53.12282676+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"START"}
+{"time":"2026-04-04T23:28:53.12289408+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"mapped={Status:400 Code:INVALID_BID Message:invalid bid}"}
+{"time":"2026-04-04T23:28:53.122976531+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"END"}
+========== END TestMapErrorContract/invalid_bid (http) ==========
+========== START TestMapErrorContract/default (http) ==========
+{"time":"2026-04-04T23:28:53.123209718+03:00","package":"http","test":"TestMapErrorContract/default","message":"START"}
+{"time":"2026-04-04T23:28:53.123284937+03:00","package":"http","test":"TestMapErrorContract/default","message":"mapped={Status:500 Code:INTERNAL_ERROR Message:internal error}"}
+{"time":"2026-04-04T23:28:53.123353856+03:00","package":"http","test":"TestMapErrorContract/default","message":"END"}
+========== END TestMapErrorContract/default (http) ==========
+{"time":"2026-04-04T23:28:53.123532559+03:00","package":"http","test":"TestMapErrorContract","message":"END"}
+========== END TestMapErrorContract (http) ==========
+========== START TestMapErrorContract (http) ==========
+{"time":"2026-04-04T23:50:39.839429422+03:00","package":"http","test":"TestMapErrorContract","message":"START"}
+========== START TestMapErrorContract/missing_company_id (http) ==========
+{"time":"2026-04-04T23:50:39.839669818+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"START"}
+{"time":"2026-04-04T23:50:39.839729798+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"mapped={Status:400 Code:MISSING_COMPANY_ID Message:missing X-Company-ID header}"}
+{"time":"2026-04-04T23:50:39.839821131+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"END"}
+========== END TestMapErrorContract/missing_company_id (http) ==========
+========== START TestMapErrorContract/invalid_state_transition (http) ==========
+{"time":"2026-04-04T23:50:39.83998559+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"START"}
+{"time":"2026-04-04T23:50:39.840031794+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"mapped={Status:409 Code:INVALID_STATE Message:invalid state transition}"}
+{"time":"2026-04-04T23:50:39.840148488+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"END"}
+========== END TestMapErrorContract/invalid_state_transition (http) ==========
+========== START TestMapErrorContract/invalid_bid (http) ==========
+{"time":"2026-04-04T23:50:39.840277544+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"START"}
+{"time":"2026-04-04T23:50:39.840310533+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"mapped={Status:400 Code:INVALID_BID Message:invalid bid}"}
+{"time":"2026-04-04T23:50:39.840352072+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"END"}
+========== END TestMapErrorContract/invalid_bid (http) ==========
+========== START TestMapErrorContract/default (http) ==========
+{"time":"2026-04-04T23:50:39.840462377+03:00","package":"http","test":"TestMapErrorContract/default","message":"START"}
+{"time":"2026-04-04T23:50:39.840496762+03:00","package":"http","test":"TestMapErrorContract/default","message":"mapped={Status:500 Code:INTERNAL_ERROR Message:internal error}"}
+{"time":"2026-04-04T23:50:39.840541391+03:00","package":"http","test":"TestMapErrorContract/default","message":"END"}
+========== END TestMapErrorContract/default (http) ==========
+{"time":"2026-04-04T23:50:39.8406379+03:00","package":"http","test":"TestMapErrorContract","message":"END"}
+========== END TestMapErrorContract (http) ==========
+========== START TestMapErrorContract (http) ==========
+{"time":"2026-04-04T23:50:55.476455584+03:00","package":"http","test":"TestMapErrorContract","message":"START"}
+========== START TestMapErrorContract/missing_company_id (http) ==========
+{"time":"2026-04-04T23:50:55.476584962+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"START"}
+{"time":"2026-04-04T23:50:55.476609912+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"mapped={Status:400 Code:MISSING_COMPANY_ID Message:missing X-Company-ID header}"}
+{"time":"2026-04-04T23:50:55.476655624+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"END"}
+========== END TestMapErrorContract/missing_company_id (http) ==========
+========== START TestMapErrorContract/invalid_state_transition (http) ==========
+{"time":"2026-04-04T23:50:55.476730005+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"START"}
+{"time":"2026-04-04T23:50:55.476756693+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"mapped={Status:409 Code:INVALID_STATE Message:invalid state transition}"}
+{"time":"2026-04-04T23:50:55.476783557+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"END"}
+========== END TestMapErrorContract/invalid_state_transition (http) ==========
+========== START TestMapErrorContract/invalid_bid (http) ==========
+{"time":"2026-04-04T23:50:55.476862898+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"START"}
+{"time":"2026-04-04T23:50:55.476890298+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"mapped={Status:400 Code:INVALID_BID Message:invalid bid}"}
+{"time":"2026-04-04T23:50:55.476930179+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"END"}
+========== END TestMapErrorContract/invalid_bid (http) ==========
+========== START TestMapErrorContract/default (http) ==========
+{"time":"2026-04-04T23:50:55.477009326+03:00","package":"http","test":"TestMapErrorContract/default","message":"START"}
+{"time":"2026-04-04T23:50:55.47703341+03:00","package":"http","test":"TestMapErrorContract/default","message":"mapped={Status:500 Code:INTERNAL_ERROR Message:internal error}"}
+{"time":"2026-04-04T23:50:55.477093362+03:00","package":"http","test":"TestMapErrorContract/default","message":"END"}
+========== END TestMapErrorContract/default (http) ==========
+{"time":"2026-04-04T23:50:55.477154756+03:00","package":"http","test":"TestMapErrorContract","message":"END"}
+========== END TestMapErrorContract (http) ==========
+========== START TestMapErrorContract (http) ==========
+{"time":"2026-04-04T23:51:12.532555084+03:00","package":"http","test":"TestMapErrorContract","message":"START"}
+========== START TestMapErrorContract/missing_company_id (http) ==========
+{"time":"2026-04-04T23:51:12.532694917+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"START"}
+{"time":"2026-04-04T23:51:12.532720813+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"mapped={Status:400 Code:MISSING_COMPANY_ID Message:missing X-Company-ID header}"}
+{"time":"2026-04-04T23:51:12.53278566+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"END"}
+========== END TestMapErrorContract/missing_company_id (http) ==========
+========== START TestMapErrorContract/invalid_state_transition (http) ==========
+{"time":"2026-04-04T23:51:12.532948424+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"START"}
+{"time":"2026-04-04T23:51:12.532992482+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"mapped={Status:409 Code:INVALID_STATE Message:invalid state transition}"}
+{"time":"2026-04-04T23:51:12.533041902+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"END"}
+========== END TestMapErrorContract/invalid_state_transition (http) ==========
+========== START TestMapErrorContract/invalid_bid (http) ==========
+{"time":"2026-04-04T23:51:12.533212946+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"START"}
+{"time":"2026-04-04T23:51:12.53325781+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"mapped={Status:400 Code:INVALID_BID Message:invalid bid}"}
+{"time":"2026-04-04T23:51:12.533309532+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"END"}
+========== END TestMapErrorContract/invalid_bid (http) ==========
+========== START TestMapErrorContract/default (http) ==========
+{"time":"2026-04-04T23:51:12.533442436+03:00","package":"http","test":"TestMapErrorContract/default","message":"START"}
+{"time":"2026-04-04T23:51:12.533485199+03:00","package":"http","test":"TestMapErrorContract/default","message":"mapped={Status:500 Code:INTERNAL_ERROR Message:internal error}"}
+{"time":"2026-04-04T23:51:12.533526362+03:00","package":"http","test":"TestMapErrorContract/default","message":"END"}
+========== END TestMapErrorContract/default (http) ==========
+{"time":"2026-04-04T23:51:12.53363484+03:00","package":"http","test":"TestMapErrorContract","message":"END"}
+========== END TestMapErrorContract (http) ==========
+========== START TestMapErrorContract (http) ==========
+{"time":"2026-04-04T23:59:52.86441761+03:00","package":"http","test":"TestMapErrorContract","message":"START"}
+========== START TestMapErrorContract/missing_company_id (http) ==========
+{"time":"2026-04-04T23:59:52.864547628+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"START"}
+{"time":"2026-04-04T23:59:52.864566466+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"mapped={Status:400 Code:MISSING_COMPANY_ID Message:missing X-Company-ID header}"}
+{"time":"2026-04-04T23:59:52.864607534+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"END"}
+========== END TestMapErrorContract/missing_company_id (http) ==========
+========== START TestMapErrorContract/invalid_state_transition (http) ==========
+{"time":"2026-04-04T23:59:52.864676212+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"START"}
+{"time":"2026-04-04T23:59:52.864698378+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"mapped={Status:409 Code:INVALID_STATE Message:invalid state transition}"}
+{"time":"2026-04-04T23:59:52.864726027+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"END"}
+========== END TestMapErrorContract/invalid_state_transition (http) ==========
+========== START TestMapErrorContract/invalid_bid (http) ==========
+{"time":"2026-04-04T23:59:52.864790835+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"START"}
+{"time":"2026-04-04T23:59:52.864810592+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"mapped={Status:400 Code:INVALID_BID Message:invalid bid}"}
+{"time":"2026-04-04T23:59:52.864834053+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"END"}
+========== END TestMapErrorContract/invalid_bid (http) ==========
+========== START TestMapErrorContract/default (http) ==========
+{"time":"2026-04-04T23:59:52.864909162+03:00","package":"http","test":"TestMapErrorContract/default","message":"START"}
+{"time":"2026-04-04T23:59:52.864929535+03:00","package":"http","test":"TestMapErrorContract/default","message":"mapped={Status:500 Code:INTERNAL_ERROR Message:internal error}"}
+{"time":"2026-04-04T23:59:52.864951468+03:00","package":"http","test":"TestMapErrorContract/default","message":"END"}
+========== END TestMapErrorContract/default (http) ==========
+{"time":"2026-04-04T23:59:52.865018557+03:00","package":"http","test":"TestMapErrorContract","message":"END"}
+========== END TestMapErrorContract (http) ==========
+========== START TestMapErrorContract (http) ==========
+{"time":"2026-04-05T00:49:23.092403206+03:00","package":"http","test":"TestMapErrorContract","message":"START"}
+========== START TestMapErrorContract/missing_company_id (http) ==========
+{"time":"2026-04-05T00:49:23.092547445+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"START"}
+{"time":"2026-04-05T00:49:23.092574912+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"mapped={Status:400 Code:MISSING_COMPANY_ID Message:missing X-Company-ID header}"}
+{"time":"2026-04-05T00:49:23.092621265+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"END"}
+========== END TestMapErrorContract/missing_company_id (http) ==========
+========== START TestMapErrorContract/invalid_state_transition (http) ==========
+{"time":"2026-04-05T00:49:23.092702769+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"START"}
+{"time":"2026-04-05T00:49:23.092734569+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"mapped={Status:409 Code:INVALID_STATE Message:invalid state transition}"}
+{"time":"2026-04-05T00:49:23.092766822+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"END"}
+========== END TestMapErrorContract/invalid_state_transition (http) ==========
+========== START TestMapErrorContract/invalid_bid (http) ==========
+{"time":"2026-04-05T00:49:23.092912223+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"START"}
+{"time":"2026-04-05T00:49:23.09297492+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"mapped={Status:400 Code:INVALID_BID Message:invalid bid}"}
+{"time":"2026-04-05T00:49:23.093052427+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"END"}
+========== END TestMapErrorContract/invalid_bid (http) ==========
+========== START TestMapErrorContract/default (http) ==========
+{"time":"2026-04-05T00:49:23.093267259+03:00","package":"http","test":"TestMapErrorContract/default","message":"START"}
+{"time":"2026-04-05T00:49:23.093334794+03:00","package":"http","test":"TestMapErrorContract/default","message":"mapped={Status:500 Code:INTERNAL_ERROR Message:internal error}"}
+{"time":"2026-04-05T00:49:23.09339909+03:00","package":"http","test":"TestMapErrorContract/default","message":"END"}
+========== END TestMapErrorContract/default (http) ==========
+{"time":"2026-04-05T00:49:23.093564132+03:00","package":"http","test":"TestMapErrorContract","message":"END"}
+========== END TestMapErrorContract (http) ==========
+========== START TestMapErrorContract (http) ==========
+{"time":"2026-04-05T00:50:56.470828018+03:00","package":"http","test":"TestMapErrorContract","message":"START"}
+========== START TestMapErrorContract/missing_company_id (http) ==========
+{"time":"2026-04-05T00:50:56.471091048+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"START"}
+{"time":"2026-04-05T00:50:56.471150573+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"mapped={Status:400 Code:MISSING_COMPANY_ID Message:missing X-Company-ID header}"}
+{"time":"2026-04-05T00:50:56.471241977+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"END"}
+========== END TestMapErrorContract/missing_company_id (http) ==========
+========== START TestMapErrorContract/invalid_state_transition (http) ==========
+{"time":"2026-04-05T00:50:56.471399146+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"START"}
+{"time":"2026-04-05T00:50:56.471458291+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"mapped={Status:409 Code:INVALID_STATE Message:invalid state transition}"}
+{"time":"2026-04-05T00:50:56.471529201+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"END"}
+========== END TestMapErrorContract/invalid_state_transition (http) ==========
+========== START TestMapErrorContract/invalid_bid (http) ==========
+{"time":"2026-04-05T00:50:56.471712749+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"START"}
+{"time":"2026-04-05T00:50:56.471763162+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"mapped={Status:400 Code:INVALID_BID Message:invalid bid}"}
+{"time":"2026-04-05T00:50:56.471826517+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"END"}
+========== END TestMapErrorContract/invalid_bid (http) ==========
+========== START TestMapErrorContract/default (http) ==========
+{"time":"2026-04-05T00:50:56.47198779+03:00","package":"http","test":"TestMapErrorContract/default","message":"START"}
+{"time":"2026-04-05T00:50:56.472036668+03:00","package":"http","test":"TestMapErrorContract/default","message":"mapped={Status:500 Code:INTERNAL_ERROR Message:internal error}"}
+{"time":"2026-04-05T00:50:56.472096974+03:00","package":"http","test":"TestMapErrorContract/default","message":"END"}
+========== END TestMapErrorContract/default (http) ==========
+{"time":"2026-04-05T00:50:56.47222823+03:00","package":"http","test":"TestMapErrorContract","message":"END"}
+========== END TestMapErrorContract (http) ==========
+========== START TestMapErrorContract (http) ==========
+{"time":"2026-04-05T00:51:23.359799412+03:00","package":"http","test":"TestMapErrorContract","message":"START"}
+========== START TestMapErrorContract/missing_company_id (http) ==========
+{"time":"2026-04-05T00:51:23.359991675+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"START"}
+{"time":"2026-04-05T00:51:23.360037469+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"mapped={Status:400 Code:MISSING_COMPANY_ID Message:missing X-Company-ID header}"}
+{"time":"2026-04-05T00:51:23.360120625+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"END"}
+========== END TestMapErrorContract/missing_company_id (http) ==========
+========== START TestMapErrorContract/invalid_state_transition (http) ==========
+{"time":"2026-04-05T00:51:23.360257532+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"START"}
+{"time":"2026-04-05T00:51:23.36031162+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"mapped={Status:409 Code:INVALID_STATE Message:invalid state transition}"}
+{"time":"2026-04-05T00:51:23.360378363+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"END"}
+========== END TestMapErrorContract/invalid_state_transition (http) ==========
+========== START TestMapErrorContract/invalid_bid (http) ==========
+{"time":"2026-04-05T00:51:23.360511851+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"START"}
+{"time":"2026-04-05T00:51:23.360552855+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"mapped={Status:400 Code:INVALID_BID Message:invalid bid}"}
+{"time":"2026-04-05T00:51:23.360602459+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"END"}
+========== END TestMapErrorContract/invalid_bid (http) ==========
+========== START TestMapErrorContract/default (http) ==========
+{"time":"2026-04-05T00:51:23.36072776+03:00","package":"http","test":"TestMapErrorContract/default","message":"START"}
+{"time":"2026-04-05T00:51:23.360770269+03:00","package":"http","test":"TestMapErrorContract/default","message":"mapped={Status:500 Code:INTERNAL_ERROR Message:internal error}"}
+{"time":"2026-04-05T00:51:23.360810968+03:00","package":"http","test":"TestMapErrorContract/default","message":"END"}
+========== END TestMapErrorContract/default (http) ==========
+{"time":"2026-04-05T00:51:23.360909923+03:00","package":"http","test":"TestMapErrorContract","message":"END"}
+========== END TestMapErrorContract (http) ==========
+========== START TestMapErrorContract (http) ==========
+{"time":"2026-04-05T00:57:20.388850281+03:00","package":"http","test":"TestMapErrorContract","message":"START"}
+========== START TestMapErrorContract/missing_company_id (http) ==========
+{"time":"2026-04-05T00:57:20.388953345+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"START"}
+{"time":"2026-04-05T00:57:20.388972621+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"mapped={Status:400 Code:MISSING_COMPANY_ID Message:missing X-Company-ID header}"}
+{"time":"2026-04-05T00:57:20.389006528+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"END"}
+========== END TestMapErrorContract/missing_company_id (http) ==========
+========== START TestMapErrorContract/invalid_state_transition (http) ==========
+{"time":"2026-04-05T00:57:20.389066215+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"START"}
+{"time":"2026-04-05T00:57:20.389087288+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"mapped={Status:409 Code:INVALID_STATE Message:invalid state transition}"}
+{"time":"2026-04-05T00:57:20.389107321+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"END"}
+========== END TestMapErrorContract/invalid_state_transition (http) ==========
+========== START TestMapErrorContract/invalid_bid (http) ==========
+{"time":"2026-04-05T00:57:20.389159965+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"START"}
+{"time":"2026-04-05T00:57:20.389176263+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"mapped={Status:400 Code:INVALID_BID Message:invalid bid}"}
+{"time":"2026-04-05T00:57:20.389198436+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"END"}
+========== END TestMapErrorContract/invalid_bid (http) ==========
+========== START TestMapErrorContract/default (http) ==========
+{"time":"2026-04-05T00:57:20.38924585+03:00","package":"http","test":"TestMapErrorContract/default","message":"START"}
+{"time":"2026-04-05T00:57:20.389260659+03:00","package":"http","test":"TestMapErrorContract/default","message":"mapped={Status:500 Code:INTERNAL_ERROR Message:internal error}"}
+{"time":"2026-04-05T00:57:20.389276956+03:00","package":"http","test":"TestMapErrorContract/default","message":"END"}
+========== END TestMapErrorContract/default (http) ==========
+{"time":"2026-04-05T00:57:20.389317846+03:00","package":"http","test":"TestMapErrorContract","message":"END"}
+========== END TestMapErrorContract (http) ==========
+========== START TestMapErrorContract (http) ==========
+{"time":"2026-04-05T00:59:47.941097059+03:00","package":"http","test":"TestMapErrorContract","message":"START"}
+========== START TestMapErrorContract/missing_company_id (http) ==========
+{"time":"2026-04-05T00:59:47.941237932+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"START"}
+{"time":"2026-04-05T00:59:47.941263135+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"mapped={Status:400 Code:MISSING_COMPANY_ID Message:missing X-Company-ID header}"}
+{"time":"2026-04-05T00:59:47.941307143+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"END"}
+========== END TestMapErrorContract/missing_company_id (http) ==========
+========== START TestMapErrorContract/invalid_state_transition (http) ==========
+{"time":"2026-04-05T00:59:47.941373987+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"START"}
+{"time":"2026-04-05T00:59:47.941404673+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"mapped={Status:409 Code:INVALID_STATE Message:invalid state transition}"}
+{"time":"2026-04-05T00:59:47.941438282+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"END"}
+========== END TestMapErrorContract/invalid_state_transition (http) ==========
+========== START TestMapErrorContract/invalid_bid (http) ==========
+{"time":"2026-04-05T00:59:47.941542154+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"START"}
+{"time":"2026-04-05T00:59:47.941575632+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"mapped={Status:400 Code:INVALID_BID Message:invalid bid}"}
+{"time":"2026-04-05T00:59:47.941616598+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"END"}
+========== END TestMapErrorContract/invalid_bid (http) ==========
+========== START TestMapErrorContract/default (http) ==========
+{"time":"2026-04-05T00:59:47.941716338+03:00","package":"http","test":"TestMapErrorContract/default","message":"START"}
+{"time":"2026-04-05T00:59:47.941749009+03:00","package":"http","test":"TestMapErrorContract/default","message":"mapped={Status:500 Code:INTERNAL_ERROR Message:internal error}"}
+{"time":"2026-04-05T00:59:47.941786342+03:00","package":"http","test":"TestMapErrorContract/default","message":"END"}
+========== END TestMapErrorContract/default (http) ==========
+{"time":"2026-04-05T00:59:47.941869247+03:00","package":"http","test":"TestMapErrorContract","message":"END"}
+========== END TestMapErrorContract (http) ==========
+========== START TestMapErrorContract (http) ==========
+{"time":"2026-04-05T01:23:35.555530937+03:00","package":"http","test":"TestMapErrorContract","message":"START"}
+========== START TestMapErrorContract/missing_company_id (http) ==========
+{"time":"2026-04-05T01:23:35.555672686+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"START"}
+{"time":"2026-04-05T01:23:35.555700407+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"mapped={Status:400 Code:MISSING_COMPANY_ID Message:missing X-Company-ID header}"}
+{"time":"2026-04-05T01:23:35.555748606+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"END"}
+========== END TestMapErrorContract/missing_company_id (http) ==========
+========== START TestMapErrorContract/invalid_state_transition (http) ==========
+{"time":"2026-04-05T01:23:35.555835244+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"START"}
+{"time":"2026-04-05T01:23:35.555870246+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"mapped={Status:409 Code:INVALID_STATE Message:invalid state transition}"}
+{"time":"2026-04-05T01:23:35.55590057+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"END"}
+========== END TestMapErrorContract/invalid_state_transition (http) ==========
+========== START TestMapErrorContract/invalid_bid (http) ==========
+{"time":"2026-04-05T01:23:35.555989252+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"START"}
+{"time":"2026-04-05T01:23:35.556013147+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"mapped={Status:400 Code:INVALID_BID Message:invalid bid}"}
+{"time":"2026-04-05T01:23:35.556043434+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"END"}
+========== END TestMapErrorContract/invalid_bid (http) ==========
+========== START TestMapErrorContract/default (http) ==========
+{"time":"2026-04-05T01:23:35.556127223+03:00","package":"http","test":"TestMapErrorContract/default","message":"START"}
+{"time":"2026-04-05T01:23:35.556151996+03:00","package":"http","test":"TestMapErrorContract/default","message":"mapped={Status:500 Code:INTERNAL_ERROR Message:internal error}"}
+{"time":"2026-04-05T01:23:35.55617656+03:00","package":"http","test":"TestMapErrorContract/default","message":"END"}
+========== END TestMapErrorContract/default (http) ==========
+{"time":"2026-04-05T01:23:35.55623862+03:00","package":"http","test":"TestMapErrorContract","message":"END"}
+========== END TestMapErrorContract (http) ==========
+========== START TestMapErrorContract (http) ==========
+{"time":"2026-04-05T01:27:42.283277263+03:00","package":"http","test":"TestMapErrorContract","message":"START"}
+========== START TestMapErrorContract/missing_company_id (http) ==========
+{"time":"2026-04-05T01:27:42.283359714+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"START"}
+{"time":"2026-04-05T01:27:42.28338119+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"mapped={Status:400 Code:MISSING_COMPANY_ID Message:missing X-Company-ID header}"}
+{"time":"2026-04-05T01:27:42.283403196+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"END"}
+========== END TestMapErrorContract/missing_company_id (http) ==========
+========== START TestMapErrorContract/invalid_state_transition (http) ==========
+{"time":"2026-04-05T01:27:42.283444491+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"START"}
+{"time":"2026-04-05T01:27:42.283457961+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"mapped={Status:409 Code:INVALID_STATE Message:invalid state transition}"}
+{"time":"2026-04-05T01:27:42.283475321+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"END"}
+========== END TestMapErrorContract/invalid_state_transition (http) ==========
+========== START TestMapErrorContract/invalid_bid (http) ==========
+{"time":"2026-04-05T01:27:42.283524876+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"START"}
+{"time":"2026-04-05T01:27:42.283538555+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"mapped={Status:400 Code:INVALID_BID Message:invalid bid}"}
+{"time":"2026-04-05T01:27:42.283554941+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"END"}
+========== END TestMapErrorContract/invalid_bid (http) ==========
+========== START TestMapErrorContract/default (http) ==========
+{"time":"2026-04-05T01:27:42.28359598+03:00","package":"http","test":"TestMapErrorContract/default","message":"START"}
+{"time":"2026-04-05T01:27:42.28360975+03:00","package":"http","test":"TestMapErrorContract/default","message":"mapped={Status:500 Code:INTERNAL_ERROR Message:internal error}"}
+{"time":"2026-04-05T01:27:42.28362295+03:00","package":"http","test":"TestMapErrorContract/default","message":"END"}
+========== END TestMapErrorContract/default (http) ==========
+{"time":"2026-04-05T01:27:42.283658953+03:00","package":"http","test":"TestMapErrorContract","message":"END"}
+========== END TestMapErrorContract (http) ==========
+========== START TestMapErrorContract (http) ==========
+{"time":"2026-04-05T01:38:57.911223287+03:00","package":"http","test":"TestMapErrorContract","message":"START"}
+========== START TestMapErrorContract/missing_company_id (http) ==========
+{"time":"2026-04-05T01:38:57.911356211+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"START"}
+{"time":"2026-04-05T01:38:57.911387961+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"mapped={Status:400 Code:MISSING_COMPANY_ID Message:missing X-Company-ID header}"}
+{"time":"2026-04-05T01:38:57.911419032+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"END"}
+========== END TestMapErrorContract/missing_company_id (http) ==========
+========== START TestMapErrorContract/invalid_state_transition (http) ==========
+{"time":"2026-04-05T01:38:57.911476466+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"START"}
+{"time":"2026-04-05T01:38:57.911495444+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"mapped={Status:409 Code:INVALID_STATE Message:invalid state transition}"}
+{"time":"2026-04-05T01:38:57.911518347+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"END"}
+========== END TestMapErrorContract/invalid_state_transition (http) ==========
+========== START TestMapErrorContract/invalid_bid (http) ==========
+{"time":"2026-04-05T01:38:57.911600927+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"START"}
+{"time":"2026-04-05T01:38:57.911623204+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"mapped={Status:400 Code:INVALID_BID Message:invalid bid}"}
+{"time":"2026-04-05T01:38:57.911650704+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"END"}
+========== END TestMapErrorContract/invalid_bid (http) ==========
+========== START TestMapErrorContract/default (http) ==========
+{"time":"2026-04-05T01:38:57.911713642+03:00","package":"http","test":"TestMapErrorContract/default","message":"START"}
+{"time":"2026-04-05T01:38:57.911732737+03:00","package":"http","test":"TestMapErrorContract/default","message":"mapped={Status:500 Code:INTERNAL_ERROR Message:internal error}"}
+{"time":"2026-04-05T01:38:57.911750871+03:00","package":"http","test":"TestMapErrorContract/default","message":"END"}
+========== END TestMapErrorContract/default (http) ==========
+{"time":"2026-04-05T01:38:57.911804106+03:00","package":"http","test":"TestMapErrorContract","message":"END"}
+========== END TestMapErrorContract (http) ==========
+========== START TestMapErrorContract (http) ==========
+{"time":"2026-04-05T01:39:34.012774414+03:00","package":"http","test":"TestMapErrorContract","message":"START"}
+========== START TestMapErrorContract/missing_company_id (http) ==========
+{"time":"2026-04-05T01:39:34.012930274+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"START"}
+{"time":"2026-04-05T01:39:34.012957008+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"mapped={Status:400 Code:MISSING_COMPANY_ID Message:missing X-Company-ID header}"}
+{"time":"2026-04-05T01:39:34.012999614+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"END"}
+========== END TestMapErrorContract/missing_company_id (http) ==========
+========== START TestMapErrorContract/invalid_state_transition (http) ==========
+{"time":"2026-04-05T01:39:34.013096683+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"START"}
+{"time":"2026-04-05T01:39:34.013128131+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"mapped={Status:409 Code:INVALID_STATE Message:invalid state transition}"}
+{"time":"2026-04-05T01:39:34.013183029+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"END"}
+========== END TestMapErrorContract/invalid_state_transition (http) ==========
+========== START TestMapErrorContract/invalid_bid (http) ==========
+{"time":"2026-04-05T01:39:34.013319266+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"START"}
+{"time":"2026-04-05T01:39:34.013360497+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"mapped={Status:400 Code:INVALID_BID Message:invalid bid}"}
+{"time":"2026-04-05T01:39:34.013392171+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"END"}
+========== END TestMapErrorContract/invalid_bid (http) ==========
+========== START TestMapErrorContract/default (http) ==========
+{"time":"2026-04-05T01:39:34.013486551+03:00","package":"http","test":"TestMapErrorContract/default","message":"START"}
+{"time":"2026-04-05T01:39:34.013511589+03:00","package":"http","test":"TestMapErrorContract/default","message":"mapped={Status:500 Code:INTERNAL_ERROR Message:internal error}"}
+{"time":"2026-04-05T01:39:34.013541043+03:00","package":"http","test":"TestMapErrorContract/default","message":"END"}
+========== END TestMapErrorContract/default (http) ==========
+{"time":"2026-04-05T01:39:34.013616728+03:00","package":"http","test":"TestMapErrorContract","message":"END"}
+========== END TestMapErrorContract (http) ==========
+========== START TestMapErrorContract (http) ==========
+{"time":"2026-04-05T01:56:28.689758591+03:00","package":"http","test":"TestMapErrorContract","message":"START"}
+========== START TestMapErrorContract/missing_company_id (http) ==========
+{"time":"2026-04-05T01:56:28.690023876+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"START"}
+{"time":"2026-04-05T01:56:28.690089731+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"mapped={Status:400 Code:MISSING_COMPANY_ID Message:missing X-Company-ID header}"}
+{"time":"2026-04-05T01:56:28.690175793+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"END"}
+========== END TestMapErrorContract/missing_company_id (http) ==========
+========== START TestMapErrorContract/invalid_state_transition (http) ==========
+{"time":"2026-04-05T01:56:28.690317567+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"START"}
+{"time":"2026-04-05T01:56:28.690364834+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"mapped={Status:409 Code:INVALID_STATE Message:invalid state transition}"}
+{"time":"2026-04-05T01:56:28.690425085+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"END"}
+========== END TestMapErrorContract/invalid_state_transition (http) ==========
+========== START TestMapErrorContract/invalid_bid (http) ==========
+{"time":"2026-04-05T01:56:28.690605206+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"START"}
+{"time":"2026-04-05T01:56:28.690649179+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"mapped={Status:400 Code:INVALID_BID Message:invalid bid}"}
+{"time":"2026-04-05T01:56:28.690697113+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"END"}
+========== END TestMapErrorContract/invalid_bid (http) ==========
+========== START TestMapErrorContract/default (http) ==========
+{"time":"2026-04-05T01:56:28.69086955+03:00","package":"http","test":"TestMapErrorContract/default","message":"START"}
+{"time":"2026-04-05T01:56:28.690929631+03:00","package":"http","test":"TestMapErrorContract/default","message":"mapped={Status:500 Code:INTERNAL_ERROR Message:internal error}"}
+{"time":"2026-04-05T01:56:28.690971408+03:00","package":"http","test":"TestMapErrorContract/default","message":"END"}
+========== END TestMapErrorContract/default (http) ==========
+{"time":"2026-04-05T01:56:28.691099061+03:00","package":"http","test":"TestMapErrorContract","message":"END"}
+========== END TestMapErrorContract (http) ==========
+========== START TestMapErrorContract (http) ==========
+{"time":"2026-04-05T02:50:46.348796686+03:00","package":"http","test":"TestMapErrorContract","message":"START"}
+========== START TestMapErrorContract/missing_company_id (http) ==========
+{"time":"2026-04-05T02:50:46.34893481+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"START"}
+{"time":"2026-04-05T02:50:46.348958016+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"mapped={Status:400 Code:MISSING_COMPANY_ID Message:missing X-Company-ID header}"}
+{"time":"2026-04-05T02:50:46.348986113+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"END"}
+========== END TestMapErrorContract/missing_company_id (http) ==========
+========== START TestMapErrorContract/invalid_state_transition (http) ==========
+{"time":"2026-04-05T02:50:46.349039028+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"START"}
+{"time":"2026-04-05T02:50:46.349068169+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"mapped={Status:409 Code:INVALID_STATE Message:invalid state transition}"}
+{"time":"2026-04-05T02:50:46.349092359+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"END"}
+========== END TestMapErrorContract/invalid_state_transition (http) ==========
+========== START TestMapErrorContract/invalid_bid (http) ==========
+{"time":"2026-04-05T02:50:46.349152164+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"START"}
+{"time":"2026-04-05T02:50:46.349169259+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"mapped={Status:400 Code:INVALID_BID Message:invalid bid}"}
+{"time":"2026-04-05T02:50:46.349191677+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"END"}
+========== END TestMapErrorContract/invalid_bid (http) ==========
+========== START TestMapErrorContract/default (http) ==========
+{"time":"2026-04-05T02:50:46.349252612+03:00","package":"http","test":"TestMapErrorContract/default","message":"START"}
+{"time":"2026-04-05T02:50:46.34926809+03:00","package":"http","test":"TestMapErrorContract/default","message":"mapped={Status:500 Code:INTERNAL_ERROR Message:internal error}"}
+{"time":"2026-04-05T02:50:46.349284026+03:00","package":"http","test":"TestMapErrorContract/default","message":"END"}
+========== END TestMapErrorContract/default (http) ==========
+{"time":"2026-04-05T02:50:46.349333325+03:00","package":"http","test":"TestMapErrorContract","message":"END"}
+========== END TestMapErrorContract (http) ==========
+========== START TestMapErrorContract (http) ==========
+{"time":"2026-04-05T02:56:07.9864234+03:00","package":"http","test":"TestMapErrorContract","message":"START"}
+========== START TestMapErrorContract/missing_company_id (http) ==========
+{"time":"2026-04-05T02:56:07.986786531+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"START"}
+{"time":"2026-04-05T02:56:07.986889526+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"mapped={Status:400 Code:MISSING_COMPANY_ID Message:missing X-Company-ID header}"}
+{"time":"2026-04-05T02:56:07.98697855+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"END"}
+========== END TestMapErrorContract/missing_company_id (http) ==========
+========== START TestMapErrorContract/invalid_state_transition (http) ==========
+{"time":"2026-04-05T02:56:07.987156987+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"START"}
+{"time":"2026-04-05T02:56:07.987216114+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"mapped={Status:409 Code:INVALID_STATE Message:invalid state transition}"}
+{"time":"2026-04-05T02:56:07.987287837+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"END"}
+========== END TestMapErrorContract/invalid_state_transition (http) ==========
+========== START TestMapErrorContract/invalid_bid (http) ==========
+{"time":"2026-04-05T02:56:07.987450555+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"START"}
+{"time":"2026-04-05T02:56:07.98751152+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"mapped={Status:400 Code:INVALID_BID Message:invalid bid}"}
+{"time":"2026-04-05T02:56:07.987577306+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"END"}
+========== END TestMapErrorContract/invalid_bid (http) ==========
+========== START TestMapErrorContract/default (http) ==========
+{"time":"2026-04-05T02:56:07.987715507+03:00","package":"http","test":"TestMapErrorContract/default","message":"START"}
+{"time":"2026-04-05T02:56:07.987767299+03:00","package":"http","test":"TestMapErrorContract/default","message":"mapped={Status:500 Code:INTERNAL_ERROR Message:internal error}"}
+{"time":"2026-04-05T02:56:07.987815619+03:00","package":"http","test":"TestMapErrorContract/default","message":"END"}
+========== END TestMapErrorContract/default (http) ==========
+{"time":"2026-04-05T02:56:07.987934593+03:00","package":"http","test":"TestMapErrorContract","message":"END"}
+========== END TestMapErrorContract (http) ==========
+========== START TestMapErrorContract (http) ==========
+{"time":"2026-04-05T03:08:53.769849275+03:00","package":"http","test":"TestMapErrorContract","message":"START"}
+========== START TestMapErrorContract/missing_company_id (http) ==========
+{"time":"2026-04-05T03:08:53.769960619+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"START"}
+{"time":"2026-04-05T03:08:53.76998147+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"mapped={Status:400 Code:MISSING_COMPANY_ID Message:missing X-Company-ID header}"}
+{"time":"2026-04-05T03:08:53.770024426+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"END"}
+========== END TestMapErrorContract/missing_company_id (http) ==========
+========== START TestMapErrorContract/invalid_state_transition (http) ==========
+{"time":"2026-04-05T03:08:53.770097063+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"START"}
+{"time":"2026-04-05T03:08:53.770119158+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"mapped={Status:409 Code:INVALID_STATE Message:invalid state transition}"}
+{"time":"2026-04-05T03:08:53.770146435+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"END"}
+========== END TestMapErrorContract/invalid_state_transition (http) ==========
+========== START TestMapErrorContract/invalid_bid (http) ==========
+{"time":"2026-04-05T03:08:53.770222045+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"START"}
+{"time":"2026-04-05T03:08:53.770257181+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"mapped={Status:400 Code:INVALID_BID Message:invalid bid}"}
+{"time":"2026-04-05T03:08:53.770282419+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"END"}
+========== END TestMapErrorContract/invalid_bid (http) ==========
+========== START TestMapErrorContract/default (http) ==========
+{"time":"2026-04-05T03:08:53.770350091+03:00","package":"http","test":"TestMapErrorContract/default","message":"START"}
+{"time":"2026-04-05T03:08:53.77037193+03:00","package":"http","test":"TestMapErrorContract/default","message":"mapped={Status:500 Code:INTERNAL_ERROR Message:internal error}"}
+{"time":"2026-04-05T03:08:53.770393961+03:00","package":"http","test":"TestMapErrorContract/default","message":"END"}
+========== END TestMapErrorContract/default (http) ==========
+{"time":"2026-04-05T03:08:53.770452434+03:00","package":"http","test":"TestMapErrorContract","message":"END"}
+========== END TestMapErrorContract (http) ==========
+========== START TestMapErrorContract (http) ==========
+{"time":"2026-04-05T03:11:26.162513226+03:00","package":"http","test":"TestMapErrorContract","message":"START"}
+========== START TestMapErrorContract/missing_company_id (http) ==========
+{"time":"2026-04-05T03:11:26.16278664+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"START"}
+{"time":"2026-04-05T03:11:26.162867075+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"mapped={Status:400 Code:MISSING_COMPANY_ID Message:missing X-Company-ID header}"}
+{"time":"2026-04-05T03:11:26.162954829+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"END"}
+========== END TestMapErrorContract/missing_company_id (http) ==========
+========== START TestMapErrorContract/invalid_state_transition (http) ==========
+{"time":"2026-04-05T03:11:26.163139044+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"START"}
+{"time":"2026-04-05T03:11:26.163192604+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"mapped={Status:409 Code:INVALID_STATE Message:invalid state transition}"}
+{"time":"2026-04-05T03:11:26.163264503+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"END"}
+========== END TestMapErrorContract/invalid_state_transition (http) ==========
+========== START TestMapErrorContract/invalid_bid (http) ==========
+{"time":"2026-04-05T03:11:26.163453788+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"START"}
+{"time":"2026-04-05T03:11:26.163505487+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"mapped={Status:400 Code:INVALID_BID Message:invalid bid}"}
+{"time":"2026-04-05T03:11:26.163575892+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"END"}
+========== END TestMapErrorContract/invalid_bid (http) ==========
+========== START TestMapErrorContract/default (http) ==========
+{"time":"2026-04-05T03:11:26.163745816+03:00","package":"http","test":"TestMapErrorContract/default","message":"START"}
+{"time":"2026-04-05T03:11:26.16380304+03:00","package":"http","test":"TestMapErrorContract/default","message":"mapped={Status:500 Code:INTERNAL_ERROR Message:internal error}"}
+{"time":"2026-04-05T03:11:26.163857846+03:00","package":"http","test":"TestMapErrorContract/default","message":"END"}
+========== END TestMapErrorContract/default (http) ==========
+{"time":"2026-04-05T03:11:26.164007777+03:00","package":"http","test":"TestMapErrorContract","message":"END"}
+========== END TestMapErrorContract (http) ==========
+========== START TestMapErrorContract (http) ==========
+{"time":"2026-04-05T03:13:09.522080483+03:00","package":"http","test":"TestMapErrorContract","message":"START"}
+========== START TestMapErrorContract/missing_company_id (http) ==========
+{"time":"2026-04-05T03:13:09.522772231+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"START"}
+{"time":"2026-04-05T03:13:09.522793262+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"mapped={Status:400 Code:MISSING_COMPANY_ID Message:missing X-Company-ID header}"}
+{"time":"2026-04-05T03:13:09.522815439+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"END"}
+========== END TestMapErrorContract/missing_company_id (http) ==========
+========== START TestMapErrorContract/invalid_state_transition (http) ==========
+{"time":"2026-04-05T03:13:09.522858719+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"START"}
+{"time":"2026-04-05T03:13:09.522872482+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"mapped={Status:409 Code:INVALID_STATE Message:invalid state transition}"}
+{"time":"2026-04-05T03:13:09.522889454+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"END"}
+========== END TestMapErrorContract/invalid_state_transition (http) ==========
+========== START TestMapErrorContract/invalid_bid (http) ==========
+{"time":"2026-04-05T03:13:09.522945593+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"START"}
+{"time":"2026-04-05T03:13:09.522959961+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"mapped={Status:400 Code:INVALID_BID Message:invalid bid}"}
+{"time":"2026-04-05T03:13:09.522976873+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"END"}
+========== END TestMapErrorContract/invalid_bid (http) ==========
+========== START TestMapErrorContract/default (http) ==========
+{"time":"2026-04-05T03:13:09.523022848+03:00","package":"http","test":"TestMapErrorContract/default","message":"START"}
+{"time":"2026-04-05T03:13:09.523036391+03:00","package":"http","test":"TestMapErrorContract/default","message":"mapped={Status:500 Code:INTERNAL_ERROR Message:internal error}"}
+{"time":"2026-04-05T03:13:09.523050064+03:00","package":"http","test":"TestMapErrorContract/default","message":"END"}
+========== END TestMapErrorContract/default (http) ==========
+{"time":"2026-04-05T03:13:09.523093913+03:00","package":"http","test":"TestMapErrorContract","message":"END"}
+========== END TestMapErrorContract (http) ==========
+========== START TestMapErrorContract (http) ==========
+{"time":"2026-04-05T03:15:24.073317659+03:00","package":"http","test":"TestMapErrorContract","message":"START"}
+========== START TestMapErrorContract/missing_company_id (http) ==========
+{"time":"2026-04-05T03:15:24.073433452+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"START"}
+{"time":"2026-04-05T03:15:24.073456498+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"mapped={Status:400 Code:MISSING_COMPANY_ID Message:missing X-Company-ID header}"}
+{"time":"2026-04-05T03:15:24.073484958+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"END"}
+========== END TestMapErrorContract/missing_company_id (http) ==========
+========== START TestMapErrorContract/invalid_state_transition (http) ==========
+{"time":"2026-04-05T03:15:24.073532241+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"START"}
+{"time":"2026-04-05T03:15:24.073546338+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"mapped={Status:409 Code:INVALID_STATE Message:invalid state transition}"}
+{"time":"2026-04-05T03:15:24.073567972+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"END"}
+========== END TestMapErrorContract/invalid_state_transition (http) ==========
+========== START TestMapErrorContract/invalid_bid (http) ==========
+{"time":"2026-04-05T03:15:24.073623574+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"START"}
+{"time":"2026-04-05T03:15:24.073636975+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"mapped={Status:400 Code:INVALID_BID Message:invalid bid}"}
+{"time":"2026-04-05T03:15:24.073654693+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"END"}
+========== END TestMapErrorContract/invalid_bid (http) ==========
+========== START TestMapErrorContract/default (http) ==========
+{"time":"2026-04-05T03:15:24.073702415+03:00","package":"http","test":"TestMapErrorContract/default","message":"START"}
+{"time":"2026-04-05T03:15:24.073716145+03:00","package":"http","test":"TestMapErrorContract/default","message":"mapped={Status:500 Code:INTERNAL_ERROR Message:internal error}"}
+{"time":"2026-04-05T03:15:24.073730762+03:00","package":"http","test":"TestMapErrorContract/default","message":"END"}
+========== END TestMapErrorContract/default (http) ==========
+{"time":"2026-04-05T03:15:24.073769544+03:00","package":"http","test":"TestMapErrorContract","message":"END"}
+========== END TestMapErrorContract (http) ==========
+========== START TestMapErrorContract (http) ==========
+{"time":"2026-04-05T03:22:52.212524064+03:00","package":"http","test":"TestMapErrorContract","message":"START"}
+========== START TestMapErrorContract/missing_company_id (http) ==========
+{"time":"2026-04-05T03:22:52.212740119+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"START"}
+{"time":"2026-04-05T03:22:52.212786818+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"mapped={Status:400 Code:MISSING_COMPANY_ID Message:missing X-Company-ID header}"}
+{"time":"2026-04-05T03:22:52.212843944+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"END"}
+========== END TestMapErrorContract/missing_company_id (http) ==========
+========== START TestMapErrorContract/invalid_state_transition (http) ==========
+{"time":"2026-04-05T03:22:52.212974533+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"START"}
+{"time":"2026-04-05T03:22:52.212996494+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"mapped={Status:409 Code:INVALID_STATE Message:invalid state transition}"}
+{"time":"2026-04-05T03:22:52.213022461+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"END"}
+========== END TestMapErrorContract/invalid_state_transition (http) ==========
+========== START TestMapErrorContract/invalid_bid (http) ==========
+{"time":"2026-04-05T03:22:52.213082093+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"START"}
+{"time":"2026-04-05T03:22:52.213096436+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"mapped={Status:400 Code:INVALID_BID Message:invalid bid}"}
+{"time":"2026-04-05T03:22:52.213114968+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"END"}
+========== END TestMapErrorContract/invalid_bid (http) ==========
+========== START TestMapErrorContract/default (http) ==========
+{"time":"2026-04-05T03:22:52.213162505+03:00","package":"http","test":"TestMapErrorContract/default","message":"START"}
+{"time":"2026-04-05T03:22:52.213176366+03:00","package":"http","test":"TestMapErrorContract/default","message":"mapped={Status:500 Code:INTERNAL_ERROR Message:internal error}"}
+{"time":"2026-04-05T03:22:52.21319156+03:00","package":"http","test":"TestMapErrorContract/default","message":"END"}
+========== END TestMapErrorContract/default (http) ==========
+{"time":"2026-04-05T03:22:52.213238063+03:00","package":"http","test":"TestMapErrorContract","message":"END"}
+========== END TestMapErrorContract (http) ==========
+========== START TestMapErrorContract (http) ==========
+{"time":"2026-04-05T03:27:35.761042739+03:00","package":"http","test":"TestMapErrorContract","message":"START"}
+========== START TestMapErrorContract/missing_company_id (http) ==========
+{"time":"2026-04-05T03:27:35.761319668+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"START"}
+{"time":"2026-04-05T03:27:35.76136791+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"mapped={Status:400 Code:MISSING_COMPANY_ID Message:missing X-Company-ID header}"}
+{"time":"2026-04-05T03:27:35.761439416+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"END"}
+========== END TestMapErrorContract/missing_company_id (http) ==========
+========== START TestMapErrorContract/invalid_state_transition (http) ==========
+{"time":"2026-04-05T03:27:35.761565506+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"START"}
+{"time":"2026-04-05T03:27:35.761597381+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"mapped={Status:409 Code:INVALID_STATE Message:invalid state transition}"}
+{"time":"2026-04-05T03:27:35.761642562+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"END"}
+========== END TestMapErrorContract/invalid_state_transition (http) ==========
+========== START TestMapErrorContract/invalid_bid (http) ==========
+{"time":"2026-04-05T03:27:35.761765535+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"START"}
+{"time":"2026-04-05T03:27:35.761803258+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"mapped={Status:400 Code:INVALID_BID Message:invalid bid}"}
+{"time":"2026-04-05T03:27:35.761857907+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"END"}
+========== END TestMapErrorContract/invalid_bid (http) ==========
+========== START TestMapErrorContract/default (http) ==========
+{"time":"2026-04-05T03:27:35.761986578+03:00","package":"http","test":"TestMapErrorContract/default","message":"START"}
+{"time":"2026-04-05T03:27:35.762030308+03:00","package":"http","test":"TestMapErrorContract/default","message":"mapped={Status:500 Code:INTERNAL_ERROR Message:internal error}"}
+{"time":"2026-04-05T03:27:35.762086972+03:00","package":"http","test":"TestMapErrorContract/default","message":"END"}
+========== END TestMapErrorContract/default (http) ==========
+{"time":"2026-04-05T03:27:35.76219414+03:00","package":"http","test":"TestMapErrorContract","message":"END"}
+========== END TestMapErrorContract (http) ==========
+========== START TestMapErrorContract (http) ==========
+{"time":"2026-04-05T03:57:57.338804378+03:00","package":"http","test":"TestMapErrorContract","message":"START"}
+========== START TestMapErrorContract/missing_company_id (http) ==========
+{"time":"2026-04-05T03:57:57.338977681+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"START"}
+{"time":"2026-04-05T03:57:57.339013013+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"mapped={Status:400 Code:MISSING_COMPANY_ID Message:missing X-Company-ID header}"}
+{"time":"2026-04-05T03:57:57.339069378+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"END"}
+========== END TestMapErrorContract/missing_company_id (http) ==========
+========== START TestMapErrorContract/invalid_state_transition (http) ==========
+{"time":"2026-04-05T03:57:57.339159935+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"START"}
+{"time":"2026-04-05T03:57:57.339190073+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"mapped={Status:409 Code:INVALID_STATE Message:invalid state transition}"}
+{"time":"2026-04-05T03:57:57.339226791+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"END"}
+========== END TestMapErrorContract/invalid_state_transition (http) ==========
+========== START TestMapErrorContract/invalid_bid (http) ==========
+{"time":"2026-04-05T03:57:57.339330555+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"START"}
+{"time":"2026-04-05T03:57:57.339357545+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"mapped={Status:400 Code:INVALID_BID Message:invalid bid}"}
+{"time":"2026-04-05T03:57:57.339395067+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"END"}
+========== END TestMapErrorContract/invalid_bid (http) ==========
+========== START TestMapErrorContract/default (http) ==========
+{"time":"2026-04-05T03:57:57.339483404+03:00","package":"http","test":"TestMapErrorContract/default","message":"START"}
+{"time":"2026-04-05T03:57:57.339511987+03:00","package":"http","test":"TestMapErrorContract/default","message":"mapped={Status:500 Code:INTERNAL_ERROR Message:internal error}"}
+{"time":"2026-04-05T03:57:57.339542852+03:00","package":"http","test":"TestMapErrorContract/default","message":"END"}
+========== END TestMapErrorContract/default (http) ==========
+{"time":"2026-04-05T03:57:57.33962146+03:00","package":"http","test":"TestMapErrorContract","message":"END"}
+========== END TestMapErrorContract (http) ==========
+========== START TestMapErrorContract (http) ==========
+{"time":"2026-04-05T03:59:55.588025347+03:00","package":"http","test":"TestMapErrorContract","message":"START"}
+========== START TestMapErrorContract/missing_company_id (http) ==========
+{"time":"2026-04-05T03:59:55.588480334+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"START"}
+{"time":"2026-04-05T03:59:55.588583921+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"mapped={Status:400 Code:MISSING_COMPANY_ID Message:missing X-Company-ID header}"}
+{"time":"2026-04-05T03:59:55.588684801+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"END"}
+========== END TestMapErrorContract/missing_company_id (http) ==========
+========== START TestMapErrorContract/invalid_state_transition (http) ==========
+{"time":"2026-04-05T03:59:55.588904626+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"START"}
+{"time":"2026-04-05T03:59:55.588966033+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"mapped={Status:409 Code:INVALID_STATE Message:invalid state transition}"}
+{"time":"2026-04-05T03:59:55.589045664+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"END"}
+========== END TestMapErrorContract/invalid_state_transition (http) ==========
+========== START TestMapErrorContract/invalid_bid (http) ==========
+{"time":"2026-04-05T03:59:55.589353199+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"START"}
+{"time":"2026-04-05T03:59:55.58941424+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"mapped={Status:400 Code:INVALID_BID Message:invalid bid}"}
+{"time":"2026-04-05T03:59:55.589495792+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"END"}
+========== END TestMapErrorContract/invalid_bid (http) ==========
+========== START TestMapErrorContract/default (http) ==========
+{"time":"2026-04-05T03:59:55.589692429+03:00","package":"http","test":"TestMapErrorContract/default","message":"START"}
+{"time":"2026-04-05T03:59:55.589752094+03:00","package":"http","test":"TestMapErrorContract/default","message":"mapped={Status:500 Code:INTERNAL_ERROR Message:internal error}"}
+{"time":"2026-04-05T03:59:55.589811193+03:00","package":"http","test":"TestMapErrorContract/default","message":"END"}
+========== END TestMapErrorContract/default (http) ==========
+{"time":"2026-04-05T03:59:55.589963268+03:00","package":"http","test":"TestMapErrorContract","message":"END"}
+========== END TestMapErrorContract (http) ==========
+========== START TestMapErrorContract (http) ==========
+{"time":"2026-04-05T04:39:19.759248478+03:00","package":"http","test":"TestMapErrorContract","message":"START"}
+========== START TestMapErrorContract/missing_company_id (http) ==========
+{"time":"2026-04-05T04:39:19.759554416+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"START"}
+{"time":"2026-04-05T04:39:19.759636139+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"mapped={Status:400 Code:MISSING_COMPANY_ID Message:missing X-Company-ID header}"}
+{"time":"2026-04-05T04:39:19.759732766+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"END"}
+========== END TestMapErrorContract/missing_company_id (http) ==========
+========== START TestMapErrorContract/invalid_state_transition (http) ==========
+{"time":"2026-04-05T04:39:19.759913085+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"START"}
+{"time":"2026-04-05T04:39:19.759969877+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"mapped={Status:409 Code:INVALID_STATE Message:invalid state transition}"}
+{"time":"2026-04-05T04:39:19.760042919+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"END"}
+========== END TestMapErrorContract/invalid_state_transition (http) ==========
+========== START TestMapErrorContract/invalid_bid (http) ==========
+{"time":"2026-04-05T04:39:19.760272+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"START"}
+{"time":"2026-04-05T04:39:19.76032885+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"mapped={Status:400 Code:INVALID_BID Message:invalid bid}"}
+{"time":"2026-04-05T04:39:19.760405704+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"END"}
+========== END TestMapErrorContract/invalid_bid (http) ==========
+========== START TestMapErrorContract/default (http) ==========
+{"time":"2026-04-05T04:39:19.760594709+03:00","package":"http","test":"TestMapErrorContract/default","message":"START"}
+{"time":"2026-04-05T04:39:19.760652424+03:00","package":"http","test":"TestMapErrorContract/default","message":"mapped={Status:500 Code:INTERNAL_ERROR Message:internal error}"}
+{"time":"2026-04-05T04:39:19.760729039+03:00","package":"http","test":"TestMapErrorContract/default","message":"END"}
+========== END TestMapErrorContract/default (http) ==========
+{"time":"2026-04-05T04:39:19.760881049+03:00","package":"http","test":"TestMapErrorContract","message":"END"}
+========== END TestMapErrorContract (http) ==========
+========== START TestMapErrorContract (http) ==========
+{"time":"2026-04-05T04:41:29.69227638+03:00","package":"http","test":"TestMapErrorContract","message":"START"}
+========== START TestMapErrorContract/missing_company_id (http) ==========
+{"time":"2026-04-05T04:41:29.692447401+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"START"}
+{"time":"2026-04-05T04:41:29.692469641+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"mapped={Status:400 Code:MISSING_COMPANY_ID Message:missing X-Company-ID header}"}
+{"time":"2026-04-05T04:41:29.692498881+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"END"}
+========== END TestMapErrorContract/missing_company_id (http) ==========
+========== START TestMapErrorContract/invalid_state_transition (http) ==========
+{"time":"2026-04-05T04:41:29.69254654+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"START"}
+{"time":"2026-04-05T04:41:29.692560486+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"mapped={Status:409 Code:INVALID_STATE Message:invalid state transition}"}
+{"time":"2026-04-05T04:41:29.692578563+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"END"}
+========== END TestMapErrorContract/invalid_state_transition (http) ==========
+========== START TestMapErrorContract/invalid_bid (http) ==========
+{"time":"2026-04-05T04:41:29.692631039+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"START"}
+{"time":"2026-04-05T04:41:29.692645141+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"mapped={Status:400 Code:INVALID_BID Message:invalid bid}"}
+{"time":"2026-04-05T04:41:29.692663569+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"END"}
+========== END TestMapErrorContract/invalid_bid (http) ==========
+========== START TestMapErrorContract/default (http) ==========
+{"time":"2026-04-05T04:41:29.692766914+03:00","package":"http","test":"TestMapErrorContract/default","message":"START"}
+{"time":"2026-04-05T04:41:29.692800156+03:00","package":"http","test":"TestMapErrorContract/default","message":"mapped={Status:500 Code:INTERNAL_ERROR Message:internal error}"}
+{"time":"2026-04-05T04:41:29.692837239+03:00","package":"http","test":"TestMapErrorContract/default","message":"END"}
+========== END TestMapErrorContract/default (http) ==========
+{"time":"2026-04-05T04:41:29.69292504+03:00","package":"http","test":"TestMapErrorContract","message":"END"}
+========== END TestMapErrorContract (http) ==========
+========== START TestMapErrorContract (http) ==========
+{"time":"2026-04-05T06:00:32.526568671+03:00","package":"http","test":"TestMapErrorContract","message":"START"}
+========== START TestMapErrorContract/missing_company_id (http) ==========
+{"time":"2026-04-05T06:00:32.527027958+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"START"}
+{"time":"2026-04-05T06:00:32.52719393+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"mapped={Status:400 Code:MISSING_COMPANY_ID Message:missing X-Company-ID header}"}
+{"time":"2026-04-05T06:00:32.52733296+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"END"}
+========== END TestMapErrorContract/missing_company_id (http) ==========
+========== START TestMapErrorContract/invalid_state_transition (http) ==========
+{"time":"2026-04-05T06:00:32.527616573+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"START"}
+{"time":"2026-04-05T06:00:32.527732089+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"mapped={Status:409 Code:INVALID_STATE Message:invalid state transition}"}
+{"time":"2026-04-05T06:00:32.527844274+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"END"}
+========== END TestMapErrorContract/invalid_state_transition (http) ==========
+========== START TestMapErrorContract/invalid_bid (http) ==========
+{"time":"2026-04-05T06:00:32.528140465+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"START"}
+{"time":"2026-04-05T06:00:32.52822888+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"mapped={Status:400 Code:INVALID_BID Message:invalid bid}"}
+{"time":"2026-04-05T06:00:32.528335663+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"END"}
+========== END TestMapErrorContract/invalid_bid (http) ==========
+========== START TestMapErrorContract/default (http) ==========
+{"time":"2026-04-05T06:00:32.52858384+03:00","package":"http","test":"TestMapErrorContract/default","message":"START"}
+{"time":"2026-04-05T06:00:32.528657121+03:00","package":"http","test":"TestMapErrorContract/default","message":"mapped={Status:500 Code:INTERNAL_ERROR Message:internal error}"}
+{"time":"2026-04-05T06:00:32.528729864+03:00","package":"http","test":"TestMapErrorContract/default","message":"END"}
+========== END TestMapErrorContract/default (http) ==========
+{"time":"2026-04-05T06:00:32.528885436+03:00","package":"http","test":"TestMapErrorContract","message":"END"}
+========== END TestMapErrorContract (http) ==========
+========== START TestMapErrorContract (http) ==========
+{"time":"2026-04-05T06:00:37.238882453+03:00","package":"http","test":"TestMapErrorContract","message":"START"}
+========== START TestMapErrorContract/missing_company_id (http) ==========
+{"time":"2026-04-05T06:00:37.239088303+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"START"}
+{"time":"2026-04-05T06:00:37.239135532+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"mapped={Status:400 Code:MISSING_COMPANY_ID Message:missing X-Company-ID header}"}
+{"time":"2026-04-05T06:00:37.239181552+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"END"}
+========== END TestMapErrorContract/missing_company_id (http) ==========
+========== START TestMapErrorContract/invalid_state_transition (http) ==========
+{"time":"2026-04-05T06:00:37.239269802+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"START"}
+{"time":"2026-04-05T06:00:37.239295738+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"mapped={Status:409 Code:INVALID_STATE Message:invalid state transition}"}
+{"time":"2026-04-05T06:00:37.239335448+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"END"}
+========== END TestMapErrorContract/invalid_state_transition (http) ==========
+========== START TestMapErrorContract/invalid_bid (http) ==========
+{"time":"2026-04-05T06:00:37.239422561+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"START"}
+{"time":"2026-04-05T06:00:37.239447057+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"mapped={Status:400 Code:INVALID_BID Message:invalid bid}"}
+{"time":"2026-04-05T06:00:37.239482858+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"END"}
+========== END TestMapErrorContract/invalid_bid (http) ==========
+========== START TestMapErrorContract/default (http) ==========
+{"time":"2026-04-05T06:00:37.239595534+03:00","package":"http","test":"TestMapErrorContract/default","message":"START"}
+{"time":"2026-04-05T06:00:37.239628002+03:00","package":"http","test":"TestMapErrorContract/default","message":"mapped={Status:500 Code:INTERNAL_ERROR Message:internal error}"}
+{"time":"2026-04-05T06:00:37.239656206+03:00","package":"http","test":"TestMapErrorContract/default","message":"END"}
+========== END TestMapErrorContract/default (http) ==========
+{"time":"2026-04-05T06:00:37.239750503+03:00","package":"http","test":"TestMapErrorContract","message":"END"}
+========== END TestMapErrorContract (http) ==========

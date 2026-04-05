@@ -9,7 +9,7 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/EBal0vGG/Unbelievable_Fish/domain/catalog"
+	"github.com/EBal0vGG/Unbelievable_Fish/internal/catalog/domain"
 	"github.com/EBal0vGG/Unbelievable_Fish/internal/catalog/app"
 )
 
@@ -37,8 +37,13 @@ INSERT INTO outbox_messages (
     payload,
     occurred_at,
     created_at,
+    correlation_id,
+    causation_id,
+    company_id,
+    user_id,
+    source_context,
     published_at
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 `
 
 	dbtx := DBTXFromContext(ctx, r.db)
@@ -52,7 +57,7 @@ INSERT INTO outbox_messages (
 
 		id := newOutboxID()
 		eventID := newOutboxID()
-		eventType := reflect.TypeOf(event).Name()
+		eventType := "catalog." + reflect.TypeOf(event).Name()
 		aggregateID := aggregateIDFor(event)
 
 		if _, err := dbtx.ExecContext(
@@ -65,6 +70,11 @@ INSERT INTO outbox_messages (
 			payload,
 			now,
 			now,
+			nil,
+			nil,
+			nil,
+			nil,
+			"catalog",
 			nil,
 		); err != nil {
 			return err

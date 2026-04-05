@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/EBal0vGG/Unbelievable_Fish/internal/trading/auction"
@@ -30,11 +31,16 @@ func (uc *CreateAuction) Execute(ctx context.Context, meta CommandMeta, lotID st
 	if err != nil {
 		return err
 	}
-	a, err := auction.NewAuction(string(id), lotID, startsAt, endsAt)
-	if err != nil {
-		return err
-	}
 	return uc.uow.Do(ctx, func(tx Tx) error {
+		if _, err := tx.Auctions().Load(ctx, id); err == nil {
+			return nil
+		} else if !errors.Is(err, ErrNotFound) {
+			return err
+		}
+		a, err := auction.NewAuction(string(id), lotID, startsAt, endsAt)
+		if err != nil {
+			return err
+		}
 		return tx.Auctions().Save(ctx, a)
 	})
 }
@@ -54,7 +60,7 @@ func NewPublishAuction(uow UnitOfWork) (*PublishAuction, error) {
 
 func (uc *PublishAuction) Execute(ctx context.Context, meta CommandMeta, id AuctionID) error {
 	return uc.uow.Do(ctx, func(tx Tx) error {
-		a, err := tx.Auctions().Load(ctx, id)
+		a, err := tx.Auctions().LoadForUpdate(ctx, id)
 		if err != nil {
 			return err
 		}
@@ -68,7 +74,7 @@ func (uc *PublishAuction) Execute(ctx context.Context, meta CommandMeta, id Auct
 		if len(events) == 0 {
 			return nil
 		}
-		return tx.Outbox().Save(ctx, NewEnvelope(meta, events))
+		return tx.Outbox().Add(WithCommandMeta(ctx, meta), events)
 	})
 }
 
@@ -93,7 +99,7 @@ func (uc *PlaceBid) Execute(
 	placedAt time.Time,
 ) error {
 	return uc.uow.Do(ctx, func(tx Tx) error {
-		a, err := tx.Auctions().Load(ctx, id)
+		a, err := tx.Auctions().LoadForUpdate(ctx, id)
 		if err != nil {
 			return err
 		}
@@ -114,7 +120,7 @@ func (uc *PlaceBid) Execute(
 		if len(events) == 0 {
 			return nil
 		}
-		return tx.Outbox().Save(ctx, NewEnvelope(meta, events))
+		return tx.Outbox().Add(WithCommandMeta(ctx, meta), events)
 	})
 }
 
@@ -133,7 +139,7 @@ func NewCloseAuction(uow UnitOfWork) (*CloseAuction, error) {
 
 func (uc *CloseAuction) Execute(ctx context.Context, meta CommandMeta, id AuctionID) error {
 	return uc.uow.Do(ctx, func(tx Tx) error {
-		a, err := tx.Auctions().Load(ctx, id)
+		a, err := tx.Auctions().LoadForUpdate(ctx, id)
 		if err != nil {
 			return err
 		}
@@ -154,7 +160,7 @@ func (uc *CloseAuction) Execute(ctx context.Context, meta CommandMeta, id Auctio
 		if len(events) == 0 {
 			return nil
 		}
-		return tx.Outbox().Save(ctx, NewEnvelope(meta, events))
+		return tx.Outbox().Add(WithCommandMeta(ctx, meta), events)
 	})
 }
 
@@ -173,7 +179,7 @@ func NewCancelAuction(uow UnitOfWork) (*CancelAuction, error) {
 
 func (uc *CancelAuction) Execute(ctx context.Context, meta CommandMeta, id AuctionID) error {
 	return uc.uow.Do(ctx, func(tx Tx) error {
-		a, err := tx.Auctions().Load(ctx, id)
+		a, err := tx.Auctions().LoadForUpdate(ctx, id)
 		if err != nil {
 			return err
 		}
@@ -187,7 +193,7 @@ func (uc *CancelAuction) Execute(ctx context.Context, meta CommandMeta, id Aucti
 		if len(events) == 0 {
 			return nil
 		}
-		return tx.Outbox().Save(ctx, NewEnvelope(meta, events))
+		return tx.Outbox().Add(WithCommandMeta(ctx, meta), events)
 	})
 }
 

@@ -1,5 +1,20 @@
 # РЫБНАЯ БИРЖА
 
+# Архитектурная схема
+
+```mermaid
+flowchart LR
+User[User] --> HTTP[HTTPHandlers]
+HTTP --> App[ApplicationUseCases]
+App --> Domain[DomainAggregates]
+Domain --> Repo[Repositories]
+Repo --> Outbox[OutboxMessages]
+Outbox --> Relay[OutboxRelay]
+Relay --> Bus[EventBus]
+Bus --> Handler[IntegrationHandlers]
+Handler --> App
+```
+
 # 1️⃣ Сценарий: запуск (создание + публикация) аукциона
 
 ## Создание аукциона (Catalog → Trading)

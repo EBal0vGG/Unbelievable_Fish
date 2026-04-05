@@ -12,7 +12,7 @@ var (
 	ErrAuctionNotStarted        = errors.New("auction not started")
 	ErrAuctionAlreadyEnded      = errors.New("auction already ended")
 	ErrInvalidSchedule          = errors.New("invalid auction schedule")
-	ErrBidTooLow                = errors.New("bid amount is lower than current price")
+	ErrBidTooLow                = errors.New("bid amount must be greater than current price")
 	ErrAuctionIDEmpty           = errors.New("auction id is empty")
 	ErrLotIDEmpty               = errors.New("lot id is empty")
 	ErrBidderCompanyIDEmpty     = errors.New("bidder company id is empty")

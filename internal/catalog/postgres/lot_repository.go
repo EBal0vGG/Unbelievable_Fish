@@ -4,8 +4,9 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"time"
 
-	"github.com/EBal0vGG/Unbelievable_Fish/domain/catalog"
+	"github.com/EBal0vGG/Unbelievable_Fish/internal/catalog/domain"
 	"github.com/EBal0vGG/Unbelievable_Fish/internal/catalog/app"
 )
 
@@ -21,7 +22,7 @@ var _ app.LotRepository = (*LotRepository)(nil)
 
 func (r *LotRepository) Get(ctx context.Context, lotID string) (*catalog.Lot, error) {
 	const query = `
-SELECT lot_id, product_id, auction_id, seller_company_id, photo, quantity, start_price, cur_price, final_price, status, auction_starts_at
+SELECT lot_id, product_id, auction_id, seller_company_id, photo, quantity, start_price, cur_price, final_price, status, auction_starts_at, auction_duration_minutes
 FROM catalog_lots
 WHERE lot_id = $1
 `
@@ -31,7 +32,7 @@ WHERE lot_id = $1
 
 func (r *LotRepository) GetByAuctionID(ctx context.Context, auctionID string) (*catalog.Lot, error) {
 	const query = `
-SELECT lot_id, product_id, auction_id, seller_company_id, photo, quantity, start_price, cur_price, final_price, status, auction_starts_at
+SELECT lot_id, product_id, auction_id, seller_company_id, photo, quantity, start_price, cur_price, final_price, status, auction_starts_at, auction_duration_minutes
 FROM catalog_lots
 WHERE auction_id = $1
 `
@@ -52,8 +53,9 @@ INSERT INTO catalog_lots (
     cur_price,
     final_price,
     status,
-    auction_starts_at
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+    auction_starts_at,
+    auction_duration_minutes
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 ON CONFLICT (lot_id) DO UPDATE SET
     product_id = EXCLUDED.product_id,
     auction_id = EXCLUDED.auction_id,
@@ -64,7 +66,8 @@ ON CONFLICT (lot_id) DO UPDATE SET
     cur_price = EXCLUDED.cur_price,
     final_price = EXCLUDED.final_price,
     status = EXCLUDED.status,
-    auction_starts_at = EXCLUDED.auction_starts_at
+    auction_starts_at = EXCLUDED.auction_starts_at,
+    auction_duration_minutes = EXCLUDED.auction_duration_minutes
 `
 
 	dbtx := DBTXFromContext(ctx, r.db)
@@ -82,6 +85,7 @@ ON CONFLICT (lot_id) DO UPDATE SET
 		lot.FinalPrice(),
 		string(lot.Status()),
 		lot.AuctionStartsAt(),
+		int64(lot.AuctionSchedule().Duration().Minutes()),
 	)
 	return err
 }
@@ -102,6 +106,7 @@ func (r *LotRepository) getOne(ctx context.Context, query string, arg string) (*
 		&row.FinalPrice,
 		&row.Status,
 		&row.AuctionStartsAt,
+		&row.AuctionDurationMinutes,
 	)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -125,10 +130,11 @@ type lotRow struct {
 	FinalPrice      int64
 	Status          string
 	AuctionStartsAt sql.NullTime
+	AuctionDurationMinutes int64
 }
 
 func (r lotRow) toAggregate() (*catalog.Lot, error) {
-	if !r.AuctionStartsAt.Valid {
+	if !r.AuctionStartsAt.Valid || r.AuctionDurationMinutes <= 0 {
 		return nil, catalog.ErrInvalidSchedule
 	}
 
@@ -139,7 +145,7 @@ func (r lotRow) toAggregate() (*catalog.Lot, error) {
 		r.Photo.String,
 		r.Quantity,
 		r.StartPrice,
-		catalog.NewAuctionScheduleAt(r.AuctionStartsAt.Time),
+		catalog.NewAuctionScheduleAt(r.AuctionStartsAt.Time, time.Duration(r.AuctionDurationMinutes)*time.Minute),
 	)
 	if err != nil {
 		return nil, err
