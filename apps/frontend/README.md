@@ -57,12 +57,15 @@ NEXT_PUBLIC_CATALOG_API_URL=http://localhost:8081
 NEXT_PUBLIC_TRADING_API_URL=http://localhost:8082
 NEXT_PUBLIC_DEALS_API_URL=http://localhost:8083
 NEXT_PUBLIC_ENABLE_API_FALLBACK=true
+NEXT_PUBLIC_ENABLE_COMMAND_FALLBACK=false
 ```
 
 Важно:
 
 - браузер не ходит напрямую в backend, а использует Next proxy routes `/api/catalog/*`, `/api/trading/*`, `/api/deals/*`
 - это снижает риск CORS-проблем и оставляет frontend тонким адаптером
+- команды записи (create/publish/place bid) по умолчанию **без fallback**: если backend недоступен, UI покажет ошибку, а не локальный mock-успех
+- в этом режиме сидовые mock-данные скрываются из списков, чтобы UI не подставлял несуществующие backend ID в команды записи
 
 ## Backend matrix
 
@@ -100,6 +103,7 @@ NEXT_PUBLIC_ENABLE_API_FALLBACK=true
 - фактический `cmd/trading/main.go` сейчас wiring'ит только `PlaceBid`
 - create flow не возвращает стабильный `auction_id` в HTTP response
 - list/read-model endpoint для списка аукционов отсутствует
+- в strict command mode frontend не вызывает `POST /auctions` и возвращает явную ошибку с рекомендацией: публиковать лот в Catalog (аукцион создается integration-цепочкой)
 
 ### Пока работают через mock / local mirror
 

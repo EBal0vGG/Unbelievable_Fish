@@ -13,6 +13,10 @@ export function mixedMeta(note: string): ServiceMeta {
   return { source: "mixed", placeholder: true, note };
 }
 
+export function canFallbackCommand(): boolean {
+  return env.enableApiFallback && env.enableCommandFallback;
+}
+
 export async function withFallback<T>(
   runApi: () => Promise<T>,
   runFallback: () => T,

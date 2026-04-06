@@ -31,6 +31,7 @@ export function AuctionCard({
   fishName?: string;
   sellerCompanyId?: string;
 }) {
+  const canOpenDetails = !auction.id.startsWith("pending-");
   return (
     <Card className="entity-card">
       <div className="entity-card-header">
@@ -68,9 +69,13 @@ export function AuctionCard({
         </div>
       </div>
       <div className="inline-actions">
-        <Link className={buttonStyles({ variant: "secondary", size: "sm" })} href={`/auctions/${auction.id}`}>
-          Открыть аукцион
-        </Link>
+        {canOpenDetails ? (
+          <Link className={buttonStyles({ variant: "secondary", size: "sm" })} href={`/auctions/${auction.id}`}>
+            Открыть аукцион
+          </Link>
+        ) : (
+          <span className="muted">Ожидается синхронизация read-model Trading</span>
+        )}
       </div>
     </Card>
   );

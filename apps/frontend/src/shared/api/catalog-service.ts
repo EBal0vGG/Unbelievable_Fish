@@ -1,5 +1,6 @@
 import { ApiError, apiRequest, isRecoverableApiGap } from "@/shared/api/http-client";
-import { mixedMeta, mockMeta, withFallback } from "@/shared/api/service-helpers";
+import { canFallbackCommand, mixedMeta, mockMeta, withFallback } from "@/shared/api/service-helpers";
+import { env } from "@/shared/config/env";
 import {
   addActivity,
   listFishStore,
@@ -44,9 +45,16 @@ interface CreateLotInput {
   auctionDurationMinutes: number;
 }
 
+function includeReadModelItemBySource(source?: "api" | "mixed" | "mock"): boolean {
+  if (env.enableCommandFallback) {
+    return true;
+  }
+  return source === "api" || source === "mixed";
+}
+
 export async function listFish(session: UserSession | null): Promise<ServiceResult<FishRecord[]>> {
   // TODO: switch to a real read-model endpoint once GET /fish is exposed by Catalog.
-  return withFallback(
+  const result = await withFallback(
     async () => {
       const data = await apiRequest<FishListItem[]>("catalog", "/fish", { session });
       return data.map((item) => ({
@@ -59,23 +67,34 @@ export async function listFish(session: UserSession | null): Promise<ServiceResu
     () => listFishStore(),
     "Catalog list query is not wired in the current backend build, using local fish catalog fallback.",
   );
-}
-
-export async function listProducts(): Promise<ServiceResult<ProductRecord[]>> {
+  if (includeReadModelItemBySource("mock")) {
+    return result;
+  }
   return {
-    data: listProductsStore(),
-    meta: mockMeta(
-      "Product list is derived from frontend session storage until Catalog query endpoints are exposed.",
+    data: result.data.filter((item) => includeReadModelItemBySource(item.source)),
+    meta: mixedMeta(
+      "Strict write mode is enabled: mock fish are hidden. Create fish via /create/fish to get backend IDs.",
     ),
   };
 }
 
-export async function listLots(): Promise<ServiceResult<LotRecord[]>> {
+export async function listProducts(): Promise<ServiceResult<ProductRecord[]>> {
+  const data = listProductsStore().filter((item) => includeReadModelItemBySource(item.source));
   return {
-    data: listLotsStore(),
-    meta: mockMeta(
-      "Lot list is served from local UI storage because GET /lots list endpoint is not available yet.",
-    ),
+    data,
+    meta: includeReadModelItemBySource("mock")
+      ? mockMeta("Product list is derived from frontend session storage until Catalog query endpoints are exposed.")
+      : mixedMeta("Strict write mode is enabled: mock products are hidden. Use products created via backend commands."),
+  };
+}
+
+export async function listLots(): Promise<ServiceResult<LotRecord[]>> {
+  const data = listLotsStore().filter((item) => includeReadModelItemBySource(item.source));
+  return {
+    data,
+    meta: includeReadModelItemBySource("mock")
+      ? mockMeta("Lot list is served from local UI storage because GET /lots list endpoint is not available yet.")
+      : mixedMeta("Strict write mode is enabled: mock lots are hidden. Only lots created via backend commands are shown."),
   };
 }
 
@@ -116,7 +135,7 @@ export async function createFish(
         : mixedMeta("Catalog accepted CreateFish but did not return fish_id, local mirror was created."),
     };
   } catch (error) {
-    if (!isRecoverableApiGap(error)) {
+    if (!isRecoverableApiGap(error) || !canFallbackCommand()) {
       throw error;
     }
 
@@ -178,7 +197,7 @@ export async function createProduct(
         : mixedMeta("Catalog accepted CreateProduct without returning product_id, local mirror was created."),
     };
   } catch (error) {
-    if (!isRecoverableApiGap(error)) {
+    if (!isRecoverableApiGap(error) || !canFallbackCommand()) {
       throw error;
     }
 
@@ -213,7 +232,7 @@ export async function publishProduct(
       meta: { source: "api" },
     };
   } catch (error) {
-    if (!isRecoverableApiGap(error)) {
+    if (!isRecoverableApiGap(error) || !canFallbackCommand()) {
       throw error;
     }
 
@@ -285,7 +304,7 @@ export async function createLot(
         : mixedMeta("Catalog accepted CreateLot without returning lot_id, local mirror was created."),
     };
   } catch (error) {
-    if (!isRecoverableApiGap(error)) {
+    if (!isRecoverableApiGap(error) || !canFallbackCommand()) {
       throw error;
     }
 
@@ -328,7 +347,7 @@ export async function publishLot(
       },
     };
   } catch (error) {
-    if (!isRecoverableApiGap(error)) {
+    if (!isRecoverableApiGap(error) || !canFallbackCommand()) {
       throw error;
     }
 

@@ -1,6 +1,6 @@
 import { ApiError, apiRequest, isRecoverableApiGap } from "@/shared/api/http-client";
 import { getProjectionByAuctionId, getDealByAuctionId } from "@/shared/api/deals-service";
-import { mixedMeta, mockMeta } from "@/shared/api/service-helpers";
+import { canFallbackCommand, mixedMeta, mockMeta } from "@/shared/api/service-helpers";
 import {
   addActivity,
   appendBidStore,
@@ -9,6 +9,7 @@ import {
   listLotsStore,
   upsertAuctionStore,
 } from "@/shared/api/mock-store";
+import { env } from "@/shared/config/env";
 import { makeClientId } from "@/shared/lib/id";
 import {
   getBidAccessError,
@@ -47,6 +48,21 @@ function getAuctionFallbackNote(): string {
   return "Trading query endpoints for auction list/details are not exposed in the current backend build, using local auction mirror.";
 }
 
+function includeAuctionBySource(source?: "api" | "mixed" | "mock"): boolean {
+  if (env.enableCommandFallback) {
+    return true;
+  }
+  return source === "api" || source === "mixed";
+}
+
+function buildAuctionEnd(startsAt: string, durationMinutes: number): string {
+  const starts = new Date(startsAt);
+  if (Number.isNaN(starts.getTime())) {
+    return new Date().toISOString();
+  }
+  return new Date(starts.getTime() + durationMinutes * 60_000).toISOString();
+}
+
 function getMissingTradingSessionError(session: UserSession | null): ApiError | null {
   if (!session?.companyId) {
     return new ApiError("Войдите в профиль, чтобы продолжить", 400, "MISSING_COMPANY_ID");
@@ -61,9 +77,30 @@ function getMissingTradingSessionError(session: UserSession | null): ApiError | 
 
 export async function listAuctions(): Promise<ServiceResult<AuctionRecord[]>> {
   // TODO: replace local list once GET /auctions read-model endpoint exists in Trading.
+  const persistedAuctions = listAuctionsStore().filter((item) => includeAuctionBySource(item.source));
+  const knownLotIds = new Set(persistedAuctions.map((item) => item.lotId));
+  const pendingFromLots: AuctionRecord[] = listLotsStore()
+    .filter((lot) => includeAuctionBySource(lot.source))
+    .filter((lot) => lot.status === "PUBLISHED")
+    .filter((lot) => !knownLotIds.has(lot.id))
+    .map((lot) => ({
+      id: lot.auctionId ?? `pending-${lot.id}`,
+      lotId: lot.id,
+      sellerCompanyId: lot.sellerCompanyId,
+      state: "PUBLISHED",
+      startsAt: lot.auctionStartsAt,
+      endsAt: buildAuctionEnd(lot.auctionStartsAt, lot.auctionDurationMinutes),
+      currentPrice: lot.currentPrice ?? lot.startPrice,
+      source: "mixed" as const,
+      statusNote:
+        "Аукцион создан через публикацию лота. Детальный read-model Trading пока не доступен по HTTP.",
+    }));
+  const data = [...persistedAuctions, ...pendingFromLots];
   return {
-    data: listAuctionsStore(),
-    meta: mockMeta(getAuctionFallbackNote()),
+    data,
+    meta: includeAuctionBySource("mock")
+      ? mockMeta(getAuctionFallbackNote())
+      : mixedMeta("Strict write mode is enabled: mock auctions are hidden. Only backend-created auction mirrors are shown."),
   };
 }
 
@@ -105,6 +142,16 @@ export async function createAuction(
       "Local mirror is immediately marked as published to match integration runtime behaviour after LotPublished.",
   };
 
+  // In strict command mode, do not call Trading create endpoint because current backend build
+  // exposes only PlaceBid over HTTP. Auction is created via integration after LotPublished.
+  if (!canFallbackCommand()) {
+    throw new ApiError(
+      "Создание аукциона через Trading API сейчас недоступно. Публикуйте лот в Catalog: integration создаст аукцион автоматически.",
+      501,
+      "TRADING_CREATE_NOT_SUPPORTED",
+    );
+  }
+
   try {
     await apiRequest("trading", "/auctions", {
       method: "POST",
@@ -130,7 +177,7 @@ export async function createAuction(
       ),
     };
   } catch (error) {
-    if (!isRecoverableApiGap(error)) {
+    if (!isRecoverableApiGap(error) || !canFallbackCommand()) {
       throw error;
     }
 
@@ -177,7 +224,7 @@ export async function getAuctionDetails(
     upsertAuctionStore(auction);
     meta = { source: existing ? "mixed" : "api" };
   } catch (error) {
-    if (!isRecoverableApiGap(error)) {
+    if (!isRecoverableApiGap(error) || !canFallbackCommand()) {
       throw error;
     }
   }
