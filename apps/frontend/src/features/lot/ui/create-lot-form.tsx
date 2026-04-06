@@ -11,6 +11,7 @@ import { useProductsQuery } from "@/entities/lot/model/hooks";
 import { useAuth } from "@/entities/session/model/auth-context";
 import { ApiError } from "@/shared/api/http-client";
 import { createLot, createProduct, publishLot, publishProduct } from "@/shared/api/catalog-service";
+import { isOwnedProduct } from "@/shared/lib/access";
 import { toDateTimeLocalValue } from "@/shared/lib/format";
 import { Button } from "@/shared/ui/button";
 import { Card } from "@/shared/ui/card";
@@ -53,6 +54,7 @@ export function CreateLotForm() {
   const [useManualProductId, setUseManualProductId] = useState(false);
   const fishQuery = useFishCatalogQuery(session);
   const productsQuery = useProductsQuery();
+  const ownProducts = (productsQuery.data?.data ?? []).filter((product) => isOwnedProduct(product, session));
 
   const productForm = useForm<ProductValues>({
     resolver: zodResolver(productSchema),
@@ -82,6 +84,9 @@ export function CreateLotForm() {
   const productMutation = useMutation({
     mutationFn: async (values: ProductValues) => {
       setProductError(null);
+      if (!session?.companyId || !session.userId) {
+        throw new ApiError("Сначала сохраните пользовательский контекст", 400, "MISSING_SESSION");
+      }
       const fish = fishQuery.data?.data.find((item) => item.id === values.fishId);
       const created = await createProduct(
         {
@@ -111,7 +116,7 @@ export function CreateLotForm() {
       setProductError(
         error instanceof ApiError
           ? error.message
-          : "Не удалось создать продукт. Проверьте заполнение формы и доступность backend.",
+          : "Не удалось создать продукт. Проверьте заполнение формы, сессию и доступность backend.",
       );
     },
   });
@@ -119,7 +124,20 @@ export function CreateLotForm() {
   const lotMutation = useMutation({
     mutationFn: async (values: LotValues) => {
       setLotError(null);
+      if (!session?.companyId || !session.userId) {
+        throw new ApiError("Сначала сохраните пользовательский контекст", 400, "MISSING_SESSION");
+      }
       const product = productsQuery.data?.data.find((item) => item.id === values.productId);
+      if (!product || !isOwnedProduct(product, session)) {
+        throw new ApiError("lot can be created only from your own product", 403, "PRODUCT_ACCESS_DENIED");
+      }
+      if (values.publishLot && product?.status !== "PUBLISHED") {
+        throw new ApiError(
+          "product must be published before lot publish",
+          400,
+          "PUBLISHING_RULE_VIOLATION",
+        );
+      }
       const created = await createLot(
         {
           productId: values.productId,
@@ -216,7 +234,7 @@ export function CreateLotForm() {
               <input type="checkbox" {...productForm.register("publishProduct")} />
               <span>Сразу опубликовать продукт</span>
             </label>
-            <Button disabled={productMutation.isPending} type="submit">
+            <Button disabled={productMutation.isPending || !session?.companyId || !session.userId} type="submit">
               {productMutation.isPending ? "Создаем..." : "Создать продукт"}
             </Button>
           </form>
@@ -286,9 +304,9 @@ export function CreateLotForm() {
                 ) : (
                   <Select {...lotForm.register("productId")}>
                     <option value="">Выберите продукт</option>
-                    {(productsQuery.data?.data ?? []).map((product) => (
+                    {ownProducts.map((product) => (
                       <option key={product.id} value={product.id}>
-                        {product.fishName} · {product.processingType} · {product.weight} {product.unit}
+                        {product.fishName} · {product.processingType} · {product.weight} {product.unit} · {product.status}
                       </option>
                     ))}
                   </Select>
@@ -314,7 +332,7 @@ export function CreateLotForm() {
               <input type="checkbox" {...lotForm.register("publishLot")} />
               <span>Сразу опубликовать лот</span>
             </label>
-            <Button disabled={lotMutation.isPending} type="submit">
+            <Button disabled={lotMutation.isPending || !session?.companyId || !session.userId} type="submit">
               {lotMutation.isPending ? "Сохраняем..." : "Создать лот"}
             </Button>
           </form>

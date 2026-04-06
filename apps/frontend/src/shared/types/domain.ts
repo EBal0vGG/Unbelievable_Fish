@@ -1,8 +1,10 @@
 export type DataSource = "api" | "mock" | "mixed";
+export type UserRole = "admin" | "user";
 
 export interface UserSession {
   companyId: string;
   userId: string;
+  role: UserRole;
   mode: "login" | "register";
   updatedAt: string;
 }
@@ -31,6 +33,10 @@ export interface ProductSnapshot {
   originCountry: string;
 }
 
+export type ProductStatus = "DRAFT" | "PUBLISHED";
+export type LotStatus = "DRAFT" | "PUBLISHED" | "CLOSED" | "CANCELLED";
+export type AuctionState = "DRAFT" | "PUBLISHED" | "CLOSED" | "WON" | "CANCELLED";
+
 export interface FishRecord {
   id: string;
   name: string;
@@ -42,11 +48,13 @@ export interface ProductRecord {
   id: string;
   fishId: string;
   fishName: string;
+  ownerCompanyId: string;
+  ownerUserId: string;
   weight: number;
   unit: string;
   size: string;
   processingType: string;
-  status: "DRAFT" | "PUBLISHED" | "UNPUBLISHED";
+  status: ProductStatus;
   source: DataSource;
 }
 
@@ -55,12 +63,13 @@ export interface LotRecord {
   productId: string;
   productLabel: string;
   sellerCompanyId: string;
+  creatorUserId: string;
   photo?: string;
   quantity: number;
   startPrice: number;
   currentPrice?: number;
   finalPrice?: number;
-  status: "DRAFT" | "PUBLISHED" | "CLOSED" | "CANCELLED";
+  status: LotStatus;
   auctionStartsAt: string;
   auctionDurationMinutes: number;
   auctionId?: string;
@@ -72,7 +81,7 @@ export interface AuctionRecord {
   id: string;
   lotId: string;
   sellerCompanyId?: string;
-  state: "DRAFT" | "PUBLISHED" | "CLOSED" | "WON" | "CANCELLED";
+  state: AuctionState;
   startsAt: string;
   endsAt: string;
   currentPrice?: number;

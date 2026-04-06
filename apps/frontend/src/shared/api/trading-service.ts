@@ -10,6 +10,11 @@ import {
   upsertAuctionStore,
 } from "@/shared/api/mock-store";
 import { makeClientId } from "@/shared/lib/id";
+import {
+  getBidAccessError,
+  getAuctionEndAfterBid,
+  getBidValidationError,
+} from "@/shared/lib/trading-domain";
 import type {
   AuctionRecord,
   BidRecord,
@@ -29,8 +34,6 @@ interface CreateAuctionInput {
 interface PlaceBidInput {
   auctionId: string;
   amount: number;
-  placedAt: string;
-  sellerCompanyId?: string;
 }
 
 interface AuctionDetails {
@@ -44,8 +47,16 @@ function getAuctionFallbackNote(): string {
   return "Trading query endpoints for auction list/details are not exposed in the current backend build, using local auction mirror.";
 }
 
-function normalizeCompanyId(value?: string | null): string {
-  return (value ?? "").trim().toLowerCase();
+function getMissingTradingSessionError(session: UserSession | null): ApiError | null {
+  if (!session?.companyId) {
+    return new ApiError("missing X-Company-ID header", 400, "MISSING_COMPANY_ID");
+  }
+
+  if (!session.userId) {
+    return new ApiError("missing X-User-ID header", 400, "MISSING_USER_ID");
+  }
+
+  return null;
 }
 
 export async function listAuctions(): Promise<ServiceResult<AuctionRecord[]>> {
@@ -60,23 +71,44 @@ export async function createAuction(
   input: CreateAuctionInput,
   session: UserSession | null,
 ): Promise<ServiceResult<AuctionRecord>> {
+  const sessionError = getMissingTradingSessionError(session);
+  if (sessionError) {
+    throw sessionError;
+  }
+  const activeSession = session as UserSession;
   const relatedLot = listLotsStore().find((item) => item.id === input.lotId);
+  if (!relatedLot) {
+    throw new ApiError("lot not found", 404, "LOT_NOT_FOUND");
+  }
+  if (
+    relatedLot.sellerCompanyId !== activeSession.companyId ||
+    relatedLot.creatorUserId !== activeSession.userId
+  ) {
+    throw new ApiError("auction can be created only for your own lot", 403, "LOT_ACCESS_DENIED");
+  }
+  if (relatedLot.status !== "PUBLISHED") {
+    throw new ApiError("lot must be published before auction creation", 409, "LOT_NOT_PUBLISHED");
+  }
+  if (relatedLot?.auctionId) {
+    throw new ApiError("lot already linked to another auction", 409, "LOT_ALREADY_LINKED");
+  }
+
   const fallbackAuction: AuctionRecord = {
     id: makeClientId("auction"),
     lotId: input.lotId,
     sellerCompanyId: relatedLot?.sellerCompanyId,
-    state: "DRAFT",
+    state: "PUBLISHED",
     startsAt: input.startsAt,
     endsAt: input.endsAt,
     source: "mock",
     statusNote:
-      "Temporary placeholder until Trading CreateAuction returns a stable identifier or a query endpoint is available.",
+      "Local mirror is immediately marked as published to match integration runtime behaviour after LotPublished.",
   };
 
   try {
     await apiRequest("trading", "/auctions", {
       method: "POST",
-      session,
+      session: activeSession,
       body: {
         lot_id: input.lotId,
         starts_at: input.startsAt,
@@ -88,13 +120,13 @@ export async function createAuction(
       ...fallbackAuction,
       source: "mixed",
       statusNote:
-        "Trading command accepted. Backend currently does not expose created auction_id back to the UI, so a local mirror was created.",
+        "Trading command accepted. Backend currently does not expose created auction_id back to the UI, so a local published mirror was created.",
     });
     addActivity("Аукцион выставлен", `${mirroredAuction.lotId} · command accepted`);
     return {
       data: mirroredAuction,
       meta: mixedMeta(
-        "CreateAuction command was sent, but backend does not return created id and no list query is available yet.",
+        "CreateAuction command was sent, but backend does not return created id and no list query is available yet. The frontend keeps a published mirror so bidding rules continue to work.",
       ),
     };
   } catch (error) {
@@ -107,7 +139,7 @@ export async function createAuction(
     return {
       data: createdAuction,
       meta: mockMeta(
-        "CreateAuction fallback is active until Trading command routing and read model are exposed end-to-end.",
+        "CreateAuction fallback is active because Trading create/publish routes are not exposed end-to-end in the current backend build. The frontend created a published mirror.",
       ),
     };
   }
@@ -177,47 +209,57 @@ export async function placeBid(
   input: PlaceBidInput,
   session: UserSession | null,
 ): Promise<ServiceResult<BidRecord>> {
+  const sessionError = getMissingTradingSessionError(session);
+  if (sessionError) {
+    throw sessionError;
+  }
+  const activeSession = session as UserSession;
   const auction = listAuctionsStore().find((item) => item.id === input.auctionId);
   const lot =
     listLotsStore().find((item) => item.auctionId === input.auctionId) ??
     (auction ? listLotsStore().find((item) => item.id === auction.lotId) : undefined);
-  const actorCompanyId = normalizeCompanyId(session?.companyId);
-  const sellerCompanyId = normalizeCompanyId(
-    input.sellerCompanyId ?? auction?.sellerCompanyId ?? lot?.sellerCompanyId,
-  );
   const existingBids = listBidsStore(input.auctionId);
-  const hasOwnBid = existingBids.some(
-    (bid) => normalizeCompanyId(bid.bidderCompanyId) === actorCompanyId,
-  );
-  const isLeader = normalizeCompanyId(auction?.leaderCompanyId) === actorCompanyId;
+  const placedAt = new Date();
+  const bidAccessError = getBidAccessError({
+    actorCompanyId: activeSession.companyId,
+    sellerCompanyId: auction?.sellerCompanyId ?? lot?.sellerCompanyId,
+    leaderCompanyId: auction?.leaderCompanyId,
+    bids: existingBids,
+  });
 
-  if (actorCompanyId && sellerCompanyId && actorCompanyId === sellerCompanyId) {
-    throw new ApiError("нельзя ставить ставки на свой товар", 400, "OWN_LOT_BID_FORBIDDEN");
+  if (bidAccessError) {
+    throw new ApiError(bidAccessError, 403, "BID_ACCESS_DENIED");
   }
 
-  if (actorCompanyId && (hasOwnBid || isLeader)) {
-    throw new ApiError("нельзя перебивать свою же ставку", 400, "SELF_OUTBID_FORBIDDEN");
+  if (auction) {
+    const validationError = getBidValidationError(auction, input.amount, placedAt, existingBids);
+    if (validationError) {
+      const status = validationError === "bid amount must be greater than current price" ? 400 : 409;
+      const code = validationError === "bid amount must be greater than current price" ? "INVALID_BID" : "AUCTION_NOT_ACTIVE";
+      throw new ApiError(validationError, status, code);
+    }
   }
 
   const fallbackBid: BidRecord = {
     auctionId: input.auctionId,
-    bidderCompanyId: session?.companyId ?? "unknown-company",
+    bidderCompanyId: activeSession.companyId,
     amount: input.amount,
-    placedAt: input.placedAt,
+    placedAt: placedAt.toISOString(),
     source: "mock",
   };
+  const nextAuctionEndAt = auction ? getAuctionEndAfterBid(auction, placedAt) : undefined;
 
   try {
     await apiRequest("trading", `/auctions/${input.auctionId}/bids`, {
       method: "POST",
-      session,
+      session: activeSession,
       body: {
         amount: input.amount,
-        placed_at: input.placedAt,
+        placed_at: fallbackBid.placedAt,
       },
     });
 
-    const storedBid = appendBidStore({ ...fallbackBid, source: "mixed" });
+    const storedBid = appendBidStore({ ...fallbackBid, source: "mixed" }, { endsAt: nextAuctionEndAt });
     addActivity("Ставка отправлена", `${storedBid.auctionId} · ${storedBid.amount}`);
     return {
       data: storedBid,
@@ -230,7 +272,7 @@ export async function placeBid(
       throw error;
     }
 
-    const storedBid = appendBidStore(fallbackBid);
+    const storedBid = appendBidStore(fallbackBid, { endsAt: nextAuctionEndAt });
     addActivity("Ставка отправлена", `${storedBid.auctionId} · local placeholder`);
     return {
       data: storedBid,

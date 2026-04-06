@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 import { useAuth } from "@/entities/session/model/auth-context";
+import { isAdminSession } from "@/shared/lib/access";
 import { cn } from "@/shared/lib/cn";
 import { buttonStyles } from "@/shared/ui/button";
 
@@ -12,7 +13,6 @@ const navItems = [
   { href: "/catalog", label: "Каталог" },
   { href: "/lots", label: "Лоты" },
   { href: "/auctions", label: "Аукционы" },
-  { href: "/create/fish", label: "Создать рыбу" },
   { href: "/create/lot", label: "Создать лот" },
   { href: "/create/auction", label: "Создать аукцион" },
   { href: "/me", label: "Мой контекст" },
@@ -21,6 +21,10 @@ const navItems = [
 export function SiteHeader() {
   const pathname = usePathname();
   const { session, logout } = useAuth();
+  const canManageFish = isAdminSession(session);
+  const visibleNavItems = canManageFish
+    ? [...navItems.slice(0, 4), { href: "/create/fish", label: "Создать рыбу" }, ...navItems.slice(4)]
+    : navItems;
 
   return (
     <header className="site-header">
@@ -35,7 +39,7 @@ export function SiteHeader() {
       </div>
 
       <nav className="main-nav">
-        {navItems.map((item) => (
+        {visibleNavItems.map((item) => (
           <Link
             key={item.href}
             className={cn("nav-link", pathname === item.href && "nav-link-active")}
@@ -51,7 +55,7 @@ export function SiteHeader() {
           <>
             <Link className="session-chip" href="/me">
               <span>{session.companyId}</span>
-              <span>{session.userId}</span>
+              <span>{session.userId} · {session.role}</span>
             </Link>
             <button className={buttonStyles({ variant: "ghost", size: "sm" })} onClick={logout} type="button">
               Выйти

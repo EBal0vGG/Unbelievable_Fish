@@ -5,11 +5,13 @@ import { useDeferredValue, useMemo, useState } from "react";
 import { useFishCatalogQuery } from "@/entities/fish/model/hooks";
 import { FishCard } from "@/entities/fish/ui/fish-card";
 import { useAuth } from "@/entities/session/model/auth-context";
+import { isAdminSession } from "@/shared/lib/access";
 import { FilterBar } from "@/features/marketplace/ui/filter-bar";
 import { EmptyState } from "@/shared/ui/empty-state";
 
 export default function CatalogPage() {
   const { session } = useAuth();
+  const canManageFish = isAdminSession(session);
   const fishQuery = useFishCatalogQuery(session);
   const [search, setSearch] = useState("");
   const deferredSearch = useDeferredValue(search);
@@ -47,9 +49,13 @@ export default function CatalogPage() {
       ) : (
         <EmptyState
           title="Каталог пуст"
-          description="Создайте первую карточку рыбы для дальнейшего product / lot flow."
-          actionHref="/create/fish"
-          actionLabel="Создать рыбу"
+          description={
+            canManageFish
+              ? "Создайте первую карточку рыбы для дальнейшего product / lot flow."
+              : "Каталог рыбы пока пуст. Добавление доступно только администраторам."
+          }
+          actionHref={canManageFish ? "/create/fish" : undefined}
+          actionLabel={canManageFish ? "Создать рыбу" : undefined}
         />
       )}
     </div>

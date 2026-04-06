@@ -12,10 +12,12 @@ import { Card } from "@/shared/ui/card";
 import { Field } from "@/shared/ui/field";
 import { Input } from "@/shared/ui/input";
 import { Notice } from "@/shared/ui/notice";
+import { Select } from "@/shared/ui/select";
 
 const schema = z.object({
   companyId: z.string().min(2, "Укажите companyId"),
   userId: z.string().min(2, "Укажите userId"),
+  role: z.enum(["admin", "user"]),
 });
 
 type AuthValues = z.infer<typeof schema>;
@@ -28,11 +30,12 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
     defaultValues: {
       companyId: "",
       userId: "",
+      role: "user",
     },
   });
 
   const onSubmit = form.handleSubmit((values) => {
-    saveSession(values.companyId, values.userId, mode);
+    saveSession(values.companyId, values.userId, values.role, mode);
     router.push("/");
   });
 
@@ -63,6 +66,13 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
 
             <Field label="User ID" error={form.formState.errors.userId?.message}>
               <Input placeholder="manager-01" {...form.register("userId")} />
+            </Field>
+
+            <Field label="Роль" error={form.formState.errors.role?.message}>
+              <Select {...form.register("role")}>
+                <option value="user">Обычный пользователь</option>
+                <option value="admin">Администратор</option>
+              </Select>
             </Field>
 
             <div className="inline-actions">

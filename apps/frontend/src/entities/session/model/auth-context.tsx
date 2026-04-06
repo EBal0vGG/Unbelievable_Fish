@@ -2,6 +2,7 @@
 
 import { createContext, type ReactNode, useContext, useEffect, useState } from "react";
 
+import { normalizeRole } from "@/shared/lib/access";
 import { readLocalStorage, writeLocalStorage } from "@/shared/lib/storage";
 import type { UserSession } from "@/shared/types/domain";
 
@@ -10,7 +11,12 @@ const SESSION_KEY = "uf:session-context";
 interface AuthContextValue {
   session: UserSession | null;
   isReady: boolean;
-  saveSession: (companyId: string, userId: string, mode: UserSession["mode"]) => void;
+  saveSession: (
+    companyId: string,
+    userId: string,
+    role: UserSession["role"],
+    mode: UserSession["mode"],
+  ) => void;
   logout: () => void;
 }
 
@@ -21,14 +27,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
-    setSession(readLocalStorage<UserSession | null>(SESSION_KEY, null));
+    const stored = readLocalStorage<(UserSession & { role?: UserSession["role"] }) | null>(SESSION_KEY, null);
+    setSession(
+      stored
+        ? {
+            ...stored,
+            role: normalizeRole(stored.role),
+          }
+        : null,
+    );
     setIsReady(true);
   }, []);
 
-  const saveSession = (companyId: string, userId: string, mode: UserSession["mode"]) => {
+  const saveSession = (
+    companyId: string,
+    userId: string,
+    role: UserSession["role"],
+    mode: UserSession["mode"],
+  ) => {
     const nextSession: UserSession = {
       companyId,
       userId,
+      role,
       mode,
       updatedAt: new Date().toISOString(),
     };

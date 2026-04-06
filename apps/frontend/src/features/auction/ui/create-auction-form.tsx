@@ -8,7 +8,9 @@ import { zodResolver } from "@hookform/resolvers/zod";
 
 import { useLotsQuery } from "@/entities/lot/model/hooks";
 import { useAuth } from "@/entities/session/model/auth-context";
+import { ApiError } from "@/shared/api/http-client";
 import { createAuction } from "@/shared/api/trading-service";
+import { isOwnedLot } from "@/shared/lib/access";
 import { toDateTimeLocalValue } from "@/shared/lib/format";
 import { Button } from "@/shared/ui/button";
 import { Card } from "@/shared/ui/card";
@@ -36,7 +38,11 @@ export function CreateAuctionForm() {
   const queryClient = useQueryClient();
   const lotsQuery = useLotsQuery();
   const [meta, setMeta] = useState<ServiceMeta | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [useManualLotId, setUseManualLotId] = useState(false);
+  const availableLots = (lotsQuery.data?.data ?? []).filter(
+    (lot) => isOwnedLot(lot, session) && lot.status === "PUBLISHED" && !lot.auctionId,
+  );
 
   const form = useForm<Values>({
     resolver: zodResolver(schema),
@@ -48,18 +54,27 @@ export function CreateAuctionForm() {
   });
 
   const mutation = useMutation({
-    mutationFn: (values: Values) =>
-      createAuction(
+    mutationFn: (values: Values) => {
+      setError(null);
+      if (!session) {
+        throw new ApiError("missing X-Company-ID header", 400, "MISSING_COMPANY_ID");
+      }
+      return createAuction(
         {
           lotId: values.lotId,
           startsAt: new Date(values.startsAt).toISOString(),
           endsAt: new Date(values.endsAt).toISOString(),
         },
         session,
-      ),
+      );
+    },
     onSuccess: (result) => {
       setMeta(result.meta);
       void queryClient.invalidateQueries({ queryKey: ["auctions"] });
+      void queryClient.invalidateQueries({ queryKey: ["lots"] });
+    },
+    onError: (error) => {
+      setError(error instanceof ApiError ? error.message : "Не удалось создать аукцион.");
     },
   });
 
@@ -74,6 +89,18 @@ export function CreateAuctionForm() {
         {meta?.note ? (
           <Notice tone={meta.source === "api" ? "success" : "warning"} title={`Источник: ${meta.source}`}>
             {meta.note}
+          </Notice>
+        ) : null}
+
+        {!session ? (
+          <Notice tone="warning" title="Нужен вход">
+            Trading command требует `X-Company-ID` и `X-User-ID`. Сначала сохраните session context.
+          </Notice>
+        ) : null}
+
+        {error ? (
+          <Notice tone="warning" title="Ошибка создания аукциона">
+            {error}
           </Notice>
         ) : null}
 
@@ -104,7 +131,7 @@ export function CreateAuctionForm() {
               ) : (
                 <Select {...form.register("lotId")}>
                   <option value="">Выберите лот</option>
-                  {(lotsQuery.data?.data ?? []).map((lot) => (
+                  {availableLots.map((lot) => (
                     <option key={lot.id} value={lot.id}>
                       {lot.productLabel} · {lot.id}
                     </option>
@@ -120,7 +147,7 @@ export function CreateAuctionForm() {
             <Input type="datetime-local" {...form.register("endsAt")} />
           </Field>
           <div className="inline-actions">
-            <Button disabled={mutation.isPending} type="submit">
+            <Button disabled={mutation.isPending || !session?.companyId || !session.userId} type="submit">
               {mutation.isPending ? "Отправляем..." : "Создать аукцион"}
             </Button>
           </div>

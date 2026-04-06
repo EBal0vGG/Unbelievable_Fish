@@ -38,6 +38,8 @@ const seedProducts: ProductRecord[] = [
     id: "product-salmon-fillet",
     fishId: "fish-salmon-atlantic",
     fishName: "Атлантический лосось",
+    ownerCompanyId: "north-sea-llc",
+    ownerUserId: "manager-01",
     weight: 22,
     unit: "kg",
     size: "2-4",
@@ -49,6 +51,8 @@ const seedProducts: ProductRecord[] = [
     id: "product-pollock-block",
     fishId: "fish-pollock-far-east",
     fishName: "Минтай дальневосточный",
+    ownerCompanyId: "arctic-export",
+    ownerUserId: "seller-02",
     weight: 1000,
     unit: "kg",
     size: "block",
@@ -64,6 +68,7 @@ const seedLots: LotRecord[] = [
     productId: "product-salmon-fillet",
     productLabel: "Лосось chilled 2-4 / 22 kg",
     sellerCompanyId: "north-sea-llc",
+    creatorUserId: "manager-01",
     quantity: 12,
     startPrice: 540000,
     currentPrice: 590000,
@@ -78,6 +83,7 @@ const seedLots: LotRecord[] = [
     productId: "product-pollock-block",
     productLabel: "Минтай frozen block / 1000 kg",
     sellerCompanyId: "arctic-export",
+    creatorUserId: "seller-02",
     quantity: 28,
     startPrice: 260000,
     finalPrice: 315000,
@@ -92,6 +98,7 @@ const seedLots: LotRecord[] = [
     productId: "product-salmon-fillet",
     productLabel: "Сельдь переработка / тестовый драфт",
     sellerCompanyId: "north-sea-llc",
+    creatorUserId: "manager-01",
     quantity: 18,
     startPrice: 180000,
     status: "DRAFT",
@@ -174,6 +181,21 @@ function cloneStore(store: FrontendStore): FrontendStore {
   return JSON.parse(JSON.stringify(store)) as FrontendStore;
 }
 
+function migrateStore(store: FrontendStore): FrontendStore {
+  return {
+    ...store,
+    products: store.products.map((product) => ({
+      ...product,
+      ownerCompanyId: product.ownerCompanyId ?? "legacy-company",
+      ownerUserId: product.ownerUserId ?? "legacy-user",
+    })),
+    lots: store.lots.map((lot) => ({
+      ...lot,
+      creatorUserId: lot.creatorUserId ?? "legacy-user",
+    })),
+  };
+}
+
 function upsertById<T extends { id: string }>(items: T[], nextItem: T): T[] {
   const existingIndex = items.findIndex((item) => item.id === nextItem.id);
   if (existingIndex === -1) {
@@ -186,7 +208,7 @@ function upsertById<T extends { id: string }>(items: T[], nextItem: T): T[] {
 }
 
 export function getFrontendStore(): FrontendStore {
-  return readLocalStorage(STORE_KEY, cloneStore(seedStore));
+  return migrateStore(readLocalStorage(STORE_KEY, cloneStore(seedStore)));
 }
 
 export function saveFrontendStore(store: FrontendStore): void {
@@ -259,12 +281,22 @@ export function upsertLotStore(item: LotRecord): LotRecord {
 export function upsertAuctionStore(item: AuctionRecord): AuctionRecord {
   const store = getFrontendStore();
   store.auctions = upsertById(store.auctions, item);
+  store.lots = store.lots.map((lot) =>
+    lot.id === item.lotId && lot.auctionId !== item.id
+      ? {
+          ...lot,
+          auctionId: item.id,
+        }
+      : lot,
+  );
   saveFrontendStore(store);
   return item;
 }
 
-export function appendBidStore(item: BidRecord): BidRecord {
+export function appendBidStore(item: BidRecord, options?: { endsAt?: string }): BidRecord {
   const store = getFrontendStore();
+  const auction = store.auctions.find((entry) => entry.id === item.auctionId);
+
   store.bids = [item, ...store.bids];
   store.auctions = store.auctions.map((auction) =>
     auction.id === item.auctionId
@@ -272,9 +304,21 @@ export function appendBidStore(item: BidRecord): BidRecord {
           ...auction,
           currentPrice: item.amount,
           leaderCompanyId: item.bidderCompanyId,
+          endsAt: options?.endsAt ?? auction.endsAt,
         }
       : auction,
   );
+  if (auction) {
+    store.lots = store.lots.map((lot) =>
+      lot.id === auction.lotId || lot.auctionId === item.auctionId
+        ? {
+            ...lot,
+            auctionId: item.auctionId,
+            currentPrice: item.amount,
+          }
+        : lot,
+    );
+  }
   saveFrontendStore(store);
   return item;
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -8,55 +9,72 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useAuth } from "@/entities/session/model/auth-context";
 import { ApiError } from "@/shared/api/http-client";
 import { placeBid } from "@/shared/api/trading-service";
-import { toDateTimeLocalValue } from "@/shared/lib/format";
+import { getBidAccessError, getBidValidationError } from "@/shared/lib/trading-domain";
 import { Button } from "@/shared/ui/button";
 import { Field } from "@/shared/ui/field";
 import { Input } from "@/shared/ui/input";
 import { Notice } from "@/shared/ui/notice";
+import type { BidRecord } from "@/shared/types/domain";
 
 const schema = z.object({
   amount: z.coerce.number().int().positive("Введите сумму ставки"),
-  placedAt: z.string().min(1, "Укажите время ставки"),
 });
 
 type Values = z.infer<typeof schema>;
 
-function normalizeCompanyId(value?: string | null): string {
-  return (value ?? "").trim().toLowerCase();
-}
-
 export function PlaceBidForm({
   auctionId,
-  existingAmounts = [],
+  auctionState,
+  startsAt,
+  endsAt,
+  currentPrice = 0,
   sellerCompanyId,
-  currentLeaderCompanyId,
-  existingBidderCompanyIds = [],
+  leaderCompanyId,
+  bids = [],
 }: {
   auctionId: string;
-  existingAmounts?: number[];
+  auctionState: "DRAFT" | "PUBLISHED" | "CLOSED" | "WON" | "CANCELLED";
+  startsAt: string;
+  endsAt: string;
+  currentPrice?: number;
   sellerCompanyId?: string;
-  currentLeaderCompanyId?: string;
-  existingBidderCompanyIds?: string[];
+  leaderCompanyId?: string;
+  bids?: BidRecord[];
 }) {
   const { session } = useAuth();
   const queryClient = useQueryClient();
-  const actorCompanyId = normalizeCompanyId(session?.companyId);
-  const isOwnLot =
-    actorCompanyId !== "" &&
-    actorCompanyId === normalizeCompanyId(sellerCompanyId);
-  const hasOwnBid = existingBidderCompanyIds.some(
-    (companyId) => normalizeCompanyId(companyId) === actorCompanyId,
-  );
-  const isLeader = actorCompanyId !== "" && actorCompanyId === normalizeCompanyId(currentLeaderCompanyId);
-  const isOwnBidAttempt = hasOwnBid || isLeader;
+  const sessionError =
+    !session?.companyId ? "missing X-Company-ID header" : !session.userId ? "missing X-User-ID header" : null;
+  const bidAccessError = getBidAccessError({
+    actorCompanyId: session?.companyId,
+    sellerCompanyId,
+    leaderCompanyId,
+    bids,
+  });
 
   const form = useForm<Values>({
     resolver: zodResolver(schema),
     defaultValues: {
-      amount: 600000,
-      placedAt: toDateTimeLocalValue(new Date()),
+      amount: Math.max(currentPrice + 1, 1),
     },
   });
+  const bidValidationError = getBidValidationError(
+    {
+      state: auctionState,
+      startsAt,
+      endsAt,
+      currentPrice,
+      finalPrice: undefined,
+    },
+    form.watch("amount") || 0,
+    new Date(),
+    bids,
+  );
+  const blockingError = sessionError ?? bidAccessError ?? bidValidationError;
+
+  useEffect(() => {
+    form.setValue("amount", Math.max(currentPrice + 1, 1));
+  }, [currentPrice, form]);
 
   const mutation = useMutation({
     mutationFn: (values: Values) =>
@@ -64,8 +82,6 @@ export function PlaceBidForm({
         {
           auctionId,
           amount: values.amount,
-          placedAt: new Date(values.placedAt).toISOString(),
-          sellerCompanyId,
         },
         session,
       ),
@@ -85,36 +101,29 @@ export function PlaceBidForm({
   });
 
   const onSubmit = form.handleSubmit((values) => {
-    if (isOwnLot) {
+    const validationError = getBidValidationError(
+      {
+        state: auctionState,
+        startsAt,
+        endsAt,
+        currentPrice,
+        finalPrice: undefined,
+      },
+      values.amount,
+      new Date(),
+      bids,
+    );
+    const accessError = getBidAccessError({
+      actorCompanyId: session?.companyId,
+      sellerCompanyId,
+      leaderCompanyId,
+      bids,
+    });
+
+    if (accessError || validationError) {
       form.setError("amount", {
         type: "manual",
-        message: "нельзя ставить ставки на свой товар",
-      });
-      return;
-    }
-
-    if (isOwnBidAttempt) {
-      form.setError("amount", {
-        type: "manual",
-        message: "нельзя перебивать свою же ставку",
-      });
-      return;
-    }
-
-    const highestAmount = existingAmounts.length ? Math.max(...existingAmounts) : 0;
-
-    if (existingAmounts.includes(values.amount)) {
-      form.setError("amount", {
-        type: "manual",
-        message: "нельзя ставить ту же сумму",
-      });
-      return;
-    }
-
-    if (highestAmount > 0 && values.amount < highestAmount) {
-      form.setError("amount", {
-        type: "manual",
-        message: "нельзя ставить меньшую сумму",
+        message: accessError ?? validationError ?? "Не удалось отправить ставку",
       });
       return;
     }
@@ -124,26 +133,18 @@ export function PlaceBidForm({
 
   return (
     <div className="stack-md">
-      {isOwnLot ? (
+      {blockingError && form.formState.isSubmitted === false ? (
         <Notice tone="warning" title="Ставка недоступна">
-          нельзя ставить ставки на свой товар
-        </Notice>
-      ) : null}
-
-      {isOwnBidAttempt ? (
-        <Notice tone="warning" title="Ставка недоступна">
-          нельзя перебивать свою же ставку
+          {blockingError}
         </Notice>
       ) : null}
 
       <form className="stack-md" onSubmit={onSubmit}>
         <Field label="Сумма ставки" error={form.formState.errors.amount?.message}>
-          <Input disabled={isOwnLot || isOwnBidAttempt} type="number" {...form.register("amount")} />
+          <Input disabled={Boolean(blockingError)} type="number" {...form.register("amount")} />
         </Field>
-        <Field label="Время" error={form.formState.errors.placedAt?.message}>
-          <Input disabled={isOwnLot || isOwnBidAttempt} type="datetime-local" {...form.register("placedAt")} />
-        </Field>
-        <Button disabled={mutation.isPending || isOwnLot || isOwnBidAttempt} type="submit">
+        <p className="muted">Backend использует серверное время запроса. Редактирование времени ставки во фронте отключено.</p>
+        <Button disabled={mutation.isPending || Boolean(blockingError)} type="submit">
           {mutation.isPending ? "Отправляем..." : "Сделать ставку"}
         </Button>
       </form>
