@@ -66,3 +66,9 @@ Desktop.ini
 tmp/
 temp/
 test-log/*.log
+
+############################
+# Frontend / Node
+############################
+node_modules/
+.next/
