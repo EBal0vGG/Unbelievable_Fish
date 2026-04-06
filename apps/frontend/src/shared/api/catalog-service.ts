@@ -1,4 +1,4 @@
-import { apiRequest, isRecoverableApiGap } from "@/shared/api/http-client";
+import { ApiError, apiRequest, isRecoverableApiGap } from "@/shared/api/http-client";
 import { mixedMeta, mockMeta, withFallback } from "@/shared/api/service-helpers";
 import {
   addActivity,
@@ -9,10 +9,18 @@ import {
   upsertLotStore,
   upsertProductStore,
 } from "@/shared/api/mock-store";
+import { isAdminSession } from "@/shared/lib/access";
 import { makeClientId } from "@/shared/lib/id";
 import type { FishRecord, LotRecord, ProductRecord, ServiceResult, UserSession } from "@/shared/types/domain";
 
 interface CreateFishInput {
+  name: string;
+  description: string;
+}
+
+interface FishListItem {
+  id?: string;
+  fish_id?: string;
   name: string;
   description: string;
 }
@@ -40,8 +48,13 @@ export async function listFish(session: UserSession | null): Promise<ServiceResu
   // TODO: switch to a real read-model endpoint once GET /fish is exposed by Catalog.
   return withFallback(
     async () => {
-      const data = await apiRequest<FishRecord[]>("catalog", "/fish", { session });
-      return data.map((item) => ({ ...item, id: item.id ?? (item as never).fish_id, source: "api" as const }));
+      const data = await apiRequest<FishListItem[]>("catalog", "/fish", { session });
+      return data.map((item) => ({
+        id: item.id ?? item.fish_id ?? makeClientId("fish"),
+        name: item.name,
+        description: item.description,
+        source: "api" as const,
+      }));
     },
     () => listFishStore(),
     "Catalog list query is not wired in the current backend build, using local fish catalog fallback.",
@@ -70,6 +83,10 @@ export async function createFish(
   input: CreateFishInput,
   session: UserSession | null,
 ): Promise<ServiceResult<FishRecord>> {
+  if (!isAdminSession(session)) {
+    throw new ApiError("Только администратор может создавать рыбу", 403, "ADMIN_ONLY");
+  }
+
   const fallbackFish: FishRecord = {
     id: makeClientId("fish"),
     name: input.name,
@@ -116,10 +133,16 @@ export async function createProduct(
   input: CreateProductInput,
   session: UserSession | null,
 ): Promise<ServiceResult<ProductRecord>> {
+  if (!session?.companyId || !session.userId) {
+    throw new ApiError("Сначала сохраните пользовательский контекст", 400, "MISSING_SESSION");
+  }
+
   const fallbackProduct: ProductRecord = {
     id: makeClientId("product"),
     fishId: input.fishId,
     fishName: input.fishName,
+    ownerCompanyId: session?.companyId ?? "unknown-company",
+    ownerUserId: session?.userId ?? "unknown-user",
     weight: input.weight,
     unit: input.unit,
     size: input.size,
@@ -214,11 +237,16 @@ export async function createLot(
   input: CreateLotInput,
   session: UserSession | null,
 ): Promise<ServiceResult<LotRecord>> {
+  if (!session?.companyId || !session.userId) {
+    throw new ApiError("Сначала сохраните пользовательский контекст", 400, "MISSING_SESSION");
+  }
+
   const fallbackLot: LotRecord = {
     id: makeClientId("lot"),
     productId: input.productId,
     productLabel: input.productLabel,
     sellerCompanyId: session?.companyId ?? "unknown-company",
+    creatorUserId: session?.userId ?? "unknown-user",
     photo: input.photo,
     quantity: input.quantity,
     startPrice: input.startPrice,
@@ -265,7 +293,7 @@ export async function createLot(
     addActivity("Создан лот", `${createdLot.productLabel} · local placeholder`);
     return {
       data: createdLot,
-      meta: mockMeta("CreateLot fallback is active until the backend route is reachable."),
+      meta: mockMeta("Catalog create-lot command is unavailable from the frontend proxy. A local lot mirror was created."),
     };
   }
 }
@@ -292,7 +320,7 @@ export async function publishLot(
       currentPrice: existing.currentPrice ?? existing.startPrice,
       source: "mixed",
       notes:
-        "Lot publish command sent to Catalog. Auction creation still depends on integration runtime and missing query endpoints.",
+        "Lot publish command sent to Catalog. The lot remains private in the UI; only its auction becomes public.",
     });
     addActivity("Лот опубликован", `${published.id}`);
     return {

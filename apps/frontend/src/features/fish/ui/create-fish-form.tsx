@@ -7,6 +7,8 @@ import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 
 import { useAuth } from "@/entities/session/model/auth-context";
+import { isAdminSession } from "@/shared/lib/access";
+import { ApiError } from "@/shared/api/http-client";
 import { createFish } from "@/shared/api/catalog-service";
 import { Button } from "@/shared/ui/button";
 import { Card } from "@/shared/ui/card";
@@ -27,6 +29,8 @@ export function CreateFishForm() {
   const { session } = useAuth();
   const queryClient = useQueryClient();
   const [meta, setMeta] = useState<ServiceMeta | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const canManageFish = isAdminSession(session);
 
   const form = useForm<Values>({
     resolver: zodResolver(schema),
@@ -37,11 +41,17 @@ export function CreateFishForm() {
   });
 
   const mutation = useMutation({
-    mutationFn: (values: Values) => createFish(values, session),
+    mutationFn: (values: Values) => {
+      setError(null);
+      return createFish(values, session);
+    },
     onSuccess: (result) => {
       setMeta(result.meta);
       form.reset();
       void queryClient.invalidateQueries({ queryKey: ["fish-catalog"] });
+    },
+    onError: (error) => {
+      setError(error instanceof ApiError ? error.message : "Не удалось создать рыбу.");
     },
   });
 
@@ -63,15 +73,27 @@ export function CreateFishForm() {
           </Notice>
         ) : null}
 
+        {!canManageFish ? (
+          <Notice tone="warning" title="Доступ ограничен">
+            Создание рыбы доступно только администраторам.
+          </Notice>
+        ) : null}
+
+        {error ? (
+          <Notice tone="warning" title="Ошибка создания рыбы">
+            {error}
+          </Notice>
+        ) : null}
+
         <form className="stack-md" onSubmit={form.handleSubmit((values) => mutation.mutate(values))}>
           <Field label="Название" error={form.formState.errors.name?.message}>
-            <Input placeholder="Нерка камчатская" {...form.register("name")} />
+            <Input disabled={!canManageFish} placeholder="Нерка камчатская" {...form.register("name")} />
           </Field>
           <Field label="Описание" error={form.formState.errors.description?.message}>
-            <Textarea rows={4} placeholder="Оптовая позиция для каталога..." {...form.register("description")} />
+            <Textarea disabled={!canManageFish} rows={4} placeholder="Оптовая позиция для каталога..." {...form.register("description")} />
           </Field>
           <div className="inline-actions">
-            <Button disabled={mutation.isPending} type="submit">
+            <Button disabled={mutation.isPending || !canManageFish} type="submit">
               {mutation.isPending ? "Сохраняем..." : "Создать рыбу"}
             </Button>
           </div>

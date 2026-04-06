@@ -7,6 +7,7 @@ import { useLotsQuery, useProductsQuery } from "@/entities/lot/model/hooks";
 import { useFishCatalogQuery } from "@/entities/fish/model/hooks";
 import { useAuth } from "@/entities/session/model/auth-context";
 import { listActivitiesStore } from "@/shared/api/mock-store";
+import { isOwnedLot, isOwnedProduct } from "@/shared/lib/access";
 import { formatDateTime } from "@/shared/lib/format";
 import { Card } from "@/shared/ui/card";
 import { Notice } from "@/shared/ui/notice";
@@ -19,6 +20,18 @@ export default function MyContextPage() {
   const auctionsQuery = useAuctionsQuery();
 
   const activities = useMemo(() => listActivitiesStore(), []);
+  const visibleProducts = useMemo(
+    () => (productsQuery.data?.data ?? []).filter((product) => isOwnedProduct(product, session)),
+    [productsQuery.data?.data, session],
+  );
+  const visibleLots = useMemo(
+    () => (lotsQuery.data?.data ?? []).filter((lot) => isOwnedLot(lot, session)),
+    [lotsQuery.data?.data, session],
+  );
+  const publicAuctions = useMemo(
+    () => (auctionsQuery.data?.data ?? []).filter((auction) => auction.state !== "DRAFT"),
+    [auctionsQuery.data?.data],
+  );
 
   return (
     <div className="page-stack">
@@ -52,6 +65,10 @@ export default function MyContextPage() {
                 <strong>{session?.mode ?? "guest"}</strong>
               </div>
               <div>
+                <span>Role</span>
+                <strong>{session?.role ?? "guest"}</strong>
+              </div>
+              <div>
                 <span>Updated</span>
                 <strong>{session ? formatDateTime(session.updatedAt) : "н/д"}</strong>
               </div>
@@ -69,15 +86,15 @@ export default function MyContextPage() {
               </div>
               <div>
                 <span>Products</span>
-                <strong>{productsQuery.data?.data.length ?? 0}</strong>
+                <strong>{visibleProducts.length}</strong>
               </div>
               <div>
                 <span>Lots</span>
-                <strong>{lotsQuery.data?.data.length ?? 0}</strong>
+                <strong>{visibleLots.length}</strong>
               </div>
               <div>
-                <span>Auctions</span>
-                <strong>{auctionsQuery.data?.data.length ?? 0}</strong>
+                <span>Public auctions</span>
+                <strong>{publicAuctions.length}</strong>
               </div>
             </div>
           </div>

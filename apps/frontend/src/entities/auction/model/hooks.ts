@@ -17,6 +17,7 @@ export function useAuctionDetailsQuery(auctionId: string, session: UserSession |
   return useQuery({
     queryKey: ["auction", auctionId, session?.companyId, session?.userId],
     queryFn: () => getAuctionDetails(auctionId, session),
+    enabled: Boolean(auctionId),
     refetchInterval: 15_000,
   });
 }

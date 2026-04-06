@@ -8,6 +8,7 @@ import { useLotsQuery, useProductsQuery } from "@/entities/lot/model/hooks";
 import { PlaceBidForm } from "@/features/auction/ui/place-bid-form";
 import { useAuth } from "@/entities/session/model/auth-context";
 import { formatDateTime, formatMoney, shortId } from "@/shared/lib/format";
+import { getAuctionEffectiveCurrentPrice } from "@/shared/lib/trading-domain";
 import { Button } from "@/shared/ui/button";
 import { Card } from "@/shared/ui/card";
 import { EmptyState } from "@/shared/ui/empty-state";
@@ -18,6 +19,10 @@ export default function AuctionDetailsPage() {
   const { session } = useAuth();
   const rawId = params.id;
   const auctionId = Array.isArray(rawId) ? rawId[0] : rawId ?? "";
+  const auctionQuery = useAuctionDetailsQuery(auctionId, session);
+  const lotsQuery = useLotsQuery();
+  const productsQuery = useProductsQuery();
+  const fishQuery = useFishCatalogQuery(session);
 
   if (!auctionId) {
     return (
@@ -30,10 +35,6 @@ export default function AuctionDetailsPage() {
     );
   }
 
-  const auctionQuery = useAuctionDetailsQuery(auctionId, session);
-  const lotsQuery = useLotsQuery();
-  const productsQuery = useProductsQuery();
-  const fishQuery = useFishCatalogQuery(session);
   const details = auctionQuery.data?.data;
 
   if (!details?.auction) {
@@ -59,18 +60,8 @@ export default function AuctionDetailsPage() {
     : undefined;
   const productTitle = projection?.productSnapshot.name ?? lot?.productLabel ?? product?.fishName ?? "Продукт";
   const fishDescription = projection?.productSnapshot.description || fish?.description;
-  const sellerCompanyId =
-    auction.sellerCompanyId ?? lot?.sellerCompanyId ?? projection?.supplierId;
-  const existingAmounts = Array.from(
-    new Set([
-      ...bids.map((bid) => bid.amount),
-      auction.currentPrice ?? 0,
-      auction.finalPrice ?? 0,
-    ].filter((amount) => amount > 0)),
-  );
-  const existingBidderCompanyIds = Array.from(
-    new Set(bids.map((bid) => bid.bidderCompanyId).filter(Boolean)),
-  );
+  const currentPrice = getAuctionEffectiveCurrentPrice(auction, bids);
+  const sellerCompanyId = auction.sellerCompanyId ?? lot?.sellerCompanyId ?? projection?.supplierId;
 
   return (
     <div className="page-stack">
@@ -94,7 +85,7 @@ export default function AuctionDetailsPage() {
             <div className="metric-grid">
               <div>
                 <span>Текущая ставка</span>
-                <strong>{formatMoney(auction.currentPrice ?? auction.finalPrice)}</strong>
+                <strong>{formatMoney(currentPrice || auction.finalPrice)}</strong>
               </div>
               <div>
                 <span>Финальная цена</span>
@@ -126,10 +117,13 @@ export default function AuctionDetailsPage() {
             <p className="muted">Разместите ставку для участия в торгах по выбранному лоту.</p>
             <PlaceBidForm
               auctionId={auction.id}
-              existingAmounts={existingAmounts}
+              auctionState={auction.state}
+              startsAt={auction.startsAt}
+              endsAt={auction.endsAt}
+              currentPrice={currentPrice}
               sellerCompanyId={sellerCompanyId}
-              currentLeaderCompanyId={auction.leaderCompanyId}
-              existingBidderCompanyIds={existingBidderCompanyIds}
+              leaderCompanyId={auction.leaderCompanyId}
+              bids={bids}
             />
           </div>
         </Card>

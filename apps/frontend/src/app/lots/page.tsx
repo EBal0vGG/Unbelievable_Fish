@@ -3,11 +3,14 @@
 import { useDeferredValue, useMemo, useState } from "react";
 
 import { useLotsQuery } from "@/entities/lot/model/hooks";
+import { useAuth } from "@/entities/session/model/auth-context";
 import { LotCard } from "@/entities/lot/ui/lot-card";
+import { isOwnedLot } from "@/shared/lib/access";
 import { FilterBar } from "@/features/marketplace/ui/filter-bar";
 import { EmptyState } from "@/shared/ui/empty-state";
 
 export default function LotsPage() {
+  const { session } = useAuth();
   const lotsQuery = useLotsQuery();
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all");
@@ -15,13 +18,16 @@ export default function LotsPage() {
 
   const items = useMemo(() => {
     return (lotsQuery.data?.data ?? []).filter((item) => {
+      if (!isOwnedLot(item, session)) {
+        return false;
+      }
       const searchMatch = `${item.productLabel} ${item.sellerCompanyId} ${item.id}`
         .toLowerCase()
         .includes(deferredSearch.toLowerCase());
       const statusMatch = status === "all" || item.status === status;
       return searchMatch && statusMatch;
     });
-  }, [deferredSearch, lotsQuery.data?.data, status]);
+  }, [deferredSearch, lotsQuery.data?.data, session, status]);
 
   return (
     <div className="page-stack">
@@ -56,7 +62,7 @@ export default function LotsPage() {
       ) : (
         <EmptyState
           title="Лоты не найдены"
-          description="Создайте лот или снимите фильтры."
+          description="У вас пока нет доступных лотов. Создайте свой лот или снимите фильтры."
           actionHref="/create/lot"
           actionLabel="Создать лот"
         />

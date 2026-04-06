@@ -35,6 +35,9 @@ export default function AuctionsPage() {
 
   const items = useMemo(() => {
     return (auctionsQuery.data?.data ?? []).filter((item) => {
+      if (item.state === "DRAFT") {
+        return false;
+      }
       const lot = lotMap.get(item.lotId);
       const product = lot ? productMap.get(lot.productId) : undefined;
       const fish = product ? fishMap.get(product.fishId) : undefined;
