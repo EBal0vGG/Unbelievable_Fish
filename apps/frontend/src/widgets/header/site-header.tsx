@@ -11,11 +11,12 @@ import { buttonStyles } from "@/shared/ui/button";
 const navItems = [
   { href: "/", label: "Главная" },
   { href: "/catalog", label: "Каталог" },
+  { href: "/products", label: "Продукты" },
   { href: "/lots", label: "Лоты" },
   { href: "/auctions", label: "Аукционы" },
   { href: "/create/lot", label: "Создать лот" },
   { href: "/create/auction", label: "Создать аукцион" },
-  { href: "/me", label: "Мой контекст" },
+  { href: "/me", label: "Мой профиль" },
 ];
 
 export function SiteHeader() {
@@ -23,7 +24,7 @@ export function SiteHeader() {
   const { session, logout } = useAuth();
   const canManageFish = isAdminSession(session);
   const visibleNavItems = canManageFish
-    ? [...navItems.slice(0, 4), { href: "/create/fish", label: "Создать рыбу" }, ...navItems.slice(4)]
+    ? [...navItems.slice(0, 5), { href: "/create/fish", label: "Создать рыбу" }, ...navItems.slice(5)]
     : navItems;
 
   return (
@@ -33,8 +34,8 @@ export function SiteHeader() {
           <span>UF</span>
         </Link>
         <div>
-          <p className="brand-title">Fish Exchange MVP</p>
-          <p className="brand-subtitle">B2B marketplace / lots / auctions</p>
+          <p className="brand-title">Unbelievable Fish</p>
+          <p className="brand-subtitle">Оптовые продукты, лоты и аукционы</p>
         </div>
       </div>
 

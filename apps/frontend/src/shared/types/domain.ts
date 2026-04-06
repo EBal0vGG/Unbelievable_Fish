@@ -127,6 +127,8 @@ export interface ActivityRecord {
   title: string;
   description: string;
   at: string;
+  companyId?: string;
+  userId?: string;
 }
 
 export interface FrontendStore {

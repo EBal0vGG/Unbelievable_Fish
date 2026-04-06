@@ -18,11 +18,10 @@ import { Field } from "@/shared/ui/field";
 import { Input } from "@/shared/ui/input";
 import { Notice } from "@/shared/ui/notice";
 import { Select } from "@/shared/ui/select";
-import type { ServiceMeta } from "@/shared/types/domain";
 
 const schema = z
   .object({
-    lotId: z.string().min(1, "Выберите lotId"),
+    lotId: z.string().min(1, "Выберите лот"),
     startsAt: z.string().min(1, "Укажите старт"),
     endsAt: z.string().min(1, "Укажите завершение"),
   })
@@ -37,7 +36,7 @@ export function CreateAuctionForm() {
   const { session } = useAuth();
   const queryClient = useQueryClient();
   const lotsQuery = useLotsQuery();
-  const [meta, setMeta] = useState<ServiceMeta | null>(null);
+  const [isCreated, setIsCreated] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [useManualLotId, setUseManualLotId] = useState(false);
   const availableLots = (lotsQuery.data?.data ?? []).filter(
@@ -56,8 +55,9 @@ export function CreateAuctionForm() {
   const mutation = useMutation({
     mutationFn: (values: Values) => {
       setError(null);
+      setIsCreated(false);
       if (!session) {
-        throw new ApiError("missing X-Company-ID header", 400, "MISSING_COMPANY_ID");
+        throw new ApiError("Войдите в профиль, чтобы выставить аукцион", 400, "MISSING_COMPANY_ID");
       }
       return createAuction(
         {
@@ -68,8 +68,8 @@ export function CreateAuctionForm() {
         session,
       );
     },
-    onSuccess: (result) => {
-      setMeta(result.meta);
+    onSuccess: () => {
+      setIsCreated(true);
       void queryClient.invalidateQueries({ queryKey: ["auctions"] });
       void queryClient.invalidateQueries({ queryKey: ["lots"] });
     },
@@ -82,19 +82,19 @@ export function CreateAuctionForm() {
     <Card className="form-card">
       <div className="stack-lg">
         <div>
-          <p className="eyebrow">Trading Command</p>
+          <p className="eyebrow">Аукционы</p>
           <h1>Выставить аукцион</h1>
         </div>
 
-        {meta?.note ? (
-          <Notice tone={meta.source === "api" ? "success" : "warning"} title={`Источник: ${meta.source}`}>
-            {meta.note}
+        {isCreated ? (
+          <Notice tone="success" title="Аукцион выставлен">
+            Новый аукцион появится в общем списке.
           </Notice>
         ) : null}
 
         {!session ? (
           <Notice tone="warning" title="Нужен вход">
-            Trading command требует `X-Company-ID` и `X-User-ID`. Сначала сохраните session context.
+            Войдите в профиль, чтобы выставить аукцион.
           </Notice>
         ) : null}
 
@@ -122,7 +122,7 @@ export function CreateAuctionForm() {
                   type="button"
                   variant={useManualLotId ? "secondary" : "ghost"}
                 >
-                  Ввести lotId вручную
+                  Ввести номер вручную
                 </Button>
               </div>
 

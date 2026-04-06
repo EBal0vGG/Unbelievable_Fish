@@ -304,11 +304,15 @@ textarea {
 }
 
 .filters {
-  grid-template-columns: 1.6fr repeat(2, minmax(160px, 240px));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   padding: 20px;
   border: 1px solid var(--stroke);
   border-radius: var(--radius-md);
   background: rgba(255, 255, 255, 0.72);
+}
+
+.filters-search {
+  grid-column: span 2;
 }
 
 .field {

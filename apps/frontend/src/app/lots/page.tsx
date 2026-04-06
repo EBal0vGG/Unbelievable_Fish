@@ -8,12 +8,15 @@ import { LotCard } from "@/entities/lot/ui/lot-card";
 import { isOwnedLot } from "@/shared/lib/access";
 import { FilterBar } from "@/features/marketplace/ui/filter-bar";
 import { EmptyState } from "@/shared/ui/empty-state";
+import { Field } from "@/shared/ui/field";
+import { Select } from "@/shared/ui/select";
 
 export default function LotsPage() {
   const { session } = useAuth();
   const lotsQuery = useLotsQuery();
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all");
+  const [auctionLink, setAuctionLink] = useState("all");
   const deferredSearch = useDeferredValue(search);
 
   const items = useMemo(() => {
@@ -25,14 +28,17 @@ export default function LotsPage() {
         .toLowerCase()
         .includes(deferredSearch.toLowerCase());
       const statusMatch = status === "all" || item.status === status;
-      return searchMatch && statusMatch;
+      const auctionMatch =
+        auctionLink === "all" ||
+        (auctionLink === "linked" ? Boolean(item.auctionId) : !item.auctionId);
+      return searchMatch && statusMatch && auctionMatch;
     });
-  }, [deferredSearch, lotsQuery.data?.data, session, status]);
+  }, [auctionLink, deferredSearch, lotsQuery.data?.data, session, status]);
 
   return (
     <div className="page-stack">
       <div className="page-heading">
-        <p className="eyebrow">Lots</p>
+        <p className="eyebrow">Лоты</p>
         <h1>Лоты</h1>
       </div>
 
@@ -51,6 +57,16 @@ export default function LotsPage() {
         source="all"
         onSourceChange={() => undefined}
         showSource={false}
+        searchPlaceholder="Название продукта, компания или номер лота"
+        extraFilters={
+          <Field label="Аукцион">
+            <Select value={auctionLink} onChange={(event) => setAuctionLink(event.target.value)}>
+              <option value="all">Все</option>
+              <option value="linked">Есть аукцион</option>
+              <option value="free">Без аукциона</option>
+            </Select>
+          </Field>
+        }
       />
 
       {items.length ? (

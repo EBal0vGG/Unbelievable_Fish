@@ -7,8 +7,8 @@ import { SiteHeader } from "@/widgets/header/site-header";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Fish Exchange MVP",
-  description: "Thin UI layer for catalog, lots and auctions.",
+  title: "Unbelievable Fish",
+  description: "Оптовые продукты, лоты и аукционы.",
 };
 
 export default function RootLayout({

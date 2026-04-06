@@ -36,8 +36,8 @@ export function AuctionCard({
       <div className="entity-card-header">
         <div>
           <p className="eyebrow">Аукцион</p>
-          <h3>{shortId(auction.id)}</h3>
-          {productLabel ? <p className="muted">{productLabel}</p> : null}
+          <h3>{productLabel ?? fishName ?? `Аукцион ${shortId(auction.id)}`}</h3>
+          <p className="muted">Сессия #{shortId(auction.id)}</p>
         </div>
         <Badge tone={auctionTone(auction.state)}>{auction.state}</Badge>
       </div>

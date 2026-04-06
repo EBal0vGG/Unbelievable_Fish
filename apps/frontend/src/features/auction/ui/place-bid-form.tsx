@@ -44,7 +44,7 @@ export function PlaceBidForm({
   const { session } = useAuth();
   const queryClient = useQueryClient();
   const sessionError =
-    !session?.companyId ? "missing X-Company-ID header" : !session.userId ? "missing X-User-ID header" : null;
+    !session?.companyId ? "Войдите в профиль, чтобы делать ставки" : !session.userId ? "Войдите в профиль, чтобы делать ставки" : null;
   const bidAccessError = getBidAccessError({
     actorCompanyId: session?.companyId,
     sellerCompanyId,
@@ -143,7 +143,6 @@ export function PlaceBidForm({
         <Field label="Сумма ставки" error={form.formState.errors.amount?.message}>
           <Input disabled={Boolean(blockingError)} type="number" {...form.register("amount")} />
         </Field>
-        <p className="muted">Backend использует серверное время запроса. Редактирование времени ставки во фронте отключено.</p>
         <Button disabled={mutation.isPending || Boolean(blockingError)} type="submit">
           {mutation.isPending ? "Отправляем..." : "Сделать ставку"}
         </Button>

@@ -1,6 +1,6 @@
 import { Badge } from "@/shared/ui/badge";
 import { Card } from "@/shared/ui/card";
-import { formatDateTime, formatMoney, shortId } from "@/shared/lib/format";
+import { formatDateTime, formatMoney } from "@/shared/lib/format";
 import type { LotRecord } from "@/shared/types/domain";
 
 function lotTone(status: LotRecord["status"]) {
@@ -40,14 +40,14 @@ export function LotCard({ lot }: { lot: LotRecord }) {
           <strong>{lot.quantity}</strong>
         </div>
         <div>
+          <span>Компания</span>
+          <strong>{lot.sellerCompanyId}</strong>
+        </div>
+        <div>
           <span>Старт торгов</span>
           <strong>{formatDateTime(lot.auctionStartsAt)}</strong>
         </div>
       </div>
-      <p className="entity-card-meta">
-        lot: {shortId(lot.id)} · product: {shortId(lot.productId)}
-      </p>
-      {lot.notes ? <p className="muted">{lot.notes}</p> : null}
     </Card>
   );
 }

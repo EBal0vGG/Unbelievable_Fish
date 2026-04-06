@@ -25,8 +25,8 @@ export default function CatalogPage() {
   return (
     <div className="page-stack">
       <div className="page-heading">
-        <p className="eyebrow">Catalog</p>
-        <h1>Рыба / каталог</h1>
+        <p className="eyebrow">Каталог</p>
+        <h1>Каталог рыбы</h1>
       </div>
 
       <FilterBar
@@ -38,6 +38,8 @@ export default function CatalogPage() {
         source="all"
         onSourceChange={() => undefined}
         showSource={false}
+        showStatus={false}
+        searchPlaceholder="Название рыбы или описание"
       />
 
       {items.length ? (
@@ -51,8 +53,8 @@ export default function CatalogPage() {
           title="Каталог пуст"
           description={
             canManageFish
-              ? "Создайте первую карточку рыбы для дальнейшего product / lot flow."
-              : "Каталог рыбы пока пуст. Добавление доступно только администраторам."
+              ? "Создайте первую позицию каталога."
+              : "Каталог рыбы пока пуст."
           }
           actionHref={canManageFish ? "/create/fish" : undefined}
           actionLabel={canManageFish ? "Создать рыбу" : undefined}

@@ -9,6 +9,8 @@ import { useLotsQuery, useProductsQuery } from "@/entities/lot/model/hooks";
 import { useAuth } from "@/entities/session/model/auth-context";
 import { FilterBar } from "@/features/marketplace/ui/filter-bar";
 import { EmptyState } from "@/shared/ui/empty-state";
+import { Field } from "@/shared/ui/field";
+import { Select } from "@/shared/ui/select";
 
 export default function AuctionsPage() {
   const { session } = useAuth();
@@ -18,6 +20,7 @@ export default function AuctionsPage() {
   const fishQuery = useFishCatalogQuery(session);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all");
+  const [sellerFilter, setSellerFilter] = useState("all");
   const deferredSearch = useDeferredValue(search);
 
   const productMap = useMemo(
@@ -32,6 +35,17 @@ export default function AuctionsPage() {
     () => new Map((lotsQuery.data?.data ?? []).map((lot) => [lot.id, lot])),
     [lotsQuery.data?.data],
   );
+  const sellerOptions = useMemo(() => {
+    const sellerIds = new Set<string>();
+    for (const item of auctionsQuery.data?.data ?? []) {
+      const lot = lotMap.get(item.lotId);
+      const sellerId = item.sellerCompanyId ?? lot?.sellerCompanyId;
+      if (sellerId) {
+        sellerIds.add(sellerId);
+      }
+    }
+    return Array.from(sellerIds).sort();
+  }, [auctionsQuery.data?.data, lotMap]);
 
   const items = useMemo(() => {
     return (auctionsQuery.data?.data ?? []).filter((item) => {
@@ -45,14 +59,17 @@ export default function AuctionsPage() {
         .toLowerCase()
         .includes(deferredSearch.toLowerCase());
       const statusMatch = status === "all" || item.state === status;
-      return searchMatch && statusMatch;
+      const sellerMatch =
+        sellerFilter === "all" ||
+        (item.sellerCompanyId ?? lot?.sellerCompanyId ?? "") === sellerFilter;
+      return searchMatch && statusMatch && sellerMatch;
     });
-  }, [auctionsQuery.data?.data, deferredSearch, fishMap, lotMap, productMap, status]);
+  }, [auctionsQuery.data?.data, deferredSearch, fishMap, lotMap, productMap, sellerFilter, status]);
 
   return (
     <div className="page-stack">
       <div className="page-heading">
-        <p className="eyebrow">Auctions</p>
+        <p className="eyebrow">Аукционы</p>
         <h1>Аукционы</h1>
       </div>
 
@@ -72,6 +89,19 @@ export default function AuctionsPage() {
         source="all"
         onSourceChange={() => undefined}
         showSource={false}
+        searchPlaceholder="Номер аукциона, лот, продукт или компания"
+        extraFilters={
+          <Field label="Продавец">
+            <Select value={sellerFilter} onChange={(event) => setSellerFilter(event.target.value)}>
+              <option value="all">Все</option>
+              {sellerOptions.map((sellerId) => (
+                <option key={sellerId} value={sellerId}>
+                  {sellerId}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        }
       />
 
       {items.length ? (
