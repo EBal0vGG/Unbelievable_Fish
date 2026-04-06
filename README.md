@@ -239,6 +239,18 @@ Trading **не знает**, кто подписан. Он просто публ
 
 ### ✅ Что всегда происходит
 
+# Frontend MVP
+
+В репозиторий добавлен отдельный frontend app: [`apps/frontend`](apps/frontend/README.md).
+
+Коротко:
+
+- стек: `Next.js + TypeScript + React Query + react-hook-form + zod`
+- frontend работает как UI/proxy-слой над существующими сервисами
+- где backend query endpoints отсутствуют, используются явные temporary placeholders через local mirror
+
+Детали запуска, env и матрица real API vs mock описаны в [`apps/frontend/README.md`](apps/frontend/README.md).
+
 * событие → application use case
 * use case → домен
 * домен → события
