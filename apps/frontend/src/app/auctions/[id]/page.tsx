@@ -27,8 +27,8 @@ export default function AuctionDetailsPage() {
   if (!auctionId) {
     return (
       <EmptyState
-        title="Auction ID не передан"
-        description="Откройте страницу из списка аукционов или проверьте маршрут."
+        title="Аукцион не выбран"
+        description="Откройте страницу из списка аукционов."
         actionHref="/auctions"
         actionLabel="К списку аукционов"
       />
@@ -41,7 +41,7 @@ export default function AuctionDetailsPage() {
     return (
       <EmptyState
         title="Аукцион не найден"
-        description="Проверьте идентификатор или создайте временный draft-аукцион для MVP."
+        description="Проверьте ссылку или вернитесь к списку аукционов."
         actionHref="/auctions"
         actionLabel="Вернуться к аукционам"
       />
@@ -67,10 +67,10 @@ export default function AuctionDetailsPage() {
     <div className="page-stack">
       <div className="section-heading">
         <div className="page-heading">
-          <p className="eyebrow">Auction Details</p>
+          <p className="eyebrow">Аукцион</p>
           <h1>{shortId(auction.id)}</h1>
           <p className="muted">
-            Статус: {auction.state} · lot: {shortId(auction.lotId)}
+            Статус: {auction.state} · лот {shortId(auction.lotId)}
           </p>
         </div>
         <Button onClick={() => auctionQuery.refetch()} variant="secondary" type="button">
@@ -171,7 +171,7 @@ export default function AuctionDetailsPage() {
 
         <Card className="form-card">
           <div className="stack-md">
-            <h2>Bid history</h2>
+            <h2>История ставок</h2>
             {bids.length ? (
               <table className="table">
                 <thead>

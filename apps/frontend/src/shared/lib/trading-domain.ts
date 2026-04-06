@@ -51,22 +51,22 @@ export function getBidValidationError(
   bids: BidRecord[] = [],
 ): string | null {
   if (auction.state !== "PUBLISHED") {
-    return "auction not active";
+    return "Аукцион сейчас не активен";
   }
 
   const startsAt = new Date(auction.startsAt);
   const endsAt = new Date(auction.endsAt);
 
   if (placedAt < startsAt) {
-    return "auction not started";
+    return "Аукцион еще не начался";
   }
 
   if (placedAt > endsAt) {
-    return "auction already ended";
+    return "Аукцион уже завершен";
   }
 
   if (amount <= getAuctionEffectiveCurrentPrice(auction, bids)) {
-    return "bid amount must be greater than current price";
+    return "Ставка должна быть выше текущей цены";
   }
 
   return null;

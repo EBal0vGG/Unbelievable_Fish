@@ -19,7 +19,6 @@ import { Field } from "@/shared/ui/field";
 import { Input } from "@/shared/ui/input";
 import { Notice } from "@/shared/ui/notice";
 import { Select } from "@/shared/ui/select";
-import type { ServiceMeta } from "@/shared/types/domain";
 
 const productSchema = z.object({
   fishId: z.string().min(1, "Выберите рыбу"),
@@ -31,7 +30,7 @@ const productSchema = z.object({
 });
 
 const lotSchema = z.object({
-  productId: z.string().min(1, "Нужен productId"),
+  productId: z.string().min(1, "Выберите продукт"),
   photo: z.string().optional(),
   quantity: z.coerce.number().positive("Введите объем"),
   startPrice: z.coerce.number().int().positive("Введите стартовую цену"),
@@ -46,7 +45,6 @@ type LotValues = z.infer<typeof lotSchema>;
 export function CreateLotForm() {
   const { session } = useAuth();
   const queryClient = useQueryClient();
-  const [meta, setMeta] = useState<ServiceMeta | null>(null);
   const [productError, setProductError] = useState<string | null>(null);
   const [lotError, setLotError] = useState<string | null>(null);
   const [createdProductId, setCreatedProductId] = useState<string | null>(null);
@@ -85,7 +83,7 @@ export function CreateLotForm() {
     mutationFn: async (values: ProductValues) => {
       setProductError(null);
       if (!session?.companyId || !session.userId) {
-        throw new ApiError("Сначала сохраните пользовательский контекст", 400, "MISSING_SESSION");
+        throw new ApiError("Войдите в профиль, чтобы создать продукт", 400, "MISSING_SESSION");
       }
       const fish = fishQuery.data?.data.find((item) => item.id === values.fishId);
       const created = await createProduct(
@@ -107,7 +105,6 @@ export function CreateLotForm() {
       return created;
     },
     onSuccess: (result) => {
-      setMeta(result.meta);
       setCreatedProductId(result.data.id);
       lotForm.setValue("productId", result.data.id);
       void queryClient.invalidateQueries({ queryKey: ["products"] });
@@ -116,7 +113,7 @@ export function CreateLotForm() {
       setProductError(
         error instanceof ApiError
           ? error.message
-          : "Не удалось создать продукт. Проверьте заполнение формы, сессию и доступность backend.",
+          : "Не удалось создать продукт. Проверьте заполнение формы и права доступа.",
       );
     },
   });
@@ -125,18 +122,14 @@ export function CreateLotForm() {
     mutationFn: async (values: LotValues) => {
       setLotError(null);
       if (!session?.companyId || !session.userId) {
-        throw new ApiError("Сначала сохраните пользовательский контекст", 400, "MISSING_SESSION");
+        throw new ApiError("Войдите в профиль, чтобы создать лот", 400, "MISSING_SESSION");
       }
       const product = productsQuery.data?.data.find((item) => item.id === values.productId);
       if (!product || !isOwnedProduct(product, session)) {
-        throw new ApiError("lot can be created only from your own product", 403, "PRODUCT_ACCESS_DENIED");
+        throw new ApiError("Лот можно создать только из собственного продукта", 403, "PRODUCT_ACCESS_DENIED");
       }
       if (values.publishLot && product?.status !== "PUBLISHED") {
-        throw new ApiError(
-          "product must be published before lot publish",
-          400,
-          "PUBLISHING_RULE_VIOLATION",
-        );
+        throw new ApiError("Сначала опубликуйте продукт", 400, "PUBLISHING_RULE_VIOLATION");
       }
       const created = await createLot(
         {
@@ -160,7 +153,6 @@ export function CreateLotForm() {
       return created;
     },
     onSuccess: (result) => {
-      setMeta(result.meta);
       setCreatedLotId(result.data.id);
       void queryClient.invalidateQueries({ queryKey: ["lots"] });
       void queryClient.invalidateQueries({ queryKey: ["auctions"] });
@@ -169,7 +161,7 @@ export function CreateLotForm() {
       setLotError(
         error instanceof ApiError
           ? error.message
-          : "Не удалось создать лот. Проверьте productId, companyId и доступность backend.",
+          : "Не удалось создать лот. Проверьте данные формы и выбранный продукт.",
       );
     },
   });
@@ -179,12 +171,9 @@ export function CreateLotForm() {
       <Card className="form-card">
         <div className="stack-lg">
           <div>
-            <p className="eyebrow">Helper Product Flow</p>
+            <p className="eyebrow">Продукты</p>
             <h2>Быстрый продукт для лота</h2>
-            <p className="muted">
-              Лот в backend зависит от `product_id`, поэтому здесь есть вспомогательная форма
-              создания продукта без отдельного top-level маршрута.
-            </p>
+            <p className="muted">Подготовьте продукт и сразу используйте его для нового лота.</p>
           </div>
 
           {productError ? (
@@ -195,7 +184,7 @@ export function CreateLotForm() {
 
           {createdProductId ? (
             <Notice tone="success" title="Продукт создан">
-              `productId`: {createdProductId}
+              Номер продукта: {createdProductId}
             </Notice>
           ) : null}
 
@@ -244,24 +233,14 @@ export function CreateLotForm() {
       <Card className="form-card">
         <div className="stack-lg">
           <div>
-            <p className="eyebrow">Catalog Command</p>
+            <p className="eyebrow">Лоты</p>
             <h1>Создать лот</h1>
-            <p className="muted">
-              Реально подключены команды создания и публикации лота. Создание последующего auction
-              read model зависит от integration runtime и пока не имеет стабильного query endpoint.
-            </p>
+            <p className="muted">Заполните параметры лота и подготовьте его к торгам.</p>
           </div>
 
           {!session ? (
             <Notice tone="warning" title="Нужен вход">
-              Для реального создания лота backend требует `companyId`. Сначала нажмите `Вход` или
-              `Регистрация` и сохраните контекст пользователя.
-            </Notice>
-          ) : null}
-
-          {meta?.note ? (
-            <Notice tone={meta.source === "api" ? "success" : "warning"} title={`Источник: ${meta.source}`}>
-              {meta.note}
+              Войдите в профиль, чтобы создавать продукты и лоты.
             </Notice>
           ) : null}
 
@@ -273,7 +252,7 @@ export function CreateLotForm() {
 
           {createdLotId ? (
             <Notice tone="success" title="Лот создан">
-              `lotId`: {createdLotId}
+              Номер лота: {createdLotId}
             </Notice>
           ) : null}
 
@@ -295,7 +274,7 @@ export function CreateLotForm() {
                     type="button"
                     variant={useManualProductId ? "secondary" : "ghost"}
                   >
-                    Ввести productId вручную
+                    Ввести номер вручную
                   </Button>
                 </div>
 

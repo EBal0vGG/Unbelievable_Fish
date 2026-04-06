@@ -16,7 +16,6 @@ import { Field } from "@/shared/ui/field";
 import { Input } from "@/shared/ui/input";
 import { Notice } from "@/shared/ui/notice";
 import { Textarea } from "@/shared/ui/textarea";
-import type { ServiceMeta } from "@/shared/types/domain";
 
 const schema = z.object({
   name: z.string().min(2, "Название рыбы обязательно"),
@@ -28,7 +27,6 @@ type Values = z.infer<typeof schema>;
 export function CreateFishForm() {
   const { session } = useAuth();
   const queryClient = useQueryClient();
-  const [meta, setMeta] = useState<ServiceMeta | null>(null);
   const [error, setError] = useState<string | null>(null);
   const canManageFish = isAdminSession(session);
 
@@ -45,8 +43,7 @@ export function CreateFishForm() {
       setError(null);
       return createFish(values, session);
     },
-    onSuccess: (result) => {
-      setMeta(result.meta);
+    onSuccess: () => {
       form.reset();
       void queryClient.invalidateQueries({ queryKey: ["fish-catalog"] });
     },
@@ -59,19 +56,10 @@ export function CreateFishForm() {
     <Card className="form-card">
       <div className="stack-lg">
         <div>
-          <p className="eyebrow">Catalog Command</p>
+          <p className="eyebrow">Каталог</p>
           <h1>Создать рыбу</h1>
-          <p className="muted">
-            Форма подключена к `POST /fish`, а при недоступном route аккуратно падает в локальный
-            placeholder.
-          </p>
+          <p className="muted">Добавьте новую позицию в каталог.</p>
         </div>
-
-        {meta?.note ? (
-          <Notice tone={meta.source === "api" ? "success" : "warning"} title={`Источник: ${meta.source}`}>
-            {meta.note}
-          </Notice>
-        ) : null}
 
         {!canManageFish ? (
           <Notice tone="warning" title="Доступ ограничен">

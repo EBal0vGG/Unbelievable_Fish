@@ -49,11 +49,11 @@ function getAuctionFallbackNote(): string {
 
 function getMissingTradingSessionError(session: UserSession | null): ApiError | null {
   if (!session?.companyId) {
-    return new ApiError("missing X-Company-ID header", 400, "MISSING_COMPANY_ID");
+    return new ApiError("Войдите в профиль, чтобы продолжить", 400, "MISSING_COMPANY_ID");
   }
 
   if (!session.userId) {
-    return new ApiError("missing X-User-ID header", 400, "MISSING_USER_ID");
+    return new ApiError("Войдите в профиль, чтобы продолжить", 400, "MISSING_USER_ID");
   }
 
   return null;
@@ -78,19 +78,19 @@ export async function createAuction(
   const activeSession = session as UserSession;
   const relatedLot = listLotsStore().find((item) => item.id === input.lotId);
   if (!relatedLot) {
-    throw new ApiError("lot not found", 404, "LOT_NOT_FOUND");
+    throw new ApiError("Лот не найден", 404, "LOT_NOT_FOUND");
   }
   if (
     relatedLot.sellerCompanyId !== activeSession.companyId ||
     relatedLot.creatorUserId !== activeSession.userId
   ) {
-    throw new ApiError("auction can be created only for your own lot", 403, "LOT_ACCESS_DENIED");
+    throw new ApiError("Аукцион можно создать только для собственного лота", 403, "LOT_ACCESS_DENIED");
   }
   if (relatedLot.status !== "PUBLISHED") {
-    throw new ApiError("lot must be published before auction creation", 409, "LOT_NOT_PUBLISHED");
+    throw new ApiError("Сначала опубликуйте лот", 409, "LOT_NOT_PUBLISHED");
   }
   if (relatedLot?.auctionId) {
-    throw new ApiError("lot already linked to another auction", 409, "LOT_ALREADY_LINKED");
+    throw new ApiError("Этот лот уже участвует в аукционе", 409, "LOT_ALREADY_LINKED");
   }
 
   const fallbackAuction: AuctionRecord = {
@@ -122,7 +122,7 @@ export async function createAuction(
       statusNote:
         "Trading command accepted. Backend currently does not expose created auction_id back to the UI, so a local published mirror was created.",
     });
-    addActivity("Аукцион выставлен", `${mirroredAuction.lotId} · command accepted`);
+    addActivity("Аукцион выставлен", mirroredAuction.lotId, session);
     return {
       data: mirroredAuction,
       meta: mixedMeta(
@@ -135,7 +135,7 @@ export async function createAuction(
     }
 
     const createdAuction = upsertAuctionStore(fallbackAuction);
-    addActivity("Аукцион выставлен", `${createdAuction.lotId} · local placeholder`);
+    addActivity("Аукцион выставлен", createdAuction.lotId, session);
     return {
       data: createdAuction,
       meta: mockMeta(
@@ -234,8 +234,8 @@ export async function placeBid(
   if (auction) {
     const validationError = getBidValidationError(auction, input.amount, placedAt, existingBids);
     if (validationError) {
-      const status = validationError === "bid amount must be greater than current price" ? 400 : 409;
-      const code = validationError === "bid amount must be greater than current price" ? "INVALID_BID" : "AUCTION_NOT_ACTIVE";
+      const status = validationError === "Ставка должна быть выше текущей цены" ? 400 : 409;
+      const code = validationError === "Ставка должна быть выше текущей цены" ? "INVALID_BID" : "AUCTION_NOT_ACTIVE";
       throw new ApiError(validationError, status, code);
     }
   }
@@ -260,7 +260,7 @@ export async function placeBid(
     });
 
     const storedBid = appendBidStore({ ...fallbackBid, source: "mixed" }, { endsAt: nextAuctionEndAt });
-    addActivity("Ставка отправлена", `${storedBid.auctionId} · ${storedBid.amount}`);
+    addActivity("Ставка отправлена", `${storedBid.auctionId} · ${storedBid.amount}`, session);
     return {
       data: storedBid,
       meta: {
@@ -273,7 +273,7 @@ export async function placeBid(
     }
 
     const storedBid = appendBidStore(fallbackBid, { endsAt: nextAuctionEndAt });
-    addActivity("Ставка отправлена", `${storedBid.auctionId} · local placeholder`);
+    addActivity("Ставка отправлена", `${storedBid.auctionId} · ${storedBid.amount}`, session);
     return {
       data: storedBid,
       meta: mockMeta(

@@ -107,7 +107,7 @@ export async function createFish(
       description: input.description,
       source: response.fish_id ? "api" : "mixed",
     });
-    addActivity("Создана рыба", `${createdFish.name} · ${createdFish.id}`);
+    addActivity("Создана рыба", `${createdFish.name} · ${createdFish.id}`, session);
 
     return {
       data: createdFish,
@@ -121,7 +121,7 @@ export async function createFish(
     }
 
     const createdFish = upsertFishStore(fallbackFish);
-    addActivity("Создана рыба", `${createdFish.name} · local placeholder`);
+    addActivity("Создана рыба", createdFish.name, session);
     return {
       data: createdFish,
       meta: mockMeta("CreateFish fallback is active until the backend route is reachable."),
@@ -169,7 +169,7 @@ export async function createProduct(
       id: response.product_id ?? fallbackProduct.id,
       source: response.product_id ? "api" : "mixed",
     });
-    addActivity("Создан продукт", `${createdProduct.fishName} · ${createdProduct.id}`);
+    addActivity("Создан продукт", `${createdProduct.fishName} · ${createdProduct.id}`, session);
 
     return {
       data: createdProduct,
@@ -183,7 +183,7 @@ export async function createProduct(
     }
 
     const createdProduct = upsertProductStore(fallbackProduct);
-    addActivity("Создан продукт", `${createdProduct.fishName} · local placeholder`);
+    addActivity("Создан продукт", createdProduct.fishName, session);
     return {
       data: createdProduct,
       meta: mockMeta("CreateProduct is currently using a local fallback."),
@@ -207,7 +207,7 @@ export async function publishProduct(
     }
 
     const published = upsertProductStore({ ...existing, status: "PUBLISHED", source: "mixed" });
-    addActivity("Продукт опубликован", `${published.id}`);
+    addActivity("Продукт опубликован", published.id, session);
     return {
       data: published,
       meta: { source: "api" },
@@ -225,7 +225,7 @@ export async function publishProduct(
     }
 
     const published = upsertProductStore({ ...existing, status: "PUBLISHED", source: "mock" });
-    addActivity("Продукт опубликован", `${published.id} · local placeholder`);
+    addActivity("Продукт опубликован", published.id, session);
     return {
       data: published,
       meta: mockMeta("PublishProduct fallback is active until backend route exposure is completed."),
@@ -276,7 +276,7 @@ export async function createLot(
       id: response.lot_id ?? fallbackLot.id,
       source: response.lot_id ? "api" : "mixed",
     });
-    addActivity("Создан лот", `${createdLot.productLabel} · ${createdLot.id}`);
+    addActivity("Создан лот", `${createdLot.productLabel} · ${createdLot.id}`, session);
 
     return {
       data: createdLot,
@@ -290,7 +290,7 @@ export async function createLot(
     }
 
     const createdLot = upsertLotStore(fallbackLot);
-    addActivity("Создан лот", `${createdLot.productLabel} · local placeholder`);
+    addActivity("Создан лот", createdLot.productLabel, session);
     return {
       data: createdLot,
       meta: mockMeta("Catalog create-lot command is unavailable from the frontend proxy. A local lot mirror was created."),
@@ -319,10 +319,8 @@ export async function publishLot(
       status: "PUBLISHED",
       currentPrice: existing.currentPrice ?? existing.startPrice,
       source: "mixed",
-      notes:
-        "Lot publish command sent to Catalog. The lot remains private in the UI; only its auction becomes public.",
     });
-    addActivity("Лот опубликован", `${published.id}`);
+    addActivity("Лот опубликован", published.id, session);
     return {
       data: published,
       meta: {
@@ -346,9 +344,8 @@ export async function publishLot(
       status: "PUBLISHED",
       currentPrice: existing.currentPrice ?? existing.startPrice,
       source: "mock",
-      notes: "Temporary placeholder until Catalog publish + integration query flow is fully exposed.",
     });
-    addActivity("Лот опубликован", `${published.id} · local placeholder`);
+    addActivity("Лот опубликован", published.id, session);
     return {
       data: published,
       meta: mockMeta("PublishLot fallback is active until backend route exposure is completed."),

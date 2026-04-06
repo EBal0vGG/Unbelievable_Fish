@@ -8,6 +8,7 @@ import type {
   FrontendStore,
   LotRecord,
   ProductRecord,
+  UserSession,
 } from "@/shared/types/domain";
 
 const STORE_KEY = "uf:frontend-store";
@@ -162,8 +163,8 @@ const seedBids: BidRecord[] = [
 const seedActivities: ActivityRecord[] = [
   {
     id: "activity-seed-1",
-    title: "MVP fallback loaded",
-    description: "Каталог и аукционы инициализированы локальными mock-данными.",
+    title: "Платформа готова к работе",
+    description: "Данные витрины обновлены.",
     at: "2026-04-06T07:50:00.000Z",
   },
 ];
@@ -192,6 +193,11 @@ function migrateStore(store: FrontendStore): FrontendStore {
     lots: store.lots.map((lot) => ({
       ...lot,
       creatorUserId: lot.creatorUserId ?? "legacy-user",
+    })),
+    activities: store.activities.map((activity) => ({
+      ...activity,
+      companyId: activity.companyId,
+      userId: activity.userId,
     })),
   };
 }
@@ -239,11 +245,24 @@ export function listBidsStore(auctionId?: string): BidRecord[] {
   return bids.filter((item) => item.auctionId === auctionId);
 }
 
-export function listActivitiesStore(): ActivityRecord[] {
-  return getFrontendStore().activities.sort((left, right) => right.at.localeCompare(left.at));
+export function listActivitiesStore(session?: UserSession | null): ActivityRecord[] {
+  return getFrontendStore()
+    .activities
+    .filter((activity) => {
+      if (!session) {
+        return false;
+      }
+
+      return activity.companyId === session.companyId && activity.userId === session.userId;
+    })
+    .sort((left, right) => right.at.localeCompare(left.at));
 }
 
-export function addActivity(title: string, description: string): void {
+export function addActivity(
+  title: string,
+  description: string,
+  session?: UserSession | null,
+): void {
   const store = getFrontendStore();
   store.activities = [
     {
@@ -251,6 +270,8 @@ export function addActivity(title: string, description: string): void {
       title,
       description,
       at: new Date().toISOString(),
+      companyId: session?.companyId,
+      userId: session?.userId,
     },
     ...store.activities,
   ].slice(0, 40);
