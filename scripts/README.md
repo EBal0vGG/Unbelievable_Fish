@@ -99,6 +99,11 @@ Config:
 - `DEAL_RELAY_POLL_INTERVAL` (default `1` second)
 - `DEAL_RELAY_STRICT=1`: fail if deals are still missing after max wait
 
+## Realtime endpoint scripts
+
+For live demos where you need to call one endpoint at a time, use:
+- `scripts/realtime/` (see `scripts/realtime/README.md`)
+
 ## How to run each script
 From repo root:
 - `./scripts/demo_happy_path.sh`
