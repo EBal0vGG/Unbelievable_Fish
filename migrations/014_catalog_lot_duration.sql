@@ -1,0 +1,2 @@
+ALTER TABLE catalog_lots
+ADD COLUMN IF NOT EXISTS auction_duration_minutes BIGINT NOT NULL DEFAULT 60;

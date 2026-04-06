@@ -1,0 +1,337 @@
+package main
+
+import (
+	"context"
+	"database/sql"
+	"fmt"
+	"log"
+	"os"
+	"path/filepath"
+	"runtime"
+	"sort"
+	"strings"
+	"time"
+
+	catalogapp "github.com/EBal0vGG/Unbelievable_Fish/internal/catalog/app"
+	catalog "github.com/EBal0vGG/Unbelievable_Fish/internal/catalog/domain"
+	catalogpg "github.com/EBal0vGG/Unbelievable_Fish/internal/catalog/postgres"
+	dealsapp "github.com/EBal0vGG/Unbelievable_Fish/internal/deals/app"
+	dealspg "github.com/EBal0vGG/Unbelievable_Fish/internal/deals/postgres"
+	integration "github.com/EBal0vGG/Unbelievable_Fish/internal/integration/runtime"
+	tradingapp "github.com/EBal0vGG/Unbelievable_Fish/internal/trading/app"
+	tradingpg "github.com/EBal0vGG/Unbelievable_Fish/internal/trading/postgres"
+	_ "github.com/jackc/pgx/v5/stdlib"
+)
+
+func main() {
+	db, ok := openRealPostgres()
+	if !ok {
+		log.Fatal("PGHOST/PGUSER/PGDATABASE are required")
+	}
+	defer db.Close()
+
+	if err := applyMigrations(db); err != nil {
+		log.Fatalf("apply migrations: %v", err)
+	}
+	if err := truncateAll(db); err != nil {
+		log.Fatalf("truncate: %v", err)
+	}
+
+	if err := runChains(db); err != nil {
+		log.Fatalf("chains failed: %v", err)
+	}
+	log.Println("chains verified")
+}
+
+func runChains(db *sql.DB) error {
+	lotRepo := catalogpg.NewLotRepository(db)
+	outboxRepo := catalogpg.NewOutboxRepository(db)
+	txManager := catalogpg.NewTransactionManager(db, nil)
+	catalogService := catalogapp.NewCatalogService(
+		newMemoryFishRepo(),
+		newMemoryUnitRepo(),
+		newMemoryProcessingTypeRepo(),
+		newMemoryProductRepo(),
+		lotRepo,
+		outboxRepo,
+		catalogapp.NewRandomIDGenerator(),
+		txManager,
+	)
+
+	tradingUOW := tradingpg.NewUnitOfWork(db)
+	dealsUOW := dealspg.NewUnitOfWork(db)
+	dealProjectionRepo := dealspg.NewProjectionRepository(db)
+	auctionLister := tradingpg.NewAuctionLister(db)
+
+	startsAt := time.Now().Add(-time.Hour)
+	endsAt := time.Now().Add(time.Hour)
+	auctionID := "auc-chain"
+	lotID := ""
+
+	fishID, err := catalogService.CreateFish(context.Background(), catalogapp.CreateFishCommand{
+		Name:        "Fish",
+		Description: "Fish",
+	})
+	if err != nil {
+		return fmt.Errorf("create fish: %w", err)
+	}
+
+	productID, _, err := catalogService.CreateProduct(context.Background(), catalogapp.CreateProductCommand{
+		FishID:         fishID,
+		Weight:         1.5,
+		Unit:           "kg",
+		Size:           "M",
+		ProcessingType: catalog.ProcessingType("frozen"),
+	})
+	if err != nil {
+		return fmt.Errorf("create product: %w", err)
+	}
+
+	if err := catalogService.PublishProduct(context.Background(), productID); err != nil {
+		return fmt.Errorf("publish product: %w", err)
+	}
+
+	ctxWithCompany := catalogapp.WithCompanyID(context.Background(), "seller-1")
+	lotID, _, err = catalogService.CreateLot(ctxWithCompany, catalogapp.CreateLotCommand{
+		ProductID:              productID,
+		Photo:                  "photo",
+		Quantity:               10,
+		StartPrice:             100,
+		AuctionStartsAt:        startsAt,
+		AuctionDurationMinutes: int64(endsAt.Sub(startsAt).Minutes()),
+	})
+	if err != nil {
+		return fmt.Errorf("create lot: %w", err)
+	}
+
+	if err := catalogService.AssignAuctionID(context.Background(), lotID, auctionID); err != nil {
+		return fmt.Errorf("assign auction: %w", err)
+	}
+	if err := catalogService.PublishLot(context.Background(), lotID); err != nil {
+		return fmt.Errorf("publish lot: %w", err)
+	}
+
+	runtime, err := integration.New(db, integration.Dependencies{
+		Catalog:        catalogService,
+		TradingUOW:     tradingUOW,
+		DealsUOW:       dealsUOW,
+		ProjectionRepo: dealProjectionRepo,
+		AuctionLister:  auctionLister,
+	})
+	if err != nil {
+		return err
+	}
+
+	if err := runtime.Relay.RunOnce(context.Background(), runtime.Bus, 100); err != nil {
+		return fmt.Errorf("relay lot published: %w", err)
+	}
+
+	placeBidUC, err := tradingapp.NewPlaceBid(tradingUOW)
+	if err != nil {
+		return err
+	}
+	closeAuctionUC, err := tradingapp.NewCloseAuction(tradingUOW)
+	if err != nil {
+		return err
+	}
+	if err := placeBidUC.Execute(context.Background(), tradingMetaWithCompany("buyer-1"), tradingapp.AuctionID(auctionID), 150, endsAt.Add(-time.Minute)); err != nil {
+		return fmt.Errorf("place bid: %w", err)
+	}
+	if err := closeAuctionUC.Execute(context.Background(), tradingMeta(), tradingapp.AuctionID(auctionID)); err != nil {
+		return fmt.Errorf("close auction: %w", err)
+	}
+
+	if err := runtime.Relay.RunOnce(context.Background(), runtime.Bus, 100); err != nil {
+		return fmt.Errorf("relay auction won: %w", err)
+	}
+
+	dealItem, err := dealspg.NewDealRepository(db).GetByAuctionID(context.Background(), auctionID)
+	if err != nil {
+		return fmt.Errorf("deal not created: %w", err)
+	}
+	log.Printf("deal created id=%s buyer=%s", dealItem.ID(), dealItem.CustomerID())
+	return nil
+}
+
+func openRealPostgres() (*sql.DB, bool) {
+	host := os.Getenv("PGHOST")
+	user := os.Getenv("PGUSER")
+	password := os.Getenv("PGPASSWORD")
+	database := os.Getenv("PGDATABASE")
+	port := os.Getenv("PGPORT")
+	sslmode := os.Getenv("PGSSLMODE")
+
+	if host == "" || user == "" || database == "" {
+		return nil, false
+	}
+	if port == "" {
+		port = "5432"
+	}
+	if sslmode == "" {
+		sslmode = "disable"
+	}
+
+	dsn := "host=" + host + " user=" + user + " dbname=" + database + " port=" + port + " sslmode=" + sslmode
+	if password != "" {
+		dsn += " password=" + password
+	}
+	db, err := sql.Open("pgx", dsn)
+	if err != nil {
+		return nil, false
+	}
+	db.SetMaxOpenConns(5)
+	return db, true
+}
+
+func applyMigrations(db *sql.DB) error {
+	root := repoRoot()
+	migrationsDir := filepath.Join(root, "migrations")
+	entries, err := os.ReadDir(migrationsDir)
+	if err != nil {
+		return err
+	}
+
+	var files []string
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".sql") {
+			continue
+		}
+		files = append(files, filepath.Join(migrationsDir, entry.Name()))
+	}
+	sort.Strings(files)
+
+	for _, file := range files {
+		body, err := os.ReadFile(file)
+		if err != nil {
+			return err
+		}
+		if strings.TrimSpace(string(body)) == "" {
+			continue
+		}
+		if _, err := db.Exec(string(body)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func truncateAll(db *sql.DB) error {
+	_, err := db.Exec(`
+TRUNCATE TABLE
+    outbox_messages,
+    trading_auction_winners,
+    trading_bids,
+    trading_auctions,
+    catalog_lots,
+    deal_winner_selections,
+    deal_projections,
+    deals
+`)
+	return err
+}
+
+func repoRoot() string {
+	_, filename, _, ok := runtime.Caller(0)
+	if !ok {
+		return ""
+	}
+	dir := filepath.Dir(filename)
+	return filepath.Clean(filepath.Join(dir, "..", ".."))
+}
+
+func tradingMeta() tradingapp.CommandMeta {
+	return tradingapp.CommandMeta{
+		CompanyID:     "buyer-1",
+		UserID:        "buyer-1",
+		CorrelationID: "corr-1",
+		CausationID:   "cause-1",
+	}
+}
+
+func tradingMetaWithCompany(companyID string) tradingapp.CommandMeta {
+	return tradingapp.CommandMeta{
+		CompanyID:     companyID,
+		UserID:        companyID,
+		CorrelationID: "corr-1",
+		CausationID:   "cause-1",
+	}
+}
+
+func dealsMeta() dealsapp.CommandMeta {
+	return dealsapp.CommandMeta{
+		CompanyID:     "buyer-1",
+		UserID:        "buyer-1",
+		CorrelationID: "corr-1",
+		CausationID:   "cause-1",
+	}
+}
+
+type memoryFishRepo struct {
+	items map[string]*catalog.Fish
+}
+
+func newMemoryFishRepo() *memoryFishRepo {
+	return &memoryFishRepo{items: make(map[string]*catalog.Fish)}
+}
+
+func (r *memoryFishRepo) Get(ctx context.Context, fishID string) (*catalog.Fish, error) {
+	_ = ctx
+	item, ok := r.items[fishID]
+	if !ok {
+		return nil, catalogapp.ErrNotFound
+	}
+	return item, nil
+}
+
+func (r *memoryFishRepo) Exists(ctx context.Context, fishID string) (bool, error) {
+	_ = ctx
+	_, ok := r.items[fishID]
+	return ok, nil
+}
+
+func (r *memoryFishRepo) Save(ctx context.Context, fish *catalog.Fish) error {
+	_ = ctx
+	r.items[fish.ID()] = fish
+	return nil
+}
+
+type memoryProductRepo struct {
+	items map[string]*catalog.Product
+}
+
+func newMemoryProductRepo() *memoryProductRepo {
+	return &memoryProductRepo{items: make(map[string]*catalog.Product)}
+}
+
+func (r *memoryProductRepo) Get(ctx context.Context, productID string) (*catalog.Product, error) {
+	_ = ctx
+	item, ok := r.items[productID]
+	if !ok {
+		return nil, catalogapp.ErrNotFound
+	}
+	return item, nil
+}
+
+func (r *memoryProductRepo) Save(ctx context.Context, product *catalog.Product) error {
+	_ = ctx
+	r.items[product.ID()] = product
+	return nil
+}
+
+type memoryUnitRepo struct{}
+
+func newMemoryUnitRepo() *memoryUnitRepo { return &memoryUnitRepo{} }
+
+func (r *memoryUnitRepo) Exists(ctx context.Context, unit string) (bool, error) {
+	_ = ctx
+	return unit == "kg" || unit == "g" || unit == "ton", nil
+}
+
+type memoryProcessingTypeRepo struct{}
+
+func newMemoryProcessingTypeRepo() *memoryProcessingTypeRepo { return &memoryProcessingTypeRepo{} }
+
+func (r *memoryProcessingTypeRepo) Exists(ctx context.Context, processingType string) (bool, error) {
+	_ = ctx
+	return processingType == "frozen" || processingType == "chilled" || processingType == "live", nil
+}
