@@ -1,0 +1,165 @@
+========== START TestBidBeforePublishIsRejected (auction) ==========
+{"time":"2026-03-11T19:50:26.920045071+03:00","package":"auction","test":"TestBidBeforePublishIsRejected","message":"START"}
+{"time":"2026-03-11T19:50:26.920139461+03:00","package":"auction","test":"TestBidBeforePublishIsRejected","message":"auction id=1 lot_id=lot-1 state=DRAFT starts_at=2026-03-11 18:50:26.920123433 +0300 MSK m=-3599.999518114 ends_at=2026-03-11 20:50:26.920123433 +0300 MSK m=+3600.000481886"}
+{"time":"2026-03-11T19:50:26.920174838+03:00","package":"auction","test":"TestBidBeforePublishIsRejected","message":"place bid before publish error=auction not active"}
+{"time":"2026-03-11T19:50:26.920204526+03:00","package":"auction","test":"TestBidBeforePublishIsRejected","message":"END"}
+========== START TestCreateAuctionSavesAggregate (app) ==========
+========== END TestBidBeforePublishIsRejected (auction) ==========
+========== START TestBidAfterCloseIsRejected (auction) ==========
+{"time":"2026-03-11T19:50:26.92028616+03:00","package":"auction","test":"TestBidAfterCloseIsRejected","message":"START"}
+{"time":"2026-03-11T19:50:26.920306881+03:00","package":"auction","test":"TestBidAfterCloseIsRejected","message":"auction id=1 lot_id=lot-1 state=DRAFT"}
+{"time":"2026-03-11T19:50:26.92024125+03:00","package":"app","test":"TestCreateAuctionSavesAggregate","message":"START"}
+{"time":"2026-03-11T19:50:26.9203268+03:00","package":"auction","test":"TestBidAfterCloseIsRejected","message":"bid placed_at=2026-03-11 19:50:26.92031302 +0300 MSK m=+0.000671474 amount=100"}
+{"time":"2026-03-11T19:50:26.920352089+03:00","package":"auction","test":"TestBidAfterCloseIsRejected","message":"close events=2 error=\u003cnil\u003e"}{"time":"2026-03-11T19:50:26.920338857+03:00","package":"app","test":"TestCreateAuctionSavesAggregate","message":"create auction lot_id=lot-1 starts_at=2026-03-11 18:50:26.920324168 +0300 MSK m=-3599.999424927 ends_at=2026-03-11 19:50:26.920324168 +0300 MSK m=+0.000575073"}
+
+{"time":"2026-03-11T19:50:26.920382557+03:00","package":"auction","test":"TestBidAfterCloseIsRejected","message":"place bid after close error=auction not active"}
+{"time":"2026-03-11T19:50:26.920388662+03:00","package":"app","test":"TestCreateAuctionSavesAggregate","message":"END"}
+{"time":"2026-03-11T19:50:26.920403712+03:00","package":"auction","test":"TestBidAfterCloseIsRejected","message":"END"}
+========== END TestCreateAuctionSavesAggregate (app) ==========
+========== END TestBidAfterCloseIsRejected (auction) ==========
+========== START TestPublishAuctionOrchestratesLoadSavePublish (app) ==========
+========== START TestAuctionWithoutBidsIsCancelledOnClose (auction) ==========
+{"time":"2026-03-11T19:50:26.920466668+03:00","package":"app","test":"TestPublishAuctionOrchestratesLoadSavePublish","message":"START"}
+{"time":"2026-03-11T19:50:26.920471296+03:00","package":"auction","test":"TestAuctionWithoutBidsIsCancelledOnClose","message":"START"}
+{"time":"2026-03-11T19:50:26.920488864+03:00","package":"app","test":"TestPublishAuctionOrchestratesLoadSavePublish","message":"auction id=1 lot_id=lot-1 state=DRAFT"}{"time":"2026-03-11T19:50:26.92049571+03:00","package":"auction","test":"TestAuctionWithoutBidsIsCancelledOnClose","message":"auction id=1 lot_id=lot-1 state=DRAFT"}
+
+{"time":"2026-03-11T19:50:26.920515715+03:00","package":"auction","test":"TestAuctionWithoutBidsIsCancelledOnClose","message":"close events=1 error=\u003cnil\u003e state=CANCELLED"}
+{"time":"2026-03-11T19:50:26.920515913+03:00","package":"app","test":"TestPublishAuctionOrchestratesLoadSavePublish","message":"calls=[load save publish]"}
+{"time":"2026-03-11T19:50:26.920534662+03:00","package":"auction","test":"TestAuctionWithoutBidsIsCancelledOnClose","message":"END"}
+{"time":"2026-03-11T19:50:26.920540835+03:00","package":"app","test":"TestPublishAuctionOrchestratesLoadSavePublish","message":"END"}
+========== END TestAuctionWithoutBidsIsCancelledOnClose (auction) ==========
+========== END TestPublishAuctionOrchestratesLoadSavePublish (app) ==========
+========== START TestAuctionWithBidsIsWonOnClose (auction) ==========
+========== START TestPlaceBidOrchestratesLoadSavePublish (app) ==========
+{"time":"2026-03-11T19:50:26.92062411+03:00","package":"auction","test":"TestAuctionWithBidsIsWonOnClose","message":"START"}{"time":"2026-03-11T19:50:26.920626445+03:00","package":"app","test":"TestPlaceBidOrchestratesLoadSavePublish","message":"START"}
+
+{"time":"2026-03-11T19:50:26.920646729+03:00","package":"app","test":"TestPlaceBidOrchestratesLoadSavePublish","message":"auction id=1 lot_id=lot-1 state=DRAFT"}
+{"time":"2026-03-11T19:50:26.920658152+03:00","package":"auction","test":"TestAuctionWithBidsIsWonOnClose","message":"auction id=1 lot_id=lot-1 state=DRAFT"}
+{"time":"2026-03-11T19:50:26.920664808+03:00","package":"app","test":"TestPlaceBidOrchestratesLoadSavePublish","message":"place bid amount=100 placed_at=2026-03-11 19:49:26.920633324 +0300 MSK m=-59.999115771"}
+{"time":"2026-03-11T19:50:26.920688892+03:00","package":"app","test":"TestPlaceBidOrchestratesLoadSavePublish","message":"calls=[load save_bid save publish] bid_saved_amount=100"}
+{"time":"2026-03-11T19:50:26.920682563+03:00","package":"auction","test":"TestAuctionWithBidsIsWonOnClose","message":"bidA amount=100 placed_at=2026-03-11 19:50:26.920663512 +0300 MSK m=+0.001021975"}
+{"time":"2026-03-11T19:50:26.920712565+03:00","package":"app","test":"TestPlaceBidOrchestratesLoadSavePublish","message":"END"}{"time":"2026-03-11T19:50:26.920711838+03:00","package":"auction","test":"TestAuctionWithBidsIsWonOnClose","message":"bidB amount=200 placed_at=2026-03-11 19:50:27.920663512 +0300 MSK m=+1.001021975"}
+
+========== END TestPlaceBidOrchestratesLoadSavePublish (app) ==========
+{"time":"2026-03-11T19:50:26.920749913+03:00","package":"auction","test":"TestAuctionWithBidsIsWonOnClose","message":"close events=2 error=\u003cnil\u003e state=WON"}
+========== START TestCloseAuctionOrchestratesLoadSavePublish (app) ==========
+{"time":"2026-03-11T19:50:26.920771879+03:00","package":"auction","test":"TestAuctionWithBidsIsWonOnClose","message":"winner_company_id=b current_price=200 ok=true"}
+{"time":"2026-03-11T19:50:26.92078853+03:00","package":"app","test":"TestCloseAuctionOrchestratesLoadSavePublish","message":"START"}
+{"time":"2026-03-11T19:50:26.920799793+03:00","package":"auction","test":"TestAuctionWithBidsIsWonOnClose","message":"END"}
+{"time":"2026-03-11T19:50:26.920807659+03:00","package":"app","test":"TestCloseAuctionOrchestratesLoadSavePublish","message":"auction id=1 lot_id=lot-1 state=DRAFT"}
+========== END TestAuctionWithBidsIsWonOnClose (auction) ==========
+{"time":"2026-03-11T19:50:26.920827628+03:00","package":"app","test":"TestCloseAuctionOrchestratesLoadSavePublish","message":"calls=[load top_bids save publish]"}
+========== START TestClosingAuctionTwiceIsRejected (auction) ==========
+{"time":"2026-03-11T19:50:26.920879588+03:00","package":"app","test":"TestCloseAuctionOrchestratesLoadSavePublish","message":"END"}{"time":"2026-03-11T19:50:26.92088244+03:00","package":"auction","test":"TestClosingAuctionTwiceIsRejected","message":"START"}
+
+========== END TestCloseAuctionOrchestratesLoadSavePublish (app) ==========
+{"time":"2026-03-11T19:50:26.920906534+03:00","package":"auction","test":"TestClosingAuctionTwiceIsRejected","message":"bid amount=100 placed_at=2026-03-11 19:50:26.920892741 +0300 MSK m=+0.001251195"}
+{"time":"2026-03-11T19:50:26.920925878+03:00","package":"auction","test":"TestClosingAuctionTwiceIsRejected","message":"close second time error=cannot close auction"}
+{"time":"2026-03-11T19:50:26.920950111+03:00","package":"auction","test":"TestClosingAuctionTwiceIsRejected","message":"END"}
+========== START TestCancelAuctionOrchestratesLoadSavePublish (app) ==========
+========== END TestClosingAuctionTwiceIsRejected (auction) ==========
+{"time":"2026-03-11T19:50:26.92099124+03:00","package":"app","test":"TestCancelAuctionOrchestratesLoadSavePublish","message":"START"}
+========== START TestDetermineWinner (auction) ==========
+{"time":"2026-03-11T19:50:26.921020678+03:00","package":"app","test":"TestCancelAuctionOrchestratesLoadSavePublish","message":"auction id=1 lot_id=lot-1 state=DRAFT"}
+{"time":"2026-03-11T19:50:26.92103013+03:00","package":"auction","test":"TestDetermineWinner","message":"START"}
+{"time":"2026-03-11T19:50:26.921043871+03:00","package":"app","test":"TestCancelAuctionOrchestratesLoadSavePublish","message":"calls=[load save publish]"}
+{"time":"2026-03-11T19:50:26.921065345+03:00","package":"app","test":"TestCancelAuctionOrchestratesLoadSavePublish","message":"END"}========== START TestDetermineWinner/no_bids (auction) ==========
+
+========== END TestCancelAuctionOrchestratesLoadSavePublish (app) ==========
+{"time":"2026-03-11T19:50:26.921093134+03:00","package":"auction","test":"TestDetermineWinner/no_bids","message":"START"}
+{"time":"2026-03-11T19:50:26.921111845+03:00","package":"auction","test":"TestDetermineWinner/no_bids","message":"determineWinner ok=false"}
+{"time":"2026-03-11T19:50:26.921131874+03:00","package":"auction","test":"TestDetermineWinner/no_bids","message":"END"}
+========== END TestDetermineWinner/no_bids (auction) ==========
+========== START TestDetermineWinner/single_bid (auction) ==========
+{"time":"2026-03-11T19:50:26.921206289+03:00","package":"auction","test":"TestDetermineWinner/single_bid","message":"START"}
+{"time":"2026-03-11T19:50:26.921226573+03:00","package":"auction","test":"TestDetermineWinner/single_bid","message":"winner amount=100 company=a ok=true"}
+{"time":"2026-03-11T19:50:26.921248602+03:00","package":"auction","test":"TestDetermineWinner/single_bid","message":"END"}
+========== END TestDetermineWinner/single_bid (auction) ==========
+========== START TestDetermineWinner/tie_chooses_earlier_by_time (auction) ==========
+{"time":"2026-03-11T19:50:26.921329122+03:00","package":"auction","test":"TestDetermineWinner/tie_chooses_earlier_by_time","message":"START"}
+{"time":"2026-03-11T19:50:26.921349768+03:00","package":"auction","test":"TestDetermineWinner/tie_chooses_earlier_by_time","message":"winner amount=100 company=b ok=true"}
+{"time":"2026-03-11T19:50:26.921369387+03:00","package":"auction","test":"TestDetermineWinner/tie_chooses_earlier_by_time","message":"END"}
+========== END TestDetermineWinner/tie_chooses_earlier_by_time (auction) ==========
+{"time":"2026-03-11T19:50:26.921412083+03:00","package":"auction","test":"TestDetermineWinner","message":"END"}
+========== END TestDetermineWinner (auction) ==========
+========== START TestBidLowerThanCurrentPriceIsRejected (auction) ==========
+{"time":"2026-03-11T19:50:26.921493627+03:00","package":"auction","test":"TestBidLowerThanCurrentPriceIsRejected","message":"START"}
+{"time":"2026-03-11T19:50:26.921531399+03:00","package":"auction","test":"TestBidLowerThanCurrentPriceIsRejected","message":"place lower bid error=bid amount is lower than current price current_price=200"}
+{"time":"2026-03-11T19:50:26.921550346+03:00","package":"auction","test":"TestBidLowerThanCurrentPriceIsRejected","message":"END"}
+========== END TestBidLowerThanCurrentPriceIsRejected (auction) ==========
+========== START TestBidExtendsAuctionNearEnd (auction) ==========
+{"time":"2026-03-11T19:50:26.921626332+03:00","package":"auction","test":"TestBidExtendsAuctionNearEnd","message":"START"}
+{"time":"2026-03-11T19:50:26.921648601+03:00","package":"auction","test":"TestBidExtendsAuctionNearEnd","message":"bid placed_at=2026-03-11 19:51:26.921632497 +0300 MSK m=+60.001990951 ends_at_before=2026-03-11 19:52:26.921632497 +0300 MSK m=+120.001990951 ends_at_after=2026-03-11 19:57:26.921632497 +0300 MSK m=+420.001990951"}
+{"time":"2026-03-11T19:50:26.921673537+03:00","package":"auction","test":"TestBidExtendsAuctionNearEnd","message":"place bid events=1 error=\u003cnil\u003e"}
+{"time":"2026-03-11T19:50:26.92169747+03:00","package":"auction","test":"TestBidExtendsAuctionNearEnd","message":"END"}
+========== END TestBidExtendsAuctionNearEnd (auction) ==========
+========== START TestNewBidValidation (auction) ==========
+{"time":"2026-03-11T19:50:26.921768088+03:00","package":"auction","test":"TestNewBidValidation","message":"START"}
+========== START TestNewBidValidation/empty_bidder_company_id (auction) ==========
+{"time":"2026-03-11T19:50:26.921821517+03:00","package":"auction","test":"TestNewBidValidation/empty_bidder_company_id","message":"START"}
+{"time":"2026-03-11T19:50:26.921853558+03:00","package":"auction","test":"TestNewBidValidation/empty_bidder_company_id","message":"err=bidder company id is empty"}
+{"time":"2026-03-11T19:50:26.92188733+03:00","package":"auction","test":"TestNewBidValidation/empty_bidder_company_id","message":"END"}
+========== END TestNewBidValidation/empty_bidder_company_id (auction) ==========
+========== START TestNewBidValidation/non-positive_amount (auction) ==========
+{"time":"2026-03-11T19:50:26.921967948+03:00","package":"auction","test":"TestNewBidValidation/non-positive_amount","message":"START"}
+{"time":"2026-03-11T19:50:26.921987158+03:00","package":"auction","test":"TestNewBidValidation/non-positive_amount","message":"err=bid amount must be positive"}
+{"time":"2026-03-11T19:50:26.922005763+03:00","package":"auction","test":"TestNewBidValidation/non-positive_amount","message":"END"}
+========== END TestNewBidValidation/non-positive_amount (auction) ==========
+========== START TestNewBidValidation/zero_placed_at (auction) ==========
+{"time":"2026-03-11T19:50:26.922083814+03:00","package":"auction","test":"TestNewBidValidation/zero_placed_at","message":"START"}
+{"time":"2026-03-11T19:50:26.922107281+03:00","package":"auction","test":"TestNewBidValidation/zero_placed_at","message":"err=bid placed at time is zero"}
+{"time":"2026-03-11T19:50:26.922125387+03:00","package":"auction","test":"TestNewBidValidation/zero_placed_at","message":"END"}
+========== END TestNewBidValidation/zero_placed_at (auction) ==========
+{"time":"2026-03-11T19:50:26.922173815+03:00","package":"auction","test":"TestNewBidValidation","message":"END"}
+========== END TestNewBidValidation (auction) ==========
+========== START TestCreateAuctionHandlerSuccess (handler) ==========
+{"time":"2026-03-11T19:50:27.077556181+03:00","package":"handler","test":"TestCreateAuctionHandlerSuccess","message":"START"}
+{"time":"2026-03-11T19:50:27.077793566+03:00","package":"handler","test":"TestCreateAuctionHandlerSuccess","message":"request lot_id=lot-1 starts_at=2026-03-11 15:50:27.077746579 +0000 UTC ends_at=2026-03-11 16:50:27.077746579 +0000 UTC"}
+========== START TestMapErrorContract (http) ==========
+{"time":"2026-03-11T19:50:27.078061586+03:00","package":"handler","test":"TestCreateAuctionHandlerSuccess","message":"status=202 save_count=1"}
+{"time":"2026-03-11T19:50:27.078137767+03:00","package":"handler","test":"TestCreateAuctionHandlerSuccess","message":"END"}
+========== END TestCreateAuctionHandlerSuccess (handler) ==========
+{"time":"2026-03-11T19:50:27.078132189+03:00","package":"http","test":"TestMapErrorContract","message":"START"}
+========== START TestPublishAuctionHandlerMissingCompanyID (handler) ==========
+========== START TestMapErrorContract/missing_company_id (http) ==========
+{"time":"2026-03-11T19:50:27.078423012+03:00","package":"handler","test":"TestPublishAuctionHandlerMissingCompanyID","message":"START"}
+{"time":"2026-03-11T19:50:27.078455063+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"START"}
+{"time":"2026-03-11T19:50:27.078528456+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"mapped={Status:400 Code:MISSING_COMPANY_ID Message:missing X-Company-ID header}"}
+{"time":"2026-03-11T19:50:27.078571961+03:00","package":"handler","test":"TestPublishAuctionHandlerMissingCompanyID","message":"status=400 body={\"code\":\"MISSING_COMPANY_ID\",\"message\":\"missing X-Company-ID header\"}\n"}
+{"time":"2026-03-11T19:50:27.078617183+03:00","package":"http","test":"TestMapErrorContract/missing_company_id","message":"END"}
+========== END TestMapErrorContract/missing_company_id (http) ==========
+{"time":"2026-03-11T19:50:27.078681547+03:00","package":"handler","test":"TestPublishAuctionHandlerMissingCompanyID","message":"END"}
+========== END TestPublishAuctionHandlerMissingCompanyID (handler) ==========
+========== START TestMapErrorContract/invalid_state_transition (http) ==========
+{"time":"2026-03-11T19:50:27.078826719+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"START"}
+========== START TestPlaceBidHandlerInvalidJSON (handler) ==========
+{"time":"2026-03-11T19:50:27.078904601+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"mapped={Status:409 Code:INVALID_STATE Message:invalid state transition}"}{"time":"2026-03-11T19:50:27.078917786+03:00","package":"handler","test":"TestPlaceBidHandlerInvalidJSON","message":"START"}
+
+{"time":"2026-03-11T19:50:27.078989625+03:00","package":"http","test":"TestMapErrorContract/invalid_state_transition","message":"END"}
+{"time":"2026-03-11T19:50:27.079017485+03:00","package":"handler","test":"TestPlaceBidHandlerInvalidJSON","message":"status=400 body={\"code\":\"INVALID_BODY\",\"message\":\"invalid request body\"}\n"}
+========== END TestMapErrorContract/invalid_state_transition (http) ==========
+{"time":"2026-03-11T19:50:27.079122931+03:00","package":"handler","test":"TestPlaceBidHandlerInvalidJSON","message":"END"}
+========== START TestMapErrorContract/invalid_bid (http) ==========
+========== END TestPlaceBidHandlerInvalidJSON (handler) ==========
+{"time":"2026-03-11T19:50:27.079226675+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"START"}
+========== START TestPublishAuctionHandlerInvalidPath (handler) ==========
+{"time":"2026-03-11T19:50:27.079284134+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"mapped={Status:400 Code:INVALID_BID Message:invalid bid}"}
+{"time":"2026-03-11T19:50:27.079339797+03:00","package":"handler","test":"TestPublishAuctionHandlerInvalidPath","message":"START"}
+{"time":"2026-03-11T19:50:27.079348448+03:00","package":"http","test":"TestMapErrorContract/invalid_bid","message":"END"}
+========== END TestMapErrorContract/invalid_bid (http) ==========
+{"time":"2026-03-11T19:50:27.079443959+03:00","package":"handler","test":"TestPublishAuctionHandlerInvalidPath","message":"status=400 body={\"code\":\"INVALID_PATH\",\"message\":\"invalid path\"}\n"}
+========== START TestMapErrorContract/default (http) ==========
+{"time":"2026-03-11T19:50:27.079519185+03:00","package":"handler","test":"TestPublishAuctionHandlerInvalidPath","message":"END"}
+{"time":"2026-03-11T19:50:27.079547168+03:00","package":"http","test":"TestMapErrorContract/default","message":"START"}
+========== END TestPublishAuctionHandlerInvalidPath (handler) ==========
+{"time":"2026-03-11T19:50:27.079598961+03:00","package":"http","test":"TestMapErrorContract/default","message":"mapped={Status:500 Code:INTERNAL_ERROR Message:internal error}"}
+{"time":"2026-03-11T19:50:27.079655494+03:00","package":"http","test":"TestMapErrorContract/default","message":"END"}
+========== END TestMapErrorContract/default (http) ==========
+{"time":"2026-03-11T19:50:27.079826431+03:00","package":"http","test":"TestMapErrorContract","message":"END"}
+========== END TestMapErrorContract (http) ==========
+========== START TestCommandFlowSmoke (httpapi_test) ==========
+{"time":"2026-03-11T19:50:27.080137065+03:00","package":"httpapi_test","test":"TestCommandFlowSmoke","message":"START"}
+{"time":"2026-03-11T19:50:27.080317757+03:00","package":"httpapi_test","test":"TestCommandFlowSmoke","message":"request auction_id=a-1 amount=100 placed_at=2026-03-11 17:49:27.08022901 +0000 UTC"}
+{"time":"2026-03-11T19:50:27.080529469+03:00","package":"httpapi_test","test":"TestCommandFlowSmoke","message":"status=202 load=1 save=1 publish=1 bid_save=1"}
+{"time":"2026-03-11T19:50:27.080593027+03:00","package":"httpapi_test","test":"TestCommandFlowSmoke","message":"END"}
+========== END TestCommandFlowSmoke (httpapi_test) ==========
