@@ -985,3 +985,24 @@
 {"time":"2026-04-05T07:18:46.543766305+03:00","package":"handler","test":"TestPublishAuctionHandlerInvalidPath","message":"status=400 body={\"code\":\"INVALID_PATH\",\"message\":\"invalid path\"}\n"}
 {"time":"2026-04-05T07:18:46.543798358+03:00","package":"handler","test":"TestPublishAuctionHandlerInvalidPath","message":"END"}
 ========== END TestPublishAuctionHandlerInvalidPath (handler) ==========
+========== START TestCreateAuctionHandlerSuccess (handler) ==========
+{"time":"2026-04-16T19:42:19.471676+03:00","package":"handler","test":"TestCreateAuctionHandlerSuccess","message":"START"}
+{"time":"2026-04-16T19:42:19.472076+03:00","package":"handler","test":"TestCreateAuctionHandlerSuccess","message":"request lot_id=lot-1 starts_at=2026-04-16 15:42:19.472033 +0000 UTC ends_at=2026-04-16 16:42:19.472033 +0000 UTC"}
+{"time":"2026-04-16T19:42:19.472242+03:00","package":"handler","test":"TestCreateAuctionHandlerSuccess","message":"status=202 save_count=1"}
+{"time":"2026-04-16T19:42:19.472305+03:00","package":"handler","test":"TestCreateAuctionHandlerSuccess","message":"END"}
+========== END TestCreateAuctionHandlerSuccess (handler) ==========
+========== START TestPublishAuctionHandlerMissingCompanyID (handler) ==========
+{"time":"2026-04-16T19:42:19.472496+03:00","package":"handler","test":"TestPublishAuctionHandlerMissingCompanyID","message":"START"}
+{"time":"2026-04-16T19:42:19.472629+03:00","package":"handler","test":"TestPublishAuctionHandlerMissingCompanyID","message":"status=400 body={\"code\":\"MISSING_COMPANY_ID\",\"message\":\"missing X-Company-ID header\"}\n"}
+{"time":"2026-04-16T19:42:19.472694+03:00","package":"handler","test":"TestPublishAuctionHandlerMissingCompanyID","message":"END"}
+========== END TestPublishAuctionHandlerMissingCompanyID (handler) ==========
+========== START TestPlaceBidHandlerInvalidJSON (handler) ==========
+{"time":"2026-04-16T19:42:19.472859+03:00","package":"handler","test":"TestPlaceBidHandlerInvalidJSON","message":"START"}
+{"time":"2026-04-16T19:42:19.472925+03:00","package":"handler","test":"TestPlaceBidHandlerInvalidJSON","message":"status=400 body={\"code\":\"INVALID_BODY\",\"message\":\"invalid request body\"}\n"}
+{"time":"2026-04-16T19:42:19.472984+03:00","package":"handler","test":"TestPlaceBidHandlerInvalidJSON","message":"END"}
+========== END TestPlaceBidHandlerInvalidJSON (handler) ==========
+========== START TestPublishAuctionHandlerInvalidPath (handler) ==========
+{"time":"2026-04-16T19:42:19.47315+03:00","package":"handler","test":"TestPublishAuctionHandlerInvalidPath","message":"START"}
+{"time":"2026-04-16T19:42:19.473211+03:00","package":"handler","test":"TestPublishAuctionHandlerInvalidPath","message":"status=400 body={\"code\":\"INVALID_PATH\",\"message\":\"invalid path\"}\n"}
+{"time":"2026-04-16T19:42:19.473264+03:00","package":"handler","test":"TestPublishAuctionHandlerInvalidPath","message":"END"}
+========== END TestPublishAuctionHandlerInvalidPath (handler) ==========
