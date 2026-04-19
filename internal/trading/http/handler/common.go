@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strings"
 
+	identityauth "github.com/EBal0vGG/Unbelievable_Fish/internal/identity/auth"
 	"github.com/EBal0vGG/Unbelievable_Fish/internal/trading/app"
 	httpapi "github.com/EBal0vGG/Unbelievable_Fish/internal/trading/http"
 )
@@ -14,6 +15,14 @@ import (
 const maxBodyBytes = 1 << 20
 
 func readCommandMeta(r *http.Request) (app.CommandMeta, error) {
+	if identity, ok := identityauth.IdentityFromContext(r.Context()); ok {
+		return app.CommandMeta{
+			CompanyID:     identity.CompanyID,
+			UserID:        identity.UserID,
+			CorrelationID: r.Header.Get("X-Correlation-ID"),
+			CausationID:   r.Header.Get("X-Causation-ID"),
+		}, nil
+	}
 	companyID := r.Header.Get("X-Company-ID")
 	if companyID == "" {
 		return app.CommandMeta{}, httpapi.ErrMissingCompanyID

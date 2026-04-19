@@ -4,7 +4,7 @@ Next.js frontend для MVP рыбной биржи. UI собран как thin
 
 ## Что реализовано
 
-- Упрощенный `login/register` через локальный user context: `companyId` + `userId`
+- Реальный `identity/auth` flow через backend: `register company`, `register user`, `login`, `me`
 - Header/navigation с отображением текущего контекста
 - Главная marketplace-страница
 - Разделы `Каталог`, `Лоты`, `Аукционы`
@@ -39,34 +39,44 @@ apps/frontend/src
 Пример:
 
 ```bash
-docker compose up -d postgres migrate catalog trading deals integration
-cd apps/frontend
-cp .env.example .env.local
-npm install
-npm run dev
+docker compose up -d postgres migrate identity catalog trading deals frontend
 ```
 
 Frontend стартует на `http://localhost:3000`.
 
+Если нужен только backend без UI:
+
+```bash
+docker compose up -d postgres migrate identity catalog trading deals
+```
+
 ## Env
 
-См. `.env.example`:
+См. `.env.example` для локального запуска без Docker:
 
 ```bash
 NEXT_PUBLIC_CATALOG_API_URL=http://localhost:8081
 NEXT_PUBLIC_TRADING_API_URL=http://localhost:8082
 NEXT_PUBLIC_DEALS_API_URL=http://localhost:8083
+NEXT_PUBLIC_IDENTITY_API_URL=http://localhost:8084
 NEXT_PUBLIC_ENABLE_API_FALLBACK=true
 ```
 
 Важно:
 
-- браузер не ходит напрямую в backend, а использует Next proxy routes `/api/catalog/*`, `/api/trading/*`, `/api/deals/*`
+- браузер не ходит напрямую в backend, а использует Next proxy routes `/api/catalog/*`, `/api/trading/*`, `/api/deals/*`, `/api/identity/*`
 - это снижает риск CORS-проблем и оставляет frontend тонким адаптером
 
 ## Backend matrix
 
 ### Реально подключено к backend
+
+`identity`
+
+- `POST /companies`
+- `POST /users`
+- `POST /auth/login`
+- `GET /users/me`
 
 `catalog`
 
@@ -114,6 +124,7 @@ NEXT_PUBLIC_ENABLE_API_FALLBACK=true
 
 `real API first`
 
+- identity/auth flow целиком
 - команды создания и публикации в `catalog`
 - `place bid` в `trading`
 - projection/deal read-side в `deals`
@@ -144,6 +155,6 @@ UI в этих местах не переносит бизнес-правила 
 - `catalog` не отдает list/query endpoints для marketplace
 - `trading` не отдает стабильный read-model списка аукционов
 - `CreateAuction` не возвращает `auction_id`
-- real registration/auth отсутствуют
+- frontend хранит access token и подставляет Bearer token в защищенные запросы
 
 Из-за этого фронт хранит временный session context и локально зеркалит созданные сущности, чтобы MVP был usable до завершения backend query-side.

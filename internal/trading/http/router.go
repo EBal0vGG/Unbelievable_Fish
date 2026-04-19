@@ -6,14 +6,14 @@ import (
 )
 
 type Router struct {
-	placeBid     http.Handler
+	placeBid http.Handler
 }
 
 func NewRouter(
 	placeBid http.Handler,
 ) *Router {
 	return &Router{
-		placeBid:     placeBid,
+		placeBid: placeBid,
 	}
 }
 

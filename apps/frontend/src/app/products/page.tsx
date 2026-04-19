@@ -6,13 +6,14 @@ import { useProductsQuery } from "@/entities/lot/model/hooks";
 import { ProductCard } from "@/entities/product/ui/product-card";
 import { useAuth } from "@/entities/session/model/auth-context";
 import { FilterBar } from "@/features/marketplace/ui/filter-bar";
-import { isOwnedProduct } from "@/shared/lib/access";
+import { isOwnedProduct, isSellerSession } from "@/shared/lib/access";
 import { EmptyState } from "@/shared/ui/empty-state";
 import { Field } from "@/shared/ui/field";
 import { Select } from "@/shared/ui/select";
 
 export default function ProductsPage() {
   const { session } = useAuth();
+  const canCreateSupply = isSellerSession(session);
   const productsQuery = useProductsQuery();
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all");
@@ -77,8 +78,8 @@ export default function ProductsPage() {
         <EmptyState
           title="Продукты не найдены"
           description="У вас пока нет продуктов. Создайте новую позицию или измените фильтры."
-          actionHref="/create/lot"
-          actionLabel="Создать продукт"
+          actionHref={canCreateSupply ? "/create/lot" : undefined}
+          actionLabel={canCreateSupply ? "Создать продукт" : undefined}
         />
       )}
     </div>

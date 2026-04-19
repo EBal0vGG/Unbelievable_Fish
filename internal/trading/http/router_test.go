@@ -68,15 +68,15 @@ func (s *spyOutbox) Add(ctx context.Context, events []auction.Event) error {
 }
 
 type spyTx struct {
-	repo   *spyRepo
-	bids   *spyBidRepo
-	outbox *spyOutbox
+	repo    *spyRepo
+	bids    *spyBidRepo
+	outbox  *spyOutbox
 	winners *spyWinners
 }
 
-func (s *spyTx) Auctions() app.AuctionRepository { return s.repo }
-func (s *spyTx) Bids() app.BidRepository         { return s.bids }
-func (s *spyTx) Outbox() app.OutboxRepository    { return s.outbox }
+func (s *spyTx) Auctions() app.AuctionRepository       { return s.repo }
+func (s *spyTx) Bids() app.BidRepository               { return s.bids }
+func (s *spyTx) Outbox() app.OutboxRepository          { return s.outbox }
 func (s *spyTx) Winners() app.AuctionWinnersRepository { return s.winners }
 
 type spyUOW struct {

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 
+	identityauth "github.com/EBal0vGG/Unbelievable_Fish/internal/identity/auth"
 	"github.com/EBal0vGG/Unbelievable_Fish/internal/trading/app"
 	"github.com/EBal0vGG/Unbelievable_Fish/internal/trading/auction"
 )
@@ -22,6 +23,14 @@ type HTTPError struct {
 
 func MapError(err error) HTTPError {
 	switch {
+	case errors.Is(err, identityauth.ErrMissingAuthorizationHeader):
+		return HTTPError{http.StatusUnauthorized, "MISSING_AUTHORIZATION", "missing Authorization header"}
+	case errors.Is(err, identityauth.ErrInvalidAuthorizationHeader):
+		return HTTPError{http.StatusUnauthorized, "INVALID_AUTHORIZATION", "invalid Authorization header"}
+	case errors.Is(err, identityauth.ErrInvalidToken), errors.Is(err, identityauth.ErrExpiredToken):
+		return HTTPError{http.StatusUnauthorized, "INVALID_TOKEN", "invalid token"}
+	case errors.Is(err, identityauth.ErrForbidden):
+		return HTTPError{http.StatusForbidden, "FORBIDDEN", "forbidden"}
 	case errors.Is(err, ErrMissingCompanyID):
 		return HTTPError{http.StatusBadRequest, "MISSING_COMPANY_ID", "missing X-Company-ID header"}
 	case errors.Is(err, ErrMissingUserID):

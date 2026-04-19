@@ -9,6 +9,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useAuth } from "@/entities/session/model/auth-context";
 import { ApiError } from "@/shared/api/http-client";
 import { placeBid } from "@/shared/api/trading-service";
+import { isBuyerSession } from "@/shared/lib/access";
 import { getBidAccessError, getBidValidationError } from "@/shared/lib/trading-domain";
 import { Button } from "@/shared/ui/button";
 import { Field } from "@/shared/ui/field";
@@ -43,8 +44,10 @@ export function PlaceBidForm({
 }) {
   const { session } = useAuth();
   const queryClient = useQueryClient();
+  const canBid = isBuyerSession(session);
   const sessionError =
     !session?.companyId ? "Войдите в профиль, чтобы делать ставки" : !session.userId ? "Войдите в профиль, чтобы делать ставки" : null;
+  const roleError = session && !canBid ? "Ставки доступны только пользователю с ролью buyer" : null;
   const bidAccessError = getBidAccessError({
     actorCompanyId: session?.companyId,
     sellerCompanyId,
@@ -71,6 +74,7 @@ export function PlaceBidForm({
     bids,
   );
   const blockingError = sessionError ?? bidAccessError ?? bidValidationError;
+  const accessBlockingError = sessionError ?? roleError ?? bidAccessError ?? bidValidationError;
 
   useEffect(() => {
     form.setValue("amount", Math.max(currentPrice + 1, 1));
@@ -120,10 +124,10 @@ export function PlaceBidForm({
       bids,
     });
 
-    if (accessError || validationError) {
+    if (roleError || accessError || validationError) {
       form.setError("amount", {
         type: "manual",
-        message: accessError ?? validationError ?? "Не удалось отправить ставку",
+        message: roleError ?? accessError ?? validationError ?? "Не удалось отправить ставку",
       });
       return;
     }
@@ -133,17 +137,17 @@ export function PlaceBidForm({
 
   return (
     <div className="stack-md">
-      {blockingError && form.formState.isSubmitted === false ? (
+      {accessBlockingError && form.formState.isSubmitted === false ? (
         <Notice tone="warning" title="Ставка недоступна">
-          {blockingError}
+          {accessBlockingError}
         </Notice>
       ) : null}
 
       <form className="stack-md" onSubmit={onSubmit}>
         <Field label="Сумма ставки" error={form.formState.errors.amount?.message}>
-          <Input disabled={Boolean(blockingError)} type="number" {...form.register("amount")} />
+          <Input disabled={Boolean(accessBlockingError)} type="number" {...form.register("amount")} />
         </Field>
-        <Button disabled={mutation.isPending || Boolean(blockingError)} type="submit">
+        <Button disabled={mutation.isPending || Boolean(accessBlockingError)} type="submit">
           {mutation.isPending ? "Отправляем..." : "Сделать ставку"}
         </Button>
       </form>

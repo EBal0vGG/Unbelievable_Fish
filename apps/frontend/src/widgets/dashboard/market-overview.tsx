@@ -10,6 +10,7 @@ import { LotCard } from "@/entities/lot/ui/lot-card";
 import { ProductCard } from "@/entities/product/ui/product-card";
 import { useAuth } from "@/entities/session/model/auth-context";
 import { FilterBar } from "@/features/marketplace/ui/filter-bar";
+import { isSellerSession } from "@/shared/lib/access";
 import { buttonStyles } from "@/shared/ui/button";
 import { Field } from "@/shared/ui/field";
 import { Card } from "@/shared/ui/card";
@@ -17,6 +18,7 @@ import { Select } from "@/shared/ui/select";
 
 export function MarketOverview() {
   const { session } = useAuth();
+  const canCreateSupply = isSellerSession(session);
   const productsQuery = useProductsQuery();
   const lotsQuery = useLotsQuery();
   const auctionsQuery = useAuctionsQuery();
@@ -68,9 +70,11 @@ export function MarketOverview() {
           <Link className={buttonStyles({ variant: "secondary" })} href="/products">
             Мои продукты
           </Link>
-          <Link className={buttonStyles({ variant: "primary" })} href="/create/lot">
-            Разместить лот
-          </Link>
+          {canCreateSupply ? (
+            <Link className={buttonStyles({ variant: "primary" })} href="/create/lot">
+              Разместить лот
+            </Link>
+          ) : null}
           <Link className={buttonStyles({ variant: "secondary" })} href="/auctions">
             Открыть аукционы
           </Link>

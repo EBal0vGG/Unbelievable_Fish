@@ -1,0 +1,103 @@
+package postgres
+
+import (
+	"context"
+	"database/sql"
+
+	"github.com/EBal0vGG/Unbelievable_Fish/internal/identity/app"
+	identity "github.com/EBal0vGG/Unbelievable_Fish/internal/identity/domain"
+)
+
+type UserRepository struct {
+	db *sql.DB
+}
+
+func NewUserRepository(db *sql.DB) *UserRepository {
+	return &UserRepository{db: db}
+}
+
+var _ app.UserRepository = (*UserRepository)(nil)
+
+func (r *UserRepository) Save(ctx context.Context, user *identity.User) error {
+	const query = `
+INSERT INTO identity_users (
+    user_id,
+    company_id,
+    name,
+    role,
+    login,
+    password_hash
+) VALUES ($1, $2, $3, $4, $5, $6)
+ON CONFLICT (user_id) DO UPDATE SET
+    company_id = EXCLUDED.company_id,
+    name = EXCLUDED.name,
+    role = EXCLUDED.role,
+    login = EXCLUDED.login,
+    password_hash = EXCLUDED.password_hash
+`
+	dbtx := DBTXFromContext(ctx, r.db)
+	_, err := dbtx.ExecContext(
+		ctx,
+		query,
+		user.ID(),
+		user.CompanyID(),
+		user.Name(),
+		string(user.Role()),
+		user.Login(),
+		user.PasswordHash(),
+	)
+	return err
+}
+
+func (r *UserRepository) GetByID(ctx context.Context, userID string) (*identity.User, error) {
+	const query = `
+SELECT user_id, company_id, name, role, login, password_hash
+FROM identity_users
+WHERE user_id = $1
+`
+	return r.getOne(ctx, query, userID)
+}
+
+func (r *UserRepository) GetByLogin(ctx context.Context, login string) (*identity.User, error) {
+	const query = `
+SELECT user_id, company_id, name, role, login, password_hash
+FROM identity_users
+WHERE login = $1
+`
+	return r.getOne(ctx, query, login)
+}
+
+func (r *UserRepository) ExistsByLogin(ctx context.Context, login string) (bool, error) {
+	const query = `SELECT 1 FROM identity_users WHERE login = $1`
+	dbtx := DBTXFromContext(ctx, r.db)
+	row := dbtx.QueryRowContext(ctx, query, login)
+	var exists int
+	if err := row.Scan(&exists); err != nil {
+		if err == sql.ErrNoRows {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
+}
+
+func (r *UserRepository) getOne(ctx context.Context, query string, arg string) (*identity.User, error) {
+	dbtx := DBTXFromContext(ctx, r.db)
+	row := dbtx.QueryRowContext(ctx, query, arg)
+
+	var (
+		id           string
+		companyID    string
+		name         string
+		role         string
+		login        string
+		passwordHash string
+	)
+	if err := row.Scan(&id, &companyID, &name, &role, &login, &passwordHash); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, app.ErrUserNotFound
+		}
+		return nil, err
+	}
+	return identity.NewUser(id, companyID, name, identity.Role(role), login, passwordHash)
+}

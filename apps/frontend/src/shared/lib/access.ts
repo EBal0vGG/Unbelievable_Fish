@@ -1,11 +1,23 @@
 import type { LotRecord, ProductRecord, UserRole, UserSession } from "@/shared/types/domain";
 
 export function normalizeRole(role?: string | null): UserRole {
-  return role === "admin" ? "admin" : "user";
+  if (role === "admin" || role === "seller" || role === "buyer") {
+    return role;
+  }
+
+  return "buyer";
 }
 
 export function isAdminSession(session: UserSession | null): boolean {
   return normalizeRole(session?.role) === "admin";
+}
+
+export function isSellerSession(session: UserSession | null): boolean {
+  return normalizeRole(session?.role) === "seller";
+}
+
+export function isBuyerSession(session: UserSession | null): boolean {
+  return normalizeRole(session?.role) === "buyer";
 }
 
 export function isOwnedProduct(product: ProductRecord, session: UserSession | null): boolean {
