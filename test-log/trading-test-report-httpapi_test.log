@@ -274,3 +274,45 @@
 {"time":"2026-04-16T19:42:19.15645+03:00","package":"httpapi_test","test":"TestCommandFlowSmoke","message":"status=202 load=1 save=1 outbox=1 bid_save=1"}
 {"time":"2026-04-16T19:42:19.156485+03:00","package":"httpapi_test","test":"TestCommandFlowSmoke","message":"END"}
 ========== END TestCommandFlowSmoke (httpapi_test) ==========
+========== START TestCommandFlowSmoke (httpapi_test) ==========
+{"time":"2026-04-19T12:37:05.213974+03:00","package":"httpapi_test","test":"TestCommandFlowSmoke","message":"START"}
+{"time":"2026-04-19T12:37:05.214053+03:00","package":"httpapi_test","test":"TestCommandFlowSmoke","message":"request auction_id=a-1 amount=100 placed_at=2026-04-19 10:36:05.214022 +0000 UTC"}
+{"time":"2026-04-19T12:37:05.214134+03:00","package":"httpapi_test","test":"TestCommandFlowSmoke","message":"status=202 load=1 save=1 outbox=1 bid_save=1"}
+{"time":"2026-04-19T12:37:05.214168+03:00","package":"httpapi_test","test":"TestCommandFlowSmoke","message":"END"}
+========== END TestCommandFlowSmoke (httpapi_test) ==========
+========== START TestCommandFlowSmoke (httpapi_test) ==========
+{"time":"2026-04-19T12:46:06.226145+03:00","package":"httpapi_test","test":"TestCommandFlowSmoke","message":"START"}
+{"time":"2026-04-19T12:46:06.226219+03:00","package":"httpapi_test","test":"TestCommandFlowSmoke","message":"request auction_id=a-1 amount=100 placed_at=2026-04-19 10:45:06.226194 +0000 UTC"}
+{"time":"2026-04-19T12:46:06.2263+03:00","package":"httpapi_test","test":"TestCommandFlowSmoke","message":"status=202 load=1 save=1 outbox=1 bid_save=1"}
+{"time":"2026-04-19T12:46:06.226332+03:00","package":"httpapi_test","test":"TestCommandFlowSmoke","message":"END"}
+========== END TestCommandFlowSmoke (httpapi_test) ==========
+========== START TestCommandFlowSmoke (httpapi_test) ==========
+{"time":"2026-04-19T12:51:40.019112+03:00","package":"httpapi_test","test":"TestCommandFlowSmoke","message":"START"}
+{"time":"2026-04-19T12:51:40.01919+03:00","package":"httpapi_test","test":"TestCommandFlowSmoke","message":"request auction_id=a-1 amount=100 placed_at=2026-04-19 10:50:40.019158 +0000 UTC"}
+{"time":"2026-04-19T12:51:40.019269+03:00","package":"httpapi_test","test":"TestCommandFlowSmoke","message":"status=202 load=1 save=1 outbox=1 bid_save=1"}
+{"time":"2026-04-19T12:51:40.019303+03:00","package":"httpapi_test","test":"TestCommandFlowSmoke","message":"END"}
+========== END TestCommandFlowSmoke (httpapi_test) ==========
+========== START TestCommandFlowSmoke (httpapi_test) ==========
+{"time":"2026-04-19T12:58:45.777354+03:00","package":"httpapi_test","test":"TestCommandFlowSmoke","message":"START"}
+{"time":"2026-04-19T12:58:45.777432+03:00","package":"httpapi_test","test":"TestCommandFlowSmoke","message":"request auction_id=a-1 amount=100 placed_at=2026-04-19 10:57:45.777402 +0000 UTC"}
+{"time":"2026-04-19T12:58:45.777513+03:00","package":"httpapi_test","test":"TestCommandFlowSmoke","message":"status=202 load=1 save=1 outbox=1 bid_save=1"}
+{"time":"2026-04-19T12:58:45.777546+03:00","package":"httpapi_test","test":"TestCommandFlowSmoke","message":"END"}
+========== END TestCommandFlowSmoke (httpapi_test) ==========
+========== START TestCommandFlowSmoke (httpapi_test) ==========
+{"time":"2026-04-19T13:03:43.040822+03:00","package":"httpapi_test","test":"TestCommandFlowSmoke","message":"START"}
+{"time":"2026-04-19T13:03:43.040912+03:00","package":"httpapi_test","test":"TestCommandFlowSmoke","message":"request auction_id=a-1 amount=100 placed_at=2026-04-19 11:02:43.040878 +0000 UTC"}
+{"time":"2026-04-19T13:03:43.041003+03:00","package":"httpapi_test","test":"TestCommandFlowSmoke","message":"status=202 load=1 save=1 outbox=1 bid_save=1"}
+{"time":"2026-04-19T13:03:43.041053+03:00","package":"httpapi_test","test":"TestCommandFlowSmoke","message":"END"}
+========== END TestCommandFlowSmoke (httpapi_test) ==========
+========== START TestCommandFlowSmoke (httpapi_test) ==========
+{"time":"2026-04-19T13:03:52.293787+03:00","package":"httpapi_test","test":"TestCommandFlowSmoke","message":"START"}
+{"time":"2026-04-19T13:03:52.293856+03:00","package":"httpapi_test","test":"TestCommandFlowSmoke","message":"request auction_id=a-1 amount=100 placed_at=2026-04-19 11:02:52.29383 +0000 UTC"}
+{"time":"2026-04-19T13:03:52.293982+03:00","package":"httpapi_test","test":"TestCommandFlowSmoke","message":"status=202 load=1 save=1 outbox=1 bid_save=1"}
+{"time":"2026-04-19T13:03:52.294016+03:00","package":"httpapi_test","test":"TestCommandFlowSmoke","message":"END"}
+========== END TestCommandFlowSmoke (httpapi_test) ==========
+========== START TestCommandFlowSmoke (httpapi_test) ==========
+{"time":"2026-04-19T13:16:11.926269+03:00","package":"httpapi_test","test":"TestCommandFlowSmoke","message":"START"}
+{"time":"2026-04-19T13:16:11.926342+03:00","package":"httpapi_test","test":"TestCommandFlowSmoke","message":"request auction_id=a-1 amount=100 placed_at=2026-04-19 11:15:11.926319 +0000 UTC"}
+{"time":"2026-04-19T13:16:11.926425+03:00","package":"httpapi_test","test":"TestCommandFlowSmoke","message":"status=202 load=1 save=1 outbox=1 bid_save=1"}
+{"time":"2026-04-19T13:16:11.926457+03:00","package":"httpapi_test","test":"TestCommandFlowSmoke","message":"END"}
+========== END TestCommandFlowSmoke (httpapi_test) ==========

@@ -1,0 +1,89 @@
+package app
+
+import (
+	"context"
+	"errors"
+	"strings"
+
+	identity "github.com/EBal0vGG/Unbelievable_Fish/internal/identity/domain"
+)
+
+type RegisterUser struct {
+	users     UserRepository
+	companies CompanyRepository
+	hasher    PasswordHasher
+	ids       IDGenerator
+}
+
+func NewRegisterUser(
+	users UserRepository,
+	companies CompanyRepository,
+	hasher PasswordHasher,
+	ids IDGenerator,
+) (*RegisterUser, error) {
+	if users == nil {
+		return nil, ErrNilUserRepository
+	}
+	if companies == nil {
+		return nil, ErrNilCompanyRepository
+	}
+	if hasher == nil {
+		return nil, ErrNilPasswordHasher
+	}
+	if ids == nil {
+		ids = NewRandomIDGenerator()
+	}
+	return &RegisterUser{
+		users:     users,
+		companies: companies,
+		hasher:    hasher,
+		ids:       ids,
+	}, nil
+}
+
+func (uc *RegisterUser) Execute(ctx context.Context, cmd RegisterUserCommand) (UserDTO, error) {
+	if strings.TrimSpace(cmd.Password) == "" {
+		return UserDTO{}, ErrPasswordRequired
+	}
+
+	companyID := strings.TrimSpace(cmd.CompanyID)
+	if companyID == "" {
+		return UserDTO{}, identity.ErrEmptyCompanyID
+	}
+	if _, err := uc.companies.GetByID(ctx, companyID); err != nil {
+		if errors.Is(err, ErrCompanyNotFound) {
+			return UserDTO{}, ErrCompanyNotFound
+		}
+		return UserDTO{}, err
+	}
+
+	login := strings.ToLower(strings.TrimSpace(cmd.Login))
+	existing, err := uc.users.GetByLogin(ctx, login)
+	if err == nil && existing != nil {
+		return UserDTO{}, ErrLoginAlreadyUsed
+	}
+	if err != nil && !errors.Is(err, ErrUserNotFound) {
+		return UserDTO{}, err
+	}
+
+	passwordHash, err := uc.hasher.Hash(cmd.Password)
+	if err != nil {
+		return UserDTO{}, err
+	}
+
+	user, err := identity.NewUser(
+		uc.ids.NewUserID(),
+		companyID,
+		cmd.Name,
+		cmd.Role,
+		login,
+		passwordHash,
+	)
+	if err != nil {
+		return UserDTO{}, err
+	}
+	if err := uc.users.Save(ctx, user); err != nil {
+		return UserDTO{}, err
+	}
+	return userDTOFromDomain(user), nil
+}

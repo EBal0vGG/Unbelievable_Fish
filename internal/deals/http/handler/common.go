@@ -7,9 +7,18 @@ import (
 
 	"github.com/EBal0vGG/Unbelievable_Fish/internal/deals/app"
 	httpapi "github.com/EBal0vGG/Unbelievable_Fish/internal/deals/http"
+	identityauth "github.com/EBal0vGG/Unbelievable_Fish/internal/identity/auth"
 )
 
 func readCommandMeta(r *http.Request) (app.CommandMeta, error) {
+	if identity, ok := identityauth.IdentityFromContext(r.Context()); ok {
+		return app.CommandMeta{
+			CompanyID:     identity.CompanyID,
+			UserID:        identity.UserID,
+			CorrelationID: r.Header.Get("X-Correlation-ID"),
+			CausationID:   r.Header.Get("X-Causation-ID"),
+		}, nil
+	}
 	companyID := r.Header.Get("X-Company-ID")
 	if companyID == "" {
 		return app.CommandMeta{}, httpapi.ErrMissingCompanyID

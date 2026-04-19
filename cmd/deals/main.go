@@ -2,14 +2,18 @@ package main
 
 import (
 	"database/sql"
+	"encoding/json"
 	"log"
 	"net/http"
 	"os"
+	"strconv"
+	"time"
 
 	dealsapp "github.com/EBal0vGG/Unbelievable_Fish/internal/deals/app"
 	httpapi "github.com/EBal0vGG/Unbelievable_Fish/internal/deals/http"
 	"github.com/EBal0vGG/Unbelievable_Fish/internal/deals/http/handler"
 	dealspg "github.com/EBal0vGG/Unbelievable_Fish/internal/deals/postgres"
+	identityauth "github.com/EBal0vGG/Unbelievable_Fish/internal/identity/auth"
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
@@ -63,6 +67,10 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	tokenProvider := identityauth.NewTokenProvider(
+		envOrDefault("IDENTITY_TOKEN_SECRET", "dev-secret"),
+		envDurationMinutes("IDENTITY_TOKEN_TTL_MINUTES", 24*60),
+	)
 
 	router := httpapi.NewRouter(
 		handler.NewGetProjectionByAuctionIDHandler(dealsapp.NewGetProjectionByAuctionID(projectionRepo)),
@@ -79,10 +87,19 @@ func main() {
 		handler.NewCancelDealHandler(cancelUC),
 		handler.NewUpdateDealPriceHandler(updatePriceUC),
 	)
+	protected := identityauth.NewMiddleware(tokenProvider, func(w http.ResponseWriter, r *http.Request, err error) {
+		httpErr := httpapi.MapError(err)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(httpErr.Status)
+		_ = json.NewEncoder(w).Encode(httpapi.ErrorResponse{
+			Code:    httpErr.Code,
+			Message: httpErr.Message,
+		})
+	}).Wrap(router)
 
 	port := envOrDefault("DEALS_PORT", "8083")
 	log.Printf("deals http listening on :%s", port)
-	log.Fatal(http.ListenAndServe(":"+port, router))
+	log.Fatal(http.ListenAndServe(":"+port, protected))
 }
 
 func openDB() (*sql.DB, bool) {
@@ -120,4 +137,16 @@ func envOrDefault(key, def string) string {
 		return value
 	}
 	return def
+}
+
+func envDurationMinutes(key string, def int) time.Duration {
+	value := os.Getenv(key)
+	if value == "" {
+		return time.Duration(def) * time.Minute
+	}
+	minutes, err := strconv.Atoi(value)
+	if err != nil || minutes <= 0 {
+		return time.Duration(def) * time.Minute
+	}
+	return time.Duration(minutes) * time.Minute
 }

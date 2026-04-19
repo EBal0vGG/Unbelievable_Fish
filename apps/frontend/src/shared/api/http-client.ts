@@ -15,7 +15,7 @@ export class ApiError extends Error {
   }
 }
 
-type ServiceName = "catalog" | "trading" | "deals";
+type ServiceName = "catalog" | "trading" | "deals" | "identity";
 
 interface RequestOptions {
   method?: "GET" | "POST" | "PUT";
@@ -43,6 +43,7 @@ export async function apiRequest<T>(
   headers.set("X-Causation-ID", makeClientId("cause"));
 
   if (options.session) {
+    headers.set("Authorization", `Bearer ${options.session.accessToken}`);
     headers.set("X-Company-ID", options.session.companyId);
     headers.set("X-User-ID", options.session.userId);
   }

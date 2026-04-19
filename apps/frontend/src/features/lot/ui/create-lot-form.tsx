@@ -11,7 +11,7 @@ import { useProductsQuery } from "@/entities/lot/model/hooks";
 import { useAuth } from "@/entities/session/model/auth-context";
 import { ApiError } from "@/shared/api/http-client";
 import { createLot, createProduct, publishLot, publishProduct } from "@/shared/api/catalog-service";
-import { isOwnedProduct } from "@/shared/lib/access";
+import { isOwnedProduct, isSellerSession } from "@/shared/lib/access";
 import { toDateTimeLocalValue } from "@/shared/lib/format";
 import { Button } from "@/shared/ui/button";
 import { Card } from "@/shared/ui/card";
@@ -44,6 +44,7 @@ type LotValues = z.infer<typeof lotSchema>;
 
 export function CreateLotForm() {
   const { session } = useAuth();
+  const canManageLots = isSellerSession(session);
   const queryClient = useQueryClient();
   const [productError, setProductError] = useState<string | null>(null);
   const [lotError, setLotError] = useState<string | null>(null);
@@ -85,6 +86,9 @@ export function CreateLotForm() {
       if (!session?.companyId || !session.userId) {
         throw new ApiError("Войдите в профиль, чтобы создать продукт", 400, "MISSING_SESSION");
       }
+      if (!canManageLots) {
+        throw new ApiError("Создание продукта доступно только продавцу", 403, "SELLER_ONLY");
+      }
       const fish = fishQuery.data?.data.find((item) => item.id === values.fishId);
       const created = await createProduct(
         {
@@ -123,6 +127,9 @@ export function CreateLotForm() {
       setLotError(null);
       if (!session?.companyId || !session.userId) {
         throw new ApiError("Войдите в профиль, чтобы создать лот", 400, "MISSING_SESSION");
+      }
+      if (!canManageLots) {
+        throw new ApiError("Создание лота доступно только продавцу", 403, "SELLER_ONLY");
       }
       const product = productsQuery.data?.data.find((item) => item.id === values.productId);
       if (!product || !isOwnedProduct(product, session)) {
@@ -223,7 +230,10 @@ export function CreateLotForm() {
               <input type="checkbox" {...productForm.register("publishProduct")} />
               <span>Сразу опубликовать продукт</span>
             </label>
-            <Button disabled={productMutation.isPending || !session?.companyId || !session.userId} type="submit">
+            <Button
+              disabled={productMutation.isPending || !session?.companyId || !session.userId || !canManageLots}
+              type="submit"
+            >
               {productMutation.isPending ? "Создаем..." : "Создать продукт"}
             </Button>
           </form>
@@ -241,6 +251,10 @@ export function CreateLotForm() {
           {!session ? (
             <Notice tone="warning" title="Нужен вход">
               Войдите в профиль, чтобы создавать продукты и лоты.
+            </Notice>
+          ) : !canManageLots ? (
+            <Notice tone="warning" title="Нужна роль seller">
+              Создание продуктов и лотов доступно только пользователю с ролью seller.
             </Notice>
           ) : null}
 
@@ -311,7 +325,10 @@ export function CreateLotForm() {
               <input type="checkbox" {...lotForm.register("publishLot")} />
               <span>Сразу опубликовать лот</span>
             </label>
-            <Button disabled={lotMutation.isPending || !session?.companyId || !session.userId} type="submit">
+            <Button
+              disabled={lotMutation.isPending || !session?.companyId || !session.userId || !canManageLots}
+              type="submit"
+            >
               {lotMutation.isPending ? "Сохраняем..." : "Создать лот"}
             </Button>
           </form>

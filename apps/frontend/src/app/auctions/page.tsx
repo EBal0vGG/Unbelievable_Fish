@@ -8,12 +8,14 @@ import { useFishCatalogQuery } from "@/entities/fish/model/hooks";
 import { useLotsQuery, useProductsQuery } from "@/entities/lot/model/hooks";
 import { useAuth } from "@/entities/session/model/auth-context";
 import { FilterBar } from "@/features/marketplace/ui/filter-bar";
+import { isSellerSession } from "@/shared/lib/access";
 import { EmptyState } from "@/shared/ui/empty-state";
 import { Field } from "@/shared/ui/field";
 import { Select } from "@/shared/ui/select";
 
 export default function AuctionsPage() {
   const { session } = useAuth();
+  const canCreateAuction = isSellerSession(session);
   const auctionsQuery = useAuctionsQuery();
   const lotsQuery = useLotsQuery();
   const productsQuery = useProductsQuery();
@@ -125,8 +127,8 @@ export default function AuctionsPage() {
         <EmptyState
           title="Аукционы не найдены"
           description="Создайте аукцион или снимите фильтры."
-          actionHref="/create/auction"
-          actionLabel="Создать аукцион"
+          actionHref={canCreateAuction ? "/create/auction" : undefined}
+          actionLabel={canCreateAuction ? "Создать аукцион" : undefined}
         />
       )}
     </div>

@@ -2008,3 +2008,303 @@
 {"time":"2026-04-16T19:42:18.860776+03:00","package":"app","test":"TestCloseAuctionRejectsAlreadyClosed","message":"START"}
 {"time":"2026-04-16T19:42:18.86084+03:00","package":"app","test":"TestCloseAuctionRejectsAlreadyClosed","message":"END"}
 ========== END TestCloseAuctionRejectsAlreadyClosed (app) ==========
+========== START TestCreateAuctionSavesAggregate (app) ==========
+{"time":"2026-04-19T12:37:05.518032+03:00","package":"app","test":"TestCreateAuctionSavesAggregate","message":"START"}
+{"time":"2026-04-19T12:37:05.518257+03:00","package":"app","test":"TestCreateAuctionSavesAggregate","message":"create auction lot_id=lot-1 starts_at=2026-04-19 11:37:05.518236 +0300 MSK m=-3599.998459915 ends_at=2026-04-19 12:37:05.518236 +0300 MSK m=+0.001540085"}
+{"time":"2026-04-19T12:37:05.518302+03:00","package":"app","test":"TestCreateAuctionSavesAggregate","message":"END"}
+========== END TestCreateAuctionSavesAggregate (app) ==========
+========== START TestCreateAuctionIsIdempotentWhenAuctionExists (app) ==========
+{"time":"2026-04-19T12:37:05.518452+03:00","package":"app","test":"TestCreateAuctionIsIdempotentWhenAuctionExists","message":"START"}
+{"time":"2026-04-19T12:37:05.518501+03:00","package":"app","test":"TestCreateAuctionIsIdempotentWhenAuctionExists","message":"END"}
+========== END TestCreateAuctionIsIdempotentWhenAuctionExists (app) ==========
+========== START TestPublishAuctionOrchestratesLoadSavePublish (app) ==========
+{"time":"2026-04-19T12:37:05.518666+03:00","package":"app","test":"TestPublishAuctionOrchestratesLoadSavePublish","message":"START"}
+{"time":"2026-04-19T12:37:05.5187+03:00","package":"app","test":"TestPublishAuctionOrchestratesLoadSavePublish","message":"auction id=1 lot_id=lot-1 state=DRAFT"}
+{"time":"2026-04-19T12:37:05.518757+03:00","package":"app","test":"TestPublishAuctionOrchestratesLoadSavePublish","message":"calls=[load_for_update save outbox]"}
+{"time":"2026-04-19T12:37:05.518815+03:00","package":"app","test":"TestPublishAuctionOrchestratesLoadSavePublish","message":"END"}
+========== END TestPublishAuctionOrchestratesLoadSavePublish (app) ==========
+========== START TestPlaceBidOrchestratesLoadSavePublish (app) ==========
+{"time":"2026-04-19T12:37:05.518902+03:00","package":"app","test":"TestPlaceBidOrchestratesLoadSavePublish","message":"START"}
+{"time":"2026-04-19T12:37:05.518931+03:00","package":"app","test":"TestPlaceBidOrchestratesLoadSavePublish","message":"auction id=1 lot_id=lot-1 state=DRAFT"}
+{"time":"2026-04-19T12:37:05.518962+03:00","package":"app","test":"TestPlaceBidOrchestratesLoadSavePublish","message":"place bid amount=100 placed_at=2026-04-19 12:36:05.518917 +0300 MSK m=-59.997779707"}
+{"time":"2026-04-19T12:37:05.518997+03:00","package":"app","test":"TestPlaceBidOrchestratesLoadSavePublish","message":"calls=[load_for_update save_bid save outbox] bid_saved_amount=100"}
+{"time":"2026-04-19T12:37:05.519027+03:00","package":"app","test":"TestPlaceBidOrchestratesLoadSavePublish","message":"END"}
+========== END TestPlaceBidOrchestratesLoadSavePublish (app) ==========
+========== START TestCloseAuctionOrchestratesLoadSavePublish (app) ==========
+{"time":"2026-04-19T12:37:05.519114+03:00","package":"app","test":"TestCloseAuctionOrchestratesLoadSavePublish","message":"START"}
+{"time":"2026-04-19T12:37:05.519141+03:00","package":"app","test":"TestCloseAuctionOrchestratesLoadSavePublish","message":"auction id=1 lot_id=lot-1 state=DRAFT"}
+{"time":"2026-04-19T12:37:05.519171+03:00","package":"app","test":"TestCloseAuctionOrchestratesLoadSavePublish","message":"calls=[load_for_update top_bids winners save outbox]"}
+{"time":"2026-04-19T12:37:05.5192+03:00","package":"app","test":"TestCloseAuctionOrchestratesLoadSavePublish","message":"END"}
+========== END TestCloseAuctionOrchestratesLoadSavePublish (app) ==========
+========== START TestCancelAuctionOrchestratesLoadSavePublish (app) ==========
+{"time":"2026-04-19T12:37:05.519288+03:00","package":"app","test":"TestCancelAuctionOrchestratesLoadSavePublish","message":"START"}
+{"time":"2026-04-19T12:37:05.519316+03:00","package":"app","test":"TestCancelAuctionOrchestratesLoadSavePublish","message":"auction id=1 lot_id=lot-1 state=DRAFT"}
+{"time":"2026-04-19T12:37:05.519343+03:00","package":"app","test":"TestCancelAuctionOrchestratesLoadSavePublish","message":"calls=[load_for_update save outbox]"}
+{"time":"2026-04-19T12:37:05.519371+03:00","package":"app","test":"TestCancelAuctionOrchestratesLoadSavePublish","message":"END"}
+========== END TestCancelAuctionOrchestratesLoadSavePublish (app) ==========
+========== START TestPlaceBidRejectsLowerAmount (app) ==========
+{"time":"2026-04-19T12:37:05.519455+03:00","package":"app","test":"TestPlaceBidRejectsLowerAmount","message":"START"}
+{"time":"2026-04-19T12:37:05.519481+03:00","package":"app","test":"TestPlaceBidRejectsLowerAmount","message":"END"}
+========== END TestPlaceBidRejectsLowerAmount (app) ==========
+========== START TestPlaceBidRejectsAfterEnd (app) ==========
+{"time":"2026-04-19T12:37:05.519605+03:00","package":"app","test":"TestPlaceBidRejectsAfterEnd","message":"START"}
+{"time":"2026-04-19T12:37:05.51965+03:00","package":"app","test":"TestPlaceBidRejectsAfterEnd","message":"END"}
+========== END TestPlaceBidRejectsAfterEnd (app) ==========
+========== START TestPublishAuctionRejectsAlreadyPublished (app) ==========
+{"time":"2026-04-19T12:37:05.519757+03:00","package":"app","test":"TestPublishAuctionRejectsAlreadyPublished","message":"START"}
+{"time":"2026-04-19T12:37:05.519804+03:00","package":"app","test":"TestPublishAuctionRejectsAlreadyPublished","message":"END"}
+========== END TestPublishAuctionRejectsAlreadyPublished (app) ==========
+========== START TestCloseAuctionRejectsAlreadyClosed (app) ==========
+{"time":"2026-04-19T12:37:05.519931+03:00","package":"app","test":"TestCloseAuctionRejectsAlreadyClosed","message":"START"}
+{"time":"2026-04-19T12:37:05.519977+03:00","package":"app","test":"TestCloseAuctionRejectsAlreadyClosed","message":"END"}
+========== END TestCloseAuctionRejectsAlreadyClosed (app) ==========
+========== START TestCreateAuctionSavesAggregate (app) ==========
+{"time":"2026-04-19T12:46:06.467102+03:00","package":"app","test":"TestCreateAuctionSavesAggregate","message":"START"}
+{"time":"2026-04-19T12:46:06.467254+03:00","package":"app","test":"TestCreateAuctionSavesAggregate","message":"create auction lot_id=lot-1 starts_at=2026-04-19 11:46:06.467237 +0300 MSK m=-3599.998550916 ends_at=2026-04-19 12:46:06.467237 +0300 MSK m=+0.001449084"}
+{"time":"2026-04-19T12:46:06.467296+03:00","package":"app","test":"TestCreateAuctionSavesAggregate","message":"END"}
+========== END TestCreateAuctionSavesAggregate (app) ==========
+========== START TestCreateAuctionIsIdempotentWhenAuctionExists (app) ==========
+{"time":"2026-04-19T12:46:06.467418+03:00","package":"app","test":"TestCreateAuctionIsIdempotentWhenAuctionExists","message":"START"}
+{"time":"2026-04-19T12:46:06.467467+03:00","package":"app","test":"TestCreateAuctionIsIdempotentWhenAuctionExists","message":"END"}
+========== END TestCreateAuctionIsIdempotentWhenAuctionExists (app) ==========
+========== START TestPublishAuctionOrchestratesLoadSavePublish (app) ==========
+{"time":"2026-04-19T12:46:06.467593+03:00","package":"app","test":"TestPublishAuctionOrchestratesLoadSavePublish","message":"START"}
+{"time":"2026-04-19T12:46:06.467639+03:00","package":"app","test":"TestPublishAuctionOrchestratesLoadSavePublish","message":"auction id=1 lot_id=lot-1 state=DRAFT"}
+{"time":"2026-04-19T12:46:06.467686+03:00","package":"app","test":"TestPublishAuctionOrchestratesLoadSavePublish","message":"calls=[load_for_update save outbox]"}
+{"time":"2026-04-19T12:46:06.46774+03:00","package":"app","test":"TestPublishAuctionOrchestratesLoadSavePublish","message":"END"}
+========== END TestPublishAuctionOrchestratesLoadSavePublish (app) ==========
+========== START TestPlaceBidOrchestratesLoadSavePublish (app) ==========
+{"time":"2026-04-19T12:46:06.467859+03:00","package":"app","test":"TestPlaceBidOrchestratesLoadSavePublish","message":"START"}
+{"time":"2026-04-19T12:46:06.467905+03:00","package":"app","test":"TestPlaceBidOrchestratesLoadSavePublish","message":"auction id=1 lot_id=lot-1 state=DRAFT"}
+{"time":"2026-04-19T12:46:06.46795+03:00","package":"app","test":"TestPlaceBidOrchestratesLoadSavePublish","message":"place bid amount=100 placed_at=2026-04-19 12:45:06.46789 +0300 MSK m=-59.997898582"}
+{"time":"2026-04-19T12:46:06.468+03:00","package":"app","test":"TestPlaceBidOrchestratesLoadSavePublish","message":"calls=[load_for_update save_bid save outbox] bid_saved_amount=100"}
+{"time":"2026-04-19T12:46:06.468027+03:00","package":"app","test":"TestPlaceBidOrchestratesLoadSavePublish","message":"END"}
+========== END TestPlaceBidOrchestratesLoadSavePublish (app) ==========
+========== START TestCloseAuctionOrchestratesLoadSavePublish (app) ==========
+{"time":"2026-04-19T12:46:06.468145+03:00","package":"app","test":"TestCloseAuctionOrchestratesLoadSavePublish","message":"START"}
+{"time":"2026-04-19T12:46:06.468188+03:00","package":"app","test":"TestCloseAuctionOrchestratesLoadSavePublish","message":"auction id=1 lot_id=lot-1 state=DRAFT"}
+{"time":"2026-04-19T12:46:06.468232+03:00","package":"app","test":"TestCloseAuctionOrchestratesLoadSavePublish","message":"calls=[load_for_update top_bids winners save outbox]"}
+{"time":"2026-04-19T12:46:06.468276+03:00","package":"app","test":"TestCloseAuctionOrchestratesLoadSavePublish","message":"END"}
+========== END TestCloseAuctionOrchestratesLoadSavePublish (app) ==========
+========== START TestCancelAuctionOrchestratesLoadSavePublish (app) ==========
+{"time":"2026-04-19T12:46:06.468392+03:00","package":"app","test":"TestCancelAuctionOrchestratesLoadSavePublish","message":"START"}
+{"time":"2026-04-19T12:46:06.468439+03:00","package":"app","test":"TestCancelAuctionOrchestratesLoadSavePublish","message":"auction id=1 lot_id=lot-1 state=DRAFT"}
+{"time":"2026-04-19T12:46:06.468483+03:00","package":"app","test":"TestCancelAuctionOrchestratesLoadSavePublish","message":"calls=[load_for_update save outbox]"}
+{"time":"2026-04-19T12:46:06.468528+03:00","package":"app","test":"TestCancelAuctionOrchestratesLoadSavePublish","message":"END"}
+========== END TestCancelAuctionOrchestratesLoadSavePublish (app) ==========
+========== START TestPlaceBidRejectsLowerAmount (app) ==========
+{"time":"2026-04-19T12:46:06.468638+03:00","package":"app","test":"TestPlaceBidRejectsLowerAmount","message":"START"}
+{"time":"2026-04-19T12:46:06.468662+03:00","package":"app","test":"TestPlaceBidRejectsLowerAmount","message":"END"}
+========== END TestPlaceBidRejectsLowerAmount (app) ==========
+========== START TestPlaceBidRejectsAfterEnd (app) ==========
+{"time":"2026-04-19T12:46:06.468733+03:00","package":"app","test":"TestPlaceBidRejectsAfterEnd","message":"START"}
+{"time":"2026-04-19T12:46:06.468756+03:00","package":"app","test":"TestPlaceBidRejectsAfterEnd","message":"END"}
+========== END TestPlaceBidRejectsAfterEnd (app) ==========
+========== START TestPublishAuctionRejectsAlreadyPublished (app) ==========
+{"time":"2026-04-19T12:46:06.468824+03:00","package":"app","test":"TestPublishAuctionRejectsAlreadyPublished","message":"START"}
+{"time":"2026-04-19T12:46:06.468847+03:00","package":"app","test":"TestPublishAuctionRejectsAlreadyPublished","message":"END"}
+========== END TestPublishAuctionRejectsAlreadyPublished (app) ==========
+========== START TestCloseAuctionRejectsAlreadyClosed (app) ==========
+{"time":"2026-04-19T12:46:06.468918+03:00","package":"app","test":"TestCloseAuctionRejectsAlreadyClosed","message":"START"}
+{"time":"2026-04-19T12:46:06.468944+03:00","package":"app","test":"TestCloseAuctionRejectsAlreadyClosed","message":"END"}
+========== END TestCloseAuctionRejectsAlreadyClosed (app) ==========
+========== START TestCreateAuctionSavesAggregate (app) ==========
+{"time":"2026-04-19T12:51:39.763049+03:00","package":"app","test":"TestCreateAuctionSavesAggregate","message":"START"}
+{"time":"2026-04-19T12:51:39.763264+03:00","package":"app","test":"TestCreateAuctionSavesAggregate","message":"create auction lot_id=lot-1 starts_at=2026-04-19 11:51:39.763243 +0300 MSK m=-3599.997985624 ends_at=2026-04-19 12:51:39.763243 +0300 MSK m=+0.002014376"}
+{"time":"2026-04-19T12:51:39.763313+03:00","package":"app","test":"TestCreateAuctionSavesAggregate","message":"END"}
+========== END TestCreateAuctionSavesAggregate (app) ==========
+========== START TestCreateAuctionIsIdempotentWhenAuctionExists (app) ==========
+{"time":"2026-04-19T12:51:39.763423+03:00","package":"app","test":"TestCreateAuctionIsIdempotentWhenAuctionExists","message":"START"}
+{"time":"2026-04-19T12:51:39.763455+03:00","package":"app","test":"TestCreateAuctionIsIdempotentWhenAuctionExists","message":"END"}
+========== END TestCreateAuctionIsIdempotentWhenAuctionExists (app) ==========
+========== START TestPublishAuctionOrchestratesLoadSavePublish (app) ==========
+{"time":"2026-04-19T12:51:39.763549+03:00","package":"app","test":"TestPublishAuctionOrchestratesLoadSavePublish","message":"START"}
+{"time":"2026-04-19T12:51:39.763576+03:00","package":"app","test":"TestPublishAuctionOrchestratesLoadSavePublish","message":"auction id=1 lot_id=lot-1 state=DRAFT"}
+{"time":"2026-04-19T12:51:39.763606+03:00","package":"app","test":"TestPublishAuctionOrchestratesLoadSavePublish","message":"calls=[load_for_update save outbox]"}
+{"time":"2026-04-19T12:51:39.763664+03:00","package":"app","test":"TestPublishAuctionOrchestratesLoadSavePublish","message":"END"}
+========== END TestPublishAuctionOrchestratesLoadSavePublish (app) ==========
+========== START TestPlaceBidOrchestratesLoadSavePublish (app) ==========
+{"time":"2026-04-19T12:51:39.763742+03:00","package":"app","test":"TestPlaceBidOrchestratesLoadSavePublish","message":"START"}
+{"time":"2026-04-19T12:51:39.76377+03:00","package":"app","test":"TestPlaceBidOrchestratesLoadSavePublish","message":"auction id=1 lot_id=lot-1 state=DRAFT"}
+{"time":"2026-04-19T12:51:39.7638+03:00","package":"app","test":"TestPlaceBidOrchestratesLoadSavePublish","message":"place bid amount=100 placed_at=2026-04-19 12:50:39.763753 +0300 MSK m=-59.997475041"}
+{"time":"2026-04-19T12:51:39.763837+03:00","package":"app","test":"TestPlaceBidOrchestratesLoadSavePublish","message":"calls=[load_for_update save_bid save outbox] bid_saved_amount=100"}
+{"time":"2026-04-19T12:51:39.763867+03:00","package":"app","test":"TestPlaceBidOrchestratesLoadSavePublish","message":"END"}
+========== END TestPlaceBidOrchestratesLoadSavePublish (app) ==========
+========== START TestCloseAuctionOrchestratesLoadSavePublish (app) ==========
+{"time":"2026-04-19T12:51:39.763944+03:00","package":"app","test":"TestCloseAuctionOrchestratesLoadSavePublish","message":"START"}
+{"time":"2026-04-19T12:51:39.763969+03:00","package":"app","test":"TestCloseAuctionOrchestratesLoadSavePublish","message":"auction id=1 lot_id=lot-1 state=DRAFT"}
+{"time":"2026-04-19T12:51:39.763999+03:00","package":"app","test":"TestCloseAuctionOrchestratesLoadSavePublish","message":"calls=[load_for_update top_bids winners save outbox]"}
+{"time":"2026-04-19T12:51:39.764025+03:00","package":"app","test":"TestCloseAuctionOrchestratesLoadSavePublish","message":"END"}
+========== END TestCloseAuctionOrchestratesLoadSavePublish (app) ==========
+========== START TestCancelAuctionOrchestratesLoadSavePublish (app) ==========
+{"time":"2026-04-19T12:51:39.764106+03:00","package":"app","test":"TestCancelAuctionOrchestratesLoadSavePublish","message":"START"}
+{"time":"2026-04-19T12:51:39.764131+03:00","package":"app","test":"TestCancelAuctionOrchestratesLoadSavePublish","message":"auction id=1 lot_id=lot-1 state=DRAFT"}
+{"time":"2026-04-19T12:51:39.764156+03:00","package":"app","test":"TestCancelAuctionOrchestratesLoadSavePublish","message":"calls=[load_for_update save outbox]"}
+{"time":"2026-04-19T12:51:39.764182+03:00","package":"app","test":"TestCancelAuctionOrchestratesLoadSavePublish","message":"END"}
+========== END TestCancelAuctionOrchestratesLoadSavePublish (app) ==========
+========== START TestPlaceBidRejectsLowerAmount (app) ==========
+{"time":"2026-04-19T12:51:39.76426+03:00","package":"app","test":"TestPlaceBidRejectsLowerAmount","message":"START"}
+{"time":"2026-04-19T12:51:39.764287+03:00","package":"app","test":"TestPlaceBidRejectsLowerAmount","message":"END"}
+========== END TestPlaceBidRejectsLowerAmount (app) ==========
+========== START TestPlaceBidRejectsAfterEnd (app) ==========
+{"time":"2026-04-19T12:51:39.764366+03:00","package":"app","test":"TestPlaceBidRejectsAfterEnd","message":"START"}
+{"time":"2026-04-19T12:51:39.764398+03:00","package":"app","test":"TestPlaceBidRejectsAfterEnd","message":"END"}
+========== END TestPlaceBidRejectsAfterEnd (app) ==========
+========== START TestPublishAuctionRejectsAlreadyPublished (app) ==========
+{"time":"2026-04-19T12:51:39.764479+03:00","package":"app","test":"TestPublishAuctionRejectsAlreadyPublished","message":"START"}
+{"time":"2026-04-19T12:51:39.764505+03:00","package":"app","test":"TestPublishAuctionRejectsAlreadyPublished","message":"END"}
+========== END TestPublishAuctionRejectsAlreadyPublished (app) ==========
+========== START TestCloseAuctionRejectsAlreadyClosed (app) ==========
+{"time":"2026-04-19T12:51:39.764608+03:00","package":"app","test":"TestCloseAuctionRejectsAlreadyClosed","message":"START"}
+{"time":"2026-04-19T12:51:39.764641+03:00","package":"app","test":"TestCloseAuctionRejectsAlreadyClosed","message":"END"}
+========== END TestCloseAuctionRejectsAlreadyClosed (app) ==========
+========== START TestCreateAuctionSavesAggregate (app) ==========
+{"time":"2026-04-19T12:58:46.021929+03:00","package":"app","test":"TestCreateAuctionSavesAggregate","message":"START"}
+{"time":"2026-04-19T12:58:46.022393+03:00","package":"app","test":"TestCreateAuctionSavesAggregate","message":"create auction lot_id=lot-1 starts_at=2026-04-19 11:58:46.02228 +0300 MSK m=-3599.998399040 ends_at=2026-04-19 12:58:46.02228 +0300 MSK m=+0.001600960"}
+{"time":"2026-04-19T12:58:46.022529+03:00","package":"app","test":"TestCreateAuctionSavesAggregate","message":"END"}
+========== END TestCreateAuctionSavesAggregate (app) ==========
+========== START TestCreateAuctionIsIdempotentWhenAuctionExists (app) ==========
+{"time":"2026-04-19T12:58:46.022675+03:00","package":"app","test":"TestCreateAuctionIsIdempotentWhenAuctionExists","message":"START"}
+{"time":"2026-04-19T12:58:46.022709+03:00","package":"app","test":"TestCreateAuctionIsIdempotentWhenAuctionExists","message":"END"}
+========== END TestCreateAuctionIsIdempotentWhenAuctionExists (app) ==========
+========== START TestPublishAuctionOrchestratesLoadSavePublish (app) ==========
+{"time":"2026-04-19T12:58:46.022811+03:00","package":"app","test":"TestPublishAuctionOrchestratesLoadSavePublish","message":"START"}
+{"time":"2026-04-19T12:58:46.022839+03:00","package":"app","test":"TestPublishAuctionOrchestratesLoadSavePublish","message":"auction id=1 lot_id=lot-1 state=DRAFT"}
+{"time":"2026-04-19T12:58:46.022872+03:00","package":"app","test":"TestPublishAuctionOrchestratesLoadSavePublish","message":"calls=[load_for_update save outbox]"}
+{"time":"2026-04-19T12:58:46.022933+03:00","package":"app","test":"TestPublishAuctionOrchestratesLoadSavePublish","message":"END"}
+========== END TestPublishAuctionOrchestratesLoadSavePublish (app) ==========
+========== START TestPlaceBidOrchestratesLoadSavePublish (app) ==========
+{"time":"2026-04-19T12:58:46.023018+03:00","package":"app","test":"TestPlaceBidOrchestratesLoadSavePublish","message":"START"}
+{"time":"2026-04-19T12:58:46.023045+03:00","package":"app","test":"TestPlaceBidOrchestratesLoadSavePublish","message":"auction id=1 lot_id=lot-1 state=DRAFT"}
+{"time":"2026-04-19T12:58:46.023073+03:00","package":"app","test":"TestPlaceBidOrchestratesLoadSavePublish","message":"place bid amount=100 placed_at=2026-04-19 12:57:46.023029 +0300 MSK m=-59.997649457"}
+{"time":"2026-04-19T12:58:46.023114+03:00","package":"app","test":"TestPlaceBidOrchestratesLoadSavePublish","message":"calls=[load_for_update save_bid save outbox] bid_saved_amount=100"}
+{"time":"2026-04-19T12:58:46.023167+03:00","package":"app","test":"TestPlaceBidOrchestratesLoadSavePublish","message":"END"}
+========== END TestPlaceBidOrchestratesLoadSavePublish (app) ==========
+========== START TestCloseAuctionOrchestratesLoadSavePublish (app) ==========
+{"time":"2026-04-19T12:58:46.023329+03:00","package":"app","test":"TestCloseAuctionOrchestratesLoadSavePublish","message":"START"}
+{"time":"2026-04-19T12:58:46.023358+03:00","package":"app","test":"TestCloseAuctionOrchestratesLoadSavePublish","message":"auction id=1 lot_id=lot-1 state=DRAFT"}
+{"time":"2026-04-19T12:58:46.023391+03:00","package":"app","test":"TestCloseAuctionOrchestratesLoadSavePublish","message":"calls=[load_for_update top_bids winners save outbox]"}
+{"time":"2026-04-19T12:58:46.023419+03:00","package":"app","test":"TestCloseAuctionOrchestratesLoadSavePublish","message":"END"}
+========== END TestCloseAuctionOrchestratesLoadSavePublish (app) ==========
+========== START TestCancelAuctionOrchestratesLoadSavePublish (app) ==========
+{"time":"2026-04-19T12:58:46.023503+03:00","package":"app","test":"TestCancelAuctionOrchestratesLoadSavePublish","message":"START"}
+{"time":"2026-04-19T12:58:46.023528+03:00","package":"app","test":"TestCancelAuctionOrchestratesLoadSavePublish","message":"auction id=1 lot_id=lot-1 state=DRAFT"}
+{"time":"2026-04-19T12:58:46.023553+03:00","package":"app","test":"TestCancelAuctionOrchestratesLoadSavePublish","message":"calls=[load_for_update save outbox]"}
+{"time":"2026-04-19T12:58:46.023578+03:00","package":"app","test":"TestCancelAuctionOrchestratesLoadSavePublish","message":"END"}
+========== END TestCancelAuctionOrchestratesLoadSavePublish (app) ==========
+========== START TestPlaceBidRejectsLowerAmount (app) ==========
+{"time":"2026-04-19T12:58:46.023652+03:00","package":"app","test":"TestPlaceBidRejectsLowerAmount","message":"START"}
+{"time":"2026-04-19T12:58:46.023677+03:00","package":"app","test":"TestPlaceBidRejectsLowerAmount","message":"END"}
+========== END TestPlaceBidRejectsLowerAmount (app) ==========
+========== START TestPlaceBidRejectsAfterEnd (app) ==========
+{"time":"2026-04-19T12:58:46.023752+03:00","package":"app","test":"TestPlaceBidRejectsAfterEnd","message":"START"}
+{"time":"2026-04-19T12:58:46.023779+03:00","package":"app","test":"TestPlaceBidRejectsAfterEnd","message":"END"}
+========== END TestPlaceBidRejectsAfterEnd (app) ==========
+========== START TestPublishAuctionRejectsAlreadyPublished (app) ==========
+{"time":"2026-04-19T12:58:46.023849+03:00","package":"app","test":"TestPublishAuctionRejectsAlreadyPublished","message":"START"}
+{"time":"2026-04-19T12:58:46.023873+03:00","package":"app","test":"TestPublishAuctionRejectsAlreadyPublished","message":"END"}
+========== END TestPublishAuctionRejectsAlreadyPublished (app) ==========
+========== START TestCloseAuctionRejectsAlreadyClosed (app) ==========
+{"time":"2026-04-19T12:58:46.023947+03:00","package":"app","test":"TestCloseAuctionRejectsAlreadyClosed","message":"START"}
+{"time":"2026-04-19T12:58:46.023974+03:00","package":"app","test":"TestCloseAuctionRejectsAlreadyClosed","message":"END"}
+========== END TestCloseAuctionRejectsAlreadyClosed (app) ==========
+========== START TestCreateAuctionSavesAggregate (app) ==========
+{"time":"2026-04-19T13:03:52.547215+03:00","package":"app","test":"TestCreateAuctionSavesAggregate","message":"START"}
+{"time":"2026-04-19T13:03:52.547387+03:00","package":"app","test":"TestCreateAuctionSavesAggregate","message":"create auction lot_id=lot-1 starts_at=2026-04-19 12:03:52.547369 +0300 MSK m=-3599.999061791 ends_at=2026-04-19 13:03:52.547369 +0300 MSK m=+0.000938209"}
+{"time":"2026-04-19T13:03:52.547428+03:00","package":"app","test":"TestCreateAuctionSavesAggregate","message":"END"}
+========== END TestCreateAuctionSavesAggregate (app) ==========
+========== START TestCreateAuctionIsIdempotentWhenAuctionExists (app) ==========
+{"time":"2026-04-19T13:03:52.547588+03:00","package":"app","test":"TestCreateAuctionIsIdempotentWhenAuctionExists","message":"START"}
+{"time":"2026-04-19T13:03:52.547639+03:00","package":"app","test":"TestCreateAuctionIsIdempotentWhenAuctionExists","message":"END"}
+========== END TestCreateAuctionIsIdempotentWhenAuctionExists (app) ==========
+========== START TestPublishAuctionOrchestratesLoadSavePublish (app) ==========
+{"time":"2026-04-19T13:03:52.547754+03:00","package":"app","test":"TestPublishAuctionOrchestratesLoadSavePublish","message":"START"}
+{"time":"2026-04-19T13:03:52.547799+03:00","package":"app","test":"TestPublishAuctionOrchestratesLoadSavePublish","message":"auction id=1 lot_id=lot-1 state=DRAFT"}
+{"time":"2026-04-19T13:03:52.547846+03:00","package":"app","test":"TestPublishAuctionOrchestratesLoadSavePublish","message":"calls=[load_for_update save outbox]"}
+{"time":"2026-04-19T13:03:52.547905+03:00","package":"app","test":"TestPublishAuctionOrchestratesLoadSavePublish","message":"END"}
+========== END TestPublishAuctionOrchestratesLoadSavePublish (app) ==========
+========== START TestPlaceBidOrchestratesLoadSavePublish (app) ==========
+{"time":"2026-04-19T13:03:52.548052+03:00","package":"app","test":"TestPlaceBidOrchestratesLoadSavePublish","message":"START"}
+{"time":"2026-04-19T13:03:52.548083+03:00","package":"app","test":"TestPlaceBidOrchestratesLoadSavePublish","message":"auction id=1 lot_id=lot-1 state=DRAFT"}
+{"time":"2026-04-19T13:03:52.548131+03:00","package":"app","test":"TestPlaceBidOrchestratesLoadSavePublish","message":"place bid amount=100 placed_at=2026-04-19 13:02:52.548067 +0300 MSK m=-59.998363749"}
+{"time":"2026-04-19T13:03:52.548172+03:00","package":"app","test":"TestPlaceBidOrchestratesLoadSavePublish","message":"calls=[load_for_update save_bid save outbox] bid_saved_amount=100"}
+{"time":"2026-04-19T13:03:52.548201+03:00","package":"app","test":"TestPlaceBidOrchestratesLoadSavePublish","message":"END"}
+========== END TestPlaceBidOrchestratesLoadSavePublish (app) ==========
+========== START TestCloseAuctionOrchestratesLoadSavePublish (app) ==========
+{"time":"2026-04-19T13:03:52.548326+03:00","package":"app","test":"TestCloseAuctionOrchestratesLoadSavePublish","message":"START"}
+{"time":"2026-04-19T13:03:52.548371+03:00","package":"app","test":"TestCloseAuctionOrchestratesLoadSavePublish","message":"auction id=1 lot_id=lot-1 state=DRAFT"}
+{"time":"2026-04-19T13:03:52.548418+03:00","package":"app","test":"TestCloseAuctionOrchestratesLoadSavePublish","message":"calls=[load_for_update top_bids winners save outbox]"}
+{"time":"2026-04-19T13:03:52.548451+03:00","package":"app","test":"TestCloseAuctionOrchestratesLoadSavePublish","message":"END"}
+========== END TestCloseAuctionOrchestratesLoadSavePublish (app) ==========
+========== START TestCancelAuctionOrchestratesLoadSavePublish (app) ==========
+{"time":"2026-04-19T13:03:52.548576+03:00","package":"app","test":"TestCancelAuctionOrchestratesLoadSavePublish","message":"START"}
+{"time":"2026-04-19T13:03:52.548623+03:00","package":"app","test":"TestCancelAuctionOrchestratesLoadSavePublish","message":"auction id=1 lot_id=lot-1 state=DRAFT"}
+{"time":"2026-04-19T13:03:52.548667+03:00","package":"app","test":"TestCancelAuctionOrchestratesLoadSavePublish","message":"calls=[load_for_update save outbox]"}
+{"time":"2026-04-19T13:03:52.548713+03:00","package":"app","test":"TestCancelAuctionOrchestratesLoadSavePublish","message":"END"}
+========== END TestCancelAuctionOrchestratesLoadSavePublish (app) ==========
+========== START TestPlaceBidRejectsLowerAmount (app) ==========
+{"time":"2026-04-19T13:03:52.548832+03:00","package":"app","test":"TestPlaceBidRejectsLowerAmount","message":"START"}
+{"time":"2026-04-19T13:03:52.54888+03:00","package":"app","test":"TestPlaceBidRejectsLowerAmount","message":"END"}
+========== END TestPlaceBidRejectsLowerAmount (app) ==========
+========== START TestPlaceBidRejectsAfterEnd (app) ==========
+{"time":"2026-04-19T13:03:52.548999+03:00","package":"app","test":"TestPlaceBidRejectsAfterEnd","message":"START"}
+{"time":"2026-04-19T13:03:52.549048+03:00","package":"app","test":"TestPlaceBidRejectsAfterEnd","message":"END"}
+========== END TestPlaceBidRejectsAfterEnd (app) ==========
+========== START TestPublishAuctionRejectsAlreadyPublished (app) ==========
+{"time":"2026-04-19T13:03:52.549164+03:00","package":"app","test":"TestPublishAuctionRejectsAlreadyPublished","message":"START"}
+{"time":"2026-04-19T13:03:52.549209+03:00","package":"app","test":"TestPublishAuctionRejectsAlreadyPublished","message":"END"}
+========== END TestPublishAuctionRejectsAlreadyPublished (app) ==========
+========== START TestCloseAuctionRejectsAlreadyClosed (app) ==========
+{"time":"2026-04-19T13:03:52.549332+03:00","package":"app","test":"TestCloseAuctionRejectsAlreadyClosed","message":"START"}
+{"time":"2026-04-19T13:03:52.549377+03:00","package":"app","test":"TestCloseAuctionRejectsAlreadyClosed","message":"END"}
+========== END TestCloseAuctionRejectsAlreadyClosed (app) ==========
+========== START TestCreateAuctionSavesAggregate (app) ==========
+{"time":"2026-04-19T13:16:11.403279+03:00","package":"app","test":"TestCreateAuctionSavesAggregate","message":"START"}
+{"time":"2026-04-19T13:16:11.4035+03:00","package":"app","test":"TestCreateAuctionSavesAggregate","message":"create auction lot_id=lot-1 starts_at=2026-04-19 12:16:11.403473 +0300 MSK m=-3599.998182332 ends_at=2026-04-19 13:16:11.403473 +0300 MSK m=+0.001817668"}
+{"time":"2026-04-19T13:16:11.403551+03:00","package":"app","test":"TestCreateAuctionSavesAggregate","message":"END"}
+========== END TestCreateAuctionSavesAggregate (app) ==========
+========== START TestCreateAuctionIsIdempotentWhenAuctionExists (app) ==========
+{"time":"2026-04-19T13:16:11.403658+03:00","package":"app","test":"TestCreateAuctionIsIdempotentWhenAuctionExists","message":"START"}
+{"time":"2026-04-19T13:16:11.403687+03:00","package":"app","test":"TestCreateAuctionIsIdempotentWhenAuctionExists","message":"END"}
+========== END TestCreateAuctionIsIdempotentWhenAuctionExists (app) ==========
+========== START TestPublishAuctionOrchestratesLoadSavePublish (app) ==========
+{"time":"2026-04-19T13:16:11.403781+03:00","package":"app","test":"TestPublishAuctionOrchestratesLoadSavePublish","message":"START"}
+{"time":"2026-04-19T13:16:11.403811+03:00","package":"app","test":"TestPublishAuctionOrchestratesLoadSavePublish","message":"auction id=1 lot_id=lot-1 state=DRAFT"}
+{"time":"2026-04-19T13:16:11.403842+03:00","package":"app","test":"TestPublishAuctionOrchestratesLoadSavePublish","message":"calls=[load_for_update save outbox]"}
+{"time":"2026-04-19T13:16:11.403898+03:00","package":"app","test":"TestPublishAuctionOrchestratesLoadSavePublish","message":"END"}
+========== END TestPublishAuctionOrchestratesLoadSavePublish (app) ==========
+========== START TestPlaceBidOrchestratesLoadSavePublish (app) ==========
+{"time":"2026-04-19T13:16:11.403973+03:00","package":"app","test":"TestPlaceBidOrchestratesLoadSavePublish","message":"START"}
+{"time":"2026-04-19T13:16:11.403999+03:00","package":"app","test":"TestPlaceBidOrchestratesLoadSavePublish","message":"auction id=1 lot_id=lot-1 state=DRAFT"}
+{"time":"2026-04-19T13:16:11.404027+03:00","package":"app","test":"TestPlaceBidOrchestratesLoadSavePublish","message":"place bid amount=100 placed_at=2026-04-19 13:15:11.403984 +0300 MSK m=-59.997671749"}
+{"time":"2026-04-19T13:16:11.404062+03:00","package":"app","test":"TestPlaceBidOrchestratesLoadSavePublish","message":"calls=[load_for_update save_bid save outbox] bid_saved_amount=100"}
+{"time":"2026-04-19T13:16:11.404107+03:00","package":"app","test":"TestPlaceBidOrchestratesLoadSavePublish","message":"END"}
+========== END TestPlaceBidOrchestratesLoadSavePublish (app) ==========
+========== START TestCloseAuctionOrchestratesLoadSavePublish (app) ==========
+{"time":"2026-04-19T13:16:11.404255+03:00","package":"app","test":"TestCloseAuctionOrchestratesLoadSavePublish","message":"START"}
+{"time":"2026-04-19T13:16:11.404293+03:00","package":"app","test":"TestCloseAuctionOrchestratesLoadSavePublish","message":"auction id=1 lot_id=lot-1 state=DRAFT"}
+{"time":"2026-04-19T13:16:11.40434+03:00","package":"app","test":"TestCloseAuctionOrchestratesLoadSavePublish","message":"calls=[load_for_update top_bids winners save outbox]"}
+{"time":"2026-04-19T13:16:11.404372+03:00","package":"app","test":"TestCloseAuctionOrchestratesLoadSavePublish","message":"END"}
+========== END TestCloseAuctionOrchestratesLoadSavePublish (app) ==========
+========== START TestCancelAuctionOrchestratesLoadSavePublish (app) ==========
+{"time":"2026-04-19T13:16:11.404497+03:00","package":"app","test":"TestCancelAuctionOrchestratesLoadSavePublish","message":"START"}
+{"time":"2026-04-19T13:16:11.404542+03:00","package":"app","test":"TestCancelAuctionOrchestratesLoadSavePublish","message":"auction id=1 lot_id=lot-1 state=DRAFT"}
+{"time":"2026-04-19T13:16:11.404586+03:00","package":"app","test":"TestCancelAuctionOrchestratesLoadSavePublish","message":"calls=[load_for_update save outbox]"}
+{"time":"2026-04-19T13:16:11.40463+03:00","package":"app","test":"TestCancelAuctionOrchestratesLoadSavePublish","message":"END"}
+========== END TestCancelAuctionOrchestratesLoadSavePublish (app) ==========
+========== START TestPlaceBidRejectsLowerAmount (app) ==========
+{"time":"2026-04-19T13:16:11.40475+03:00","package":"app","test":"TestPlaceBidRejectsLowerAmount","message":"START"}
+{"time":"2026-04-19T13:16:11.404794+03:00","package":"app","test":"TestPlaceBidRejectsLowerAmount","message":"END"}
+========== END TestPlaceBidRejectsLowerAmount (app) ==========
+========== START TestPlaceBidRejectsAfterEnd (app) ==========
+{"time":"2026-04-19T13:16:11.404913+03:00","package":"app","test":"TestPlaceBidRejectsAfterEnd","message":"START"}
+{"time":"2026-04-19T13:16:11.404959+03:00","package":"app","test":"TestPlaceBidRejectsAfterEnd","message":"END"}
+========== END TestPlaceBidRejectsAfterEnd (app) ==========
+========== START TestPublishAuctionRejectsAlreadyPublished (app) ==========
+{"time":"2026-04-19T13:16:11.405076+03:00","package":"app","test":"TestPublishAuctionRejectsAlreadyPublished","message":"START"}
+{"time":"2026-04-19T13:16:11.405122+03:00","package":"app","test":"TestPublishAuctionRejectsAlreadyPublished","message":"END"}
+========== END TestPublishAuctionRejectsAlreadyPublished (app) ==========
+========== START TestCloseAuctionRejectsAlreadyClosed (app) ==========
+{"time":"2026-04-19T13:16:11.405244+03:00","package":"app","test":"TestCloseAuctionRejectsAlreadyClosed","message":"START"}
+{"time":"2026-04-19T13:16:11.40529+03:00","package":"app","test":"TestCloseAuctionRejectsAlreadyClosed","message":"END"}
+========== END TestCloseAuctionRejectsAlreadyClosed (app) ==========

@@ -248,6 +248,7 @@ Trading **не знает**, кто подписан. Он просто публ
 - стек: `Next.js + TypeScript + React Query + react-hook-form + zod`
 - frontend работает как UI/proxy-слой над существующими сервисами
 - где backend query endpoints отсутствуют, используются явные temporary placeholders через local mirror
+- полный локальный стек теперь можно поднять через `docker compose up -d postgres migrate identity catalog trading deals frontend`
 
 Детали запуска, env и матрица real API vs mock описаны в [`apps/frontend/README.md`](apps/frontend/README.md).
 

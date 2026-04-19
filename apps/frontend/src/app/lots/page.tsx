@@ -5,7 +5,7 @@ import { useDeferredValue, useMemo, useState } from "react";
 import { useLotsQuery } from "@/entities/lot/model/hooks";
 import { useAuth } from "@/entities/session/model/auth-context";
 import { LotCard } from "@/entities/lot/ui/lot-card";
-import { isOwnedLot } from "@/shared/lib/access";
+import { isOwnedLot, isSellerSession } from "@/shared/lib/access";
 import { FilterBar } from "@/features/marketplace/ui/filter-bar";
 import { EmptyState } from "@/shared/ui/empty-state";
 import { Field } from "@/shared/ui/field";
@@ -13,6 +13,7 @@ import { Select } from "@/shared/ui/select";
 
 export default function LotsPage() {
   const { session } = useAuth();
+  const canCreateSupply = isSellerSession(session);
   const lotsQuery = useLotsQuery();
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all");
@@ -79,8 +80,8 @@ export default function LotsPage() {
         <EmptyState
           title="Лоты не найдены"
           description="У вас пока нет доступных лотов. Создайте свой лот или снимите фильтры."
-          actionHref="/create/lot"
-          actionLabel="Создать лот"
+          actionHref={canCreateSupply ? "/create/lot" : undefined}
+          actionLabel={canCreateSupply ? "Создать лот" : undefined}
         />
       )}
     </div>

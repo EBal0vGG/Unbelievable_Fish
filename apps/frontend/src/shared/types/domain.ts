@@ -1,10 +1,13 @@
 export type DataSource = "api" | "mock" | "mixed";
-export type UserRole = "admin" | "user";
+export type UserRole = "admin" | "seller" | "buyer";
 
 export interface UserSession {
+  accessToken: string;
   companyId: string;
   userId: string;
   role: UserRole;
+  name: string;
+  login: string;
   mode: "login" | "register";
   updatedAt: string;
 }

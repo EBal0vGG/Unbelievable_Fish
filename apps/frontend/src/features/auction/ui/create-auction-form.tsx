@@ -10,7 +10,7 @@ import { useLotsQuery } from "@/entities/lot/model/hooks";
 import { useAuth } from "@/entities/session/model/auth-context";
 import { ApiError } from "@/shared/api/http-client";
 import { createAuction } from "@/shared/api/trading-service";
-import { isOwnedLot } from "@/shared/lib/access";
+import { isOwnedLot, isSellerSession } from "@/shared/lib/access";
 import { toDateTimeLocalValue } from "@/shared/lib/format";
 import { Button } from "@/shared/ui/button";
 import { Card } from "@/shared/ui/card";
@@ -34,6 +34,7 @@ type Values = z.infer<typeof schema>;
 
 export function CreateAuctionForm() {
   const { session } = useAuth();
+  const canCreateAuction = isSellerSession(session);
   const queryClient = useQueryClient();
   const lotsQuery = useLotsQuery();
   const [isCreated, setIsCreated] = useState(false);
@@ -58,6 +59,9 @@ export function CreateAuctionForm() {
       setIsCreated(false);
       if (!session) {
         throw new ApiError("Войдите в профиль, чтобы выставить аукцион", 400, "MISSING_COMPANY_ID");
+      }
+      if (!canCreateAuction) {
+        throw new ApiError("Создание аукциона доступно только продавцу", 403, "SELLER_ONLY");
       }
       return createAuction(
         {
@@ -95,6 +99,10 @@ export function CreateAuctionForm() {
         {!session ? (
           <Notice tone="warning" title="Нужен вход">
             Войдите в профиль, чтобы выставить аукцион.
+          </Notice>
+        ) : !canCreateAuction ? (
+          <Notice tone="warning" title="Нужна роль seller">
+            Выставление аукциона доступно только пользователю с ролью seller.
           </Notice>
         ) : null}
 
@@ -147,7 +155,10 @@ export function CreateAuctionForm() {
             <Input type="datetime-local" {...form.register("endsAt")} />
           </Field>
           <div className="inline-actions">
-            <Button disabled={mutation.isPending || !session?.companyId || !session.userId} type="submit">
+            <Button
+              disabled={mutation.isPending || !session?.companyId || !session.userId || !canCreateAuction}
+              type="submit"
+            >
               {mutation.isPending ? "Отправляем..." : "Создать аукцион"}
             </Button>
           </div>

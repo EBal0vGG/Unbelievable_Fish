@@ -6,6 +6,7 @@ import (
 
 	"github.com/EBal0vGG/Unbelievable_Fish/internal/deals/app"
 	"github.com/EBal0vGG/Unbelievable_Fish/internal/deals/deal"
+	identityauth "github.com/EBal0vGG/Unbelievable_Fish/internal/identity/auth"
 )
 
 var (
@@ -25,6 +26,14 @@ func MapError(err error) HTTPError {
 	switch {
 	case errors.As(err, &badReq):
 		return HTTPError{http.StatusBadRequest, badReq.code, badReq.message}
+	case errors.Is(err, identityauth.ErrMissingAuthorizationHeader):
+		return HTTPError{http.StatusUnauthorized, "MISSING_AUTHORIZATION", "missing Authorization header"}
+	case errors.Is(err, identityauth.ErrInvalidAuthorizationHeader):
+		return HTTPError{http.StatusUnauthorized, "INVALID_AUTHORIZATION", "invalid Authorization header"}
+	case errors.Is(err, identityauth.ErrInvalidToken), errors.Is(err, identityauth.ErrExpiredToken):
+		return HTTPError{http.StatusUnauthorized, "INVALID_TOKEN", "invalid token"}
+	case errors.Is(err, identityauth.ErrForbidden):
+		return HTTPError{http.StatusForbidden, "FORBIDDEN", "forbidden"}
 	case errors.Is(err, ErrMissingCompanyID):
 		return HTTPError{http.StatusBadRequest, "MISSING_COMPANY_ID", "missing X-Company-ID header"}
 	case errors.Is(err, ErrMissingUserID):

@@ -13,6 +13,8 @@ import (
 	catalogapp "github.com/EBal0vGG/Unbelievable_Fish/internal/catalog/app"
 	catalog "github.com/EBal0vGG/Unbelievable_Fish/internal/catalog/domain"
 	catalogpg "github.com/EBal0vGG/Unbelievable_Fish/internal/catalog/postgres"
+	identityauth "github.com/EBal0vGG/Unbelievable_Fish/internal/identity/auth"
+	identity "github.com/EBal0vGG/Unbelievable_Fish/internal/identity/domain"
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
@@ -33,13 +35,18 @@ func main() {
 		catalogapp.NewRandomIDGenerator(),
 		catalogpg.NewTransactionManager(db, nil),
 	)
+	tokenProvider := identityauth.NewTokenProvider(
+		envOrDefault("IDENTITY_TOKEN_SECRET", "dev-secret"),
+		time.Duration(envDurationMinutes("IDENTITY_TOKEN_TTL_MINUTES", 24*60))*time.Minute,
+	)
+	authMiddleware := identityauth.NewMiddleware(tokenProvider, writeCatalogAuthError)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/fish", createFishHandler(service))
 	mux.HandleFunc("/products", createProductHandler(service))
 	mux.HandleFunc("/products/", publishProductHandler(service))
-	mux.HandleFunc("/lots", createLotHandler(service))
-	mux.HandleFunc("/lots/", lotCommandsHandler(service))
+	mux.Handle("/lots", authMiddleware.RequireRole(identity.RoleSeller, createLotHandler(service)))
+	mux.Handle("/lots/", authMiddleware.RequireRole(identity.RoleSeller, lotCommandsHandler(service)))
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
@@ -149,7 +156,7 @@ func createLotHandler(service *catalogapp.CatalogService) http.HandlerFunc {
 		if durationMinutes <= 0 {
 			durationMinutes = envDurationMinutes("CATALOG_AUCTION_DURATION_MINUTES", 60)
 		}
-		companyID := r.Header.Get("X-Company-ID")
+		companyID := companyIDFromRequest(r)
 		ctx := catalogapp.WithCompanyID(r.Context(), companyID)
 		id, _, err := service.CreateLot(ctx, catalogapp.CreateLotCommand{
 			ProductID:              req.ProductID,
@@ -237,4 +244,26 @@ func envDurationMinutes(key string, def int64) int64 {
 		}
 	}
 	return def
+}
+
+func companyIDFromRequest(r *http.Request) string {
+	if companyID, ok := identityauth.CompanyIDFromContext(r.Context()); ok {
+		return companyID
+	}
+	return r.Header.Get("X-Company-ID")
+}
+
+func writeCatalogAuthError(w http.ResponseWriter, r *http.Request, err error) {
+	switch {
+	case err == identityauth.ErrMissingAuthorizationHeader:
+		http.Error(w, "missing Authorization header", http.StatusUnauthorized)
+	case err == identityauth.ErrInvalidAuthorizationHeader:
+		http.Error(w, "invalid Authorization header", http.StatusUnauthorized)
+	case err == identityauth.ErrInvalidToken || err == identityauth.ErrExpiredToken:
+		http.Error(w, "invalid token", http.StatusUnauthorized)
+	case err == identityauth.ErrForbidden:
+		http.Error(w, "forbidden", http.StatusForbidden)
+	default:
+		http.Error(w, "internal error", http.StatusInternalServerError)
+	}
 }
