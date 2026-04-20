@@ -39,6 +39,14 @@ func TestCompanyRepositorySaveAndLoad(t *testing.T) {
 	if !exists {
 		t.Fatal("expected company to exist")
 	}
+
+	loadedByRequisites, err := repo.GetByRequisites(context.Background(), company.INN(), company.OGRN())
+	if err != nil {
+		t.Fatalf("load by requisites error: %v", err)
+	}
+	if loadedByRequisites.ID() != company.ID() {
+		t.Fatalf("unexpected company by requisites: %+v", loadedByRequisites)
+	}
 }
 
 func TestUserRepositorySaveAndLoad(t *testing.T) {

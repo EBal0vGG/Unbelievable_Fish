@@ -16,6 +16,7 @@ type UserRepository interface {
 type CompanyRepository interface {
 	Save(ctx context.Context, company *identity.Company) error
 	GetByID(ctx context.Context, companyID string) (*identity.Company, error)
+	GetByRequisites(ctx context.Context, inn string, ogrn string) (*identity.Company, error)
 }
 
 type PasswordHasher interface {

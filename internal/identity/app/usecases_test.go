@@ -60,13 +60,15 @@ func (r *fakeUserRepo) GetByLogin(ctx context.Context, login string) (*identity.
 
 type fakeCompanyRepo struct {
 	byID       map[string]*identity.Company
+	byKey      map[string]*identity.Company
 	saveErr    error
 	getByIDErr error
 }
 
 func newFakeCompanyRepo() *fakeCompanyRepo {
 	return &fakeCompanyRepo{
-		byID: make(map[string]*identity.Company),
+		byID:  make(map[string]*identity.Company),
+		byKey: make(map[string]*identity.Company),
 	}
 }
 
@@ -76,6 +78,7 @@ func (r *fakeCompanyRepo) Save(ctx context.Context, company *identity.Company) e
 		return r.saveErr
 	}
 	r.byID[company.ID()] = company
+	r.byKey[company.INN()+"|"+company.OGRN()] = company
 	return nil
 }
 
@@ -85,6 +88,15 @@ func (r *fakeCompanyRepo) GetByID(ctx context.Context, companyID string) (*ident
 		return nil, r.getByIDErr
 	}
 	company, ok := r.byID[companyID]
+	if !ok {
+		return nil, ErrCompanyNotFound
+	}
+	return company, nil
+}
+
+func (r *fakeCompanyRepo) GetByRequisites(ctx context.Context, inn string, ogrn string) (*identity.Company, error) {
+	_ = ctx
+	company, ok := r.byKey[strings.TrimSpace(inn)+"|"+strings.TrimSpace(ogrn)]
 	if !ok {
 		return nil, ErrCompanyNotFound
 	}
@@ -191,6 +203,43 @@ func TestRegisterCompanySuccess(t *testing.T) {
 	}
 }
 
+func TestRegisterCompanyReturnsExistingCompanyByRequisites(t *testing.T) {
+	companies := newFakeCompanyRepo()
+	existing, err := identity.NewCompany(
+		"company-existing",
+		"North Sea LLC",
+		"7707083893",
+		"1027700132195",
+		time.Date(2024, time.March, 1, 10, 0, 0, 0, time.UTC),
+	)
+	if err != nil {
+		t.Fatalf("unexpected domain error: %v", err)
+	}
+	companies.byID[existing.ID()] = existing
+	companies.byKey[existing.INN()+"|"+existing.OGRN()] = existing
+
+	uc, err := NewRegisterCompany(companies, fakeIDGenerator{companyID: "company-new"}, fixedClock{now: time.Date(2024, time.April, 1, 10, 0, 0, 0, time.UTC)})
+	if err != nil {
+		t.Fatalf("unexpected constructor error: %v", err)
+	}
+
+	result, err := uc.Execute(context.Background(), RegisterCompanyCommand{
+		Name: "Other Name",
+		INN:  "7707083893",
+		OGRN: "1027700132195",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if result.ID != "company-existing" {
+		t.Fatalf("expected existing company id, got %q", result.ID)
+	}
+	if _, ok := companies.byID["company-new"]; ok {
+		t.Fatalf("expected no new company to be created")
+	}
+}
+
 func TestRegisterUserSuccess(t *testing.T) {
 	companies := newFakeCompanyRepo()
 	company, err := identity.NewCompany("company-1", "Acme Fish", "7707083893", "1027700132195", time.Now())
@@ -198,6 +247,7 @@ func TestRegisterUserSuccess(t *testing.T) {
 		t.Fatalf("unexpected domain error: %v", err)
 	}
 	companies.byID[company.ID()] = company
+	companies.byKey[company.INN()+"|"+company.OGRN()] = company
 	users := newFakeUserRepo()
 	hasher := &fakePasswordHasher{hashValue: "hashed-password"}
 
@@ -235,6 +285,42 @@ func TestRegisterUserSuccess(t *testing.T) {
 	}
 }
 
+func TestRegisterUserSuccessByCompanyRequisites(t *testing.T) {
+	companies := newFakeCompanyRepo()
+	company, err := identity.NewCompany("company-1", "Acme Fish", "7707083893", "1027700132195", time.Now())
+	if err != nil {
+		t.Fatalf("unexpected domain error: %v", err)
+	}
+	companies.byID[company.ID()] = company
+	companies.byKey[company.INN()+"|"+company.OGRN()] = company
+	users := newFakeUserRepo()
+	hasher := &fakePasswordHasher{hashValue: "hashed-password"}
+
+	uc, err := NewRegisterUser(users, companies, hasher, fakeIDGenerator{userID: "user-2"})
+	if err != nil {
+		t.Fatalf("unexpected constructor error: %v", err)
+	}
+
+	result, err := uc.Execute(context.Background(), RegisterUserCommand{
+		CompanyINN:  "7707083893",
+		CompanyOGRN: "1027700132195",
+		Name:        "Bob",
+		Role:        identity.RoleSeller,
+		Login:       "bob@example.com",
+		Password:    "secret",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if result.ID != "user-2" {
+		t.Fatalf("expected user id user-2, got %q", result.ID)
+	}
+	if result.CompanyID != "company-1" {
+		t.Fatalf("expected company id company-1, got %q", result.CompanyID)
+	}
+}
+
 func TestRegisterUserFailsWhenCompanyNotFound(t *testing.T) {
 	users := newFakeUserRepo()
 	companies := newFakeCompanyRepo()
@@ -264,6 +350,7 @@ func TestRegisterUserFailsWhenLoginAlreadyUsed(t *testing.T) {
 		t.Fatalf("unexpected domain error: %v", err)
 	}
 	companies.byID[company.ID()] = company
+	companies.byKey[company.INN()+"|"+company.OGRN()] = company
 
 	users := newFakeUserRepo()
 	existing, err := identity.NewUser("user-existing", "company-1", "Bob", identity.RoleSeller, "alice@example.com", "hash")

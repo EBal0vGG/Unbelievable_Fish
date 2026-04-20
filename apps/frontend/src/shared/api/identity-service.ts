@@ -8,7 +8,9 @@ interface RegisterCompanyInput {
 }
 
 interface RegisterUserInput {
-  companyId: string;
+  companyId?: string;
+  companyInn?: string;
+  companyOgrn?: string;
   name: string;
   role: UserRole;
   login: string;
@@ -54,6 +56,8 @@ export async function registerUser(input: RegisterUserInput): Promise<UserRespon
     method: "POST",
     body: {
       company_id: input.companyId,
+      company_inn: input.companyInn,
+      company_ogrn: input.companyOgrn,
       name: input.name,
       role: input.role,
       login: input.login,

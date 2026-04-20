@@ -56,8 +56,35 @@ SELECT company_id, name, inn, ogrn, status, created_at
 FROM identity_companies
 WHERE company_id = $1
 `
+	return r.getOne(ctx, query, companyID)
+}
+
+func (r *CompanyRepository) GetByRequisites(ctx context.Context, inn string, ogrn string) (*identity.Company, error) {
+	const query = `
+SELECT company_id, name, inn, ogrn, status, created_at
+FROM identity_companies
+WHERE inn = $1 AND ogrn = $2
+`
+	return r.getOne(ctx, query, inn, ogrn)
+}
+
+func (r *CompanyRepository) ExistsByID(ctx context.Context, companyID string) (bool, error) {
+	const query = `SELECT 1 FROM identity_companies WHERE company_id = $1`
 	dbtx := DBTXFromContext(ctx, r.db)
 	row := dbtx.QueryRowContext(ctx, query, companyID)
+	var exists int
+	if err := row.Scan(&exists); err != nil {
+		if err == sql.ErrNoRows {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
+}
+
+func (r *CompanyRepository) getOne(ctx context.Context, query string, args ...any) (*identity.Company, error) {
+	dbtx := DBTXFromContext(ctx, r.db)
+	row := dbtx.QueryRowContext(ctx, query, args...)
 
 	var (
 		id        string
@@ -98,18 +125,4 @@ WHERE company_id = $1
 	default:
 		return nil, fmt.Errorf("unsupported company status: %s", status)
 	}
-}
-
-func (r *CompanyRepository) ExistsByID(ctx context.Context, companyID string) (bool, error) {
-	const query = `SELECT 1 FROM identity_companies WHERE company_id = $1`
-	dbtx := DBTXFromContext(ctx, r.db)
-	row := dbtx.QueryRowContext(ctx, query, companyID)
-	var exists int
-	if err := row.Scan(&exists); err != nil {
-		if err == sql.ErrNoRows {
-			return false, nil
-		}
-		return false, err
-	}
-	return true, nil
 }

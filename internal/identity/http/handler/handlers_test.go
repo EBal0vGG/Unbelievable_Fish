@@ -53,22 +53,36 @@ func (r *fakeUserRepo) GetByLogin(ctx context.Context, login string) (*identity.
 }
 
 type fakeCompanyRepo struct {
-	byID map[string]*identity.Company
+	byID  map[string]*identity.Company
+	byKey map[string]*identity.Company
 }
 
 func newFakeCompanyRepo() *fakeCompanyRepo {
-	return &fakeCompanyRepo{byID: make(map[string]*identity.Company)}
+	return &fakeCompanyRepo{
+		byID:  make(map[string]*identity.Company),
+		byKey: make(map[string]*identity.Company),
+	}
 }
 
 func (r *fakeCompanyRepo) Save(ctx context.Context, company *identity.Company) error {
 	_ = ctx
 	r.byID[company.ID()] = company
+	r.byKey[company.INN()+"|"+company.OGRN()] = company
 	return nil
 }
 
 func (r *fakeCompanyRepo) GetByID(ctx context.Context, companyID string) (*identity.Company, error) {
 	_ = ctx
 	company, ok := r.byID[companyID]
+	if !ok {
+		return nil, identityapp.ErrCompanyNotFound
+	}
+	return company, nil
+}
+
+func (r *fakeCompanyRepo) GetByRequisites(ctx context.Context, inn string, ogrn string) (*identity.Company, error) {
+	_ = ctx
+	company, ok := r.byKey[inn+"|"+ogrn]
 	if !ok {
 		return nil, identityapp.ErrCompanyNotFound
 	}

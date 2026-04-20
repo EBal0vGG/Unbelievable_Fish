@@ -93,7 +93,7 @@ export function AuthForm({
     try {
       const company = await registerCompany(values);
       setCreatedCompany({ id: company.id, name: company.name });
-      setCompanyMessage(`Компания ${company.name} зарегистрирована. Теперь создайте пользователя.`);
+      setCompanyMessage(`Компания ${company.name} выбрана. Теперь создайте пользователя.`);
     } catch (error) {
       setAuthError(error instanceof ApiError ? error.message : "Не удалось зарегистрировать компанию.");
     }
@@ -109,6 +109,8 @@ export function AuthForm({
     try {
       await registerUser({
         companyId: createdCompany.id,
+        companyInn: companyForm.getValues("inn"),
+        companyOgrn: companyForm.getValues("ogrn"),
         name: values.name,
         role: values.role,
         login: values.login,
@@ -167,7 +169,7 @@ export function AuthForm({
         <div className="stack-lg">
           <div>
             <h1>Регистрация компании и пользователя</h1>
-            <p className="muted">Сначала зарегистрируйте компанию, затем создайте пользователя.</p>
+            <p className="muted">Укажите реквизиты компании, чтобы выбрать существующую или зарегистрировать новую, затем создайте пользователя.</p>
           </div>
 
           {authError ? (
@@ -177,7 +179,7 @@ export function AuthForm({
           ) : null}
 
           {companyMessage ? (
-            <Notice tone="success" title="Компания зарегистрирована">
+            <Notice tone="success" title="Компания выбрана">
               {companyMessage}
             </Notice>
           ) : null}
@@ -200,8 +202,8 @@ export function AuthForm({
                 {companyForm.formState.isSubmitting
                   ? "Сохраняем..."
                   : isCompanyRegistered
-                    ? "Компания зарегистрирована"
-                    : "Зарегистрировать компанию"}
+                    ? "Компания выбрана"
+                    : "Продолжить с компанией"}
               </Button>
             </div>
           </form>

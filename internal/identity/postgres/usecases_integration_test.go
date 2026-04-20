@@ -134,3 +134,64 @@ func TestIdentityUseCasesWithPostgresRepositories(t *testing.T) {
 		t.Fatalf("unexpected current user: %+v", currentUser)
 	}
 }
+
+func TestRegisterUserWithExistingCompanyByRequisites(t *testing.T) {
+	db := openIntegrationDB(t, "identity-existing-company")
+	companyRepo := NewCompanyRepository(db)
+	userRepo := NewUserRepository(db)
+
+	registerCompany, err := identityapp.NewRegisterCompany(
+		companyRepo,
+		fixedIDGenerator{companyID: "company-1"},
+		fixedClock{now: time.Date(2024, time.April, 1, 10, 0, 0, 0, time.UTC)},
+	)
+	if err != nil {
+		t.Fatalf("unexpected constructor error: %v", err)
+	}
+
+	firstCompany, err := registerCompany.Execute(context.Background(), identityapp.RegisterCompanyCommand{
+		Name: "Acme Fish",
+		INN:  "7707083893",
+		OGRN: "1027700132195",
+	})
+	if err != nil {
+		t.Fatalf("register company error: %v", err)
+	}
+
+	secondCompany, err := registerCompany.Execute(context.Background(), identityapp.RegisterCompanyCommand{
+		Name: "Another Name",
+		INN:  "7707083893",
+		OGRN: "1027700132195",
+	})
+	if err != nil {
+		t.Fatalf("register existing company error: %v", err)
+	}
+	if secondCompany.ID != firstCompany.ID {
+		t.Fatalf("expected existing company id %q, got %q", firstCompany.ID, secondCompany.ID)
+	}
+
+	registerUser, err := identityapp.NewRegisterUser(
+		userRepo,
+		companyRepo,
+		fakePasswordHasher{hashValue: "hashed:"},
+		fixedIDGenerator{userID: "user-2"},
+	)
+	if err != nil {
+		t.Fatalf("unexpected constructor error: %v", err)
+	}
+
+	user, err := registerUser.Execute(context.Background(), identityapp.RegisterUserCommand{
+		CompanyINN:  "7707083893",
+		CompanyOGRN: "1027700132195",
+		Name:        "Bob",
+		Role:        identity.RoleSeller,
+		Login:       "bob@example.com",
+		Password:    "secret",
+	})
+	if err != nil {
+		t.Fatalf("register user error: %v", err)
+	}
+	if user.CompanyID != firstCompany.ID {
+		t.Fatalf("expected company id %q, got %q", firstCompany.ID, user.CompanyID)
+	}
+}

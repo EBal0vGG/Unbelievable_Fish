@@ -46,14 +46,8 @@ func (uc *RegisterUser) Execute(ctx context.Context, cmd RegisterUserCommand) (U
 		return UserDTO{}, ErrPasswordRequired
 	}
 
-	companyID := strings.TrimSpace(cmd.CompanyID)
-	if companyID == "" {
-		return UserDTO{}, identity.ErrEmptyCompanyID
-	}
-	if _, err := uc.companies.GetByID(ctx, companyID); err != nil {
-		if errors.Is(err, ErrCompanyNotFound) {
-			return UserDTO{}, ErrCompanyNotFound
-		}
+	companyID, err := uc.resolveCompanyID(ctx, cmd)
+	if err != nil {
 		return UserDTO{}, err
 	}
 
@@ -86,4 +80,32 @@ func (uc *RegisterUser) Execute(ctx context.Context, cmd RegisterUserCommand) (U
 		return UserDTO{}, err
 	}
 	return userDTOFromDomain(user), nil
+}
+
+func (uc *RegisterUser) resolveCompanyID(ctx context.Context, cmd RegisterUserCommand) (string, error) {
+	companyID := strings.TrimSpace(cmd.CompanyID)
+	if companyID != "" {
+		if _, err := uc.companies.GetByID(ctx, companyID); err != nil {
+			if errors.Is(err, ErrCompanyNotFound) {
+				return "", ErrCompanyNotFound
+			}
+			return "", err
+		}
+		return companyID, nil
+	}
+
+	companyINN := strings.TrimSpace(cmd.CompanyINN)
+	companyOGRN := strings.TrimSpace(cmd.CompanyOGRN)
+	if companyINN == "" || companyOGRN == "" {
+		return "", identity.ErrEmptyCompanyID
+	}
+
+	company, err := uc.companies.GetByRequisites(ctx, companyINN, companyOGRN)
+	if err != nil {
+		if errors.Is(err, ErrCompanyNotFound) {
+			return "", ErrCompanyNotFound
+		}
+		return "", err
+	}
+	return company.ID(), nil
 }
