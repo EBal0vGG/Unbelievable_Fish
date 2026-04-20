@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -38,11 +39,10 @@ export function SiteHeader() {
     <header className="site-header">
       <div className="brand-block">
         <Link href="/" className="brand-mark">
-          <span>UF</span>
+          <Image alt="Рыбная биржа" height={54} priority src="/fish-exchange-logo.svg" width={54} />
         </Link>
         <div>
-          <p className="brand-title">Unbelievable Fish</p>
-          <p className="brand-subtitle">Оптовые продукты, лоты и аукционы</p>
+          <p className="brand-title">Рыбная биржа</p>
         </div>
       </div>
 
