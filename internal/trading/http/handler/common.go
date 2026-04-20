@@ -80,6 +80,12 @@ func writeAccepted(w http.ResponseWriter) {
 	w.WriteHeader(http.StatusAccepted)
 }
 
+func writeAcceptedJSON(w http.ResponseWriter, payload any) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusAccepted)
+	_ = json.NewEncoder(w).Encode(payload)
+}
+
 func requirePost(w http.ResponseWriter, r *http.Request, meta app.CommandMeta) bool {
 	if r.Method == http.MethodPost {
 		return true

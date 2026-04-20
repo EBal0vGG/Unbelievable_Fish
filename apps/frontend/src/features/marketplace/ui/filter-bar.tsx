@@ -21,7 +21,7 @@ export function FilterBar({
   onSourceChange,
   searchLabel = "Поиск",
   searchPlaceholder = "Продукт, лот, аукцион, компания",
-  showSource = true,
+  showSource = false,
   showStatus = true,
   extraFilters,
 }: {
@@ -64,9 +64,9 @@ export function FilterBar({
         <Field label="Источник">
           <Select value={source} onChange={(event) => onSourceChange(event.target.value)}>
             <option value="all">Все</option>
-            <option value="api">API</option>
-            <option value="mock">Mock / Local</option>
-            <option value="mixed">Mixed</option>
+            <option value="api">Синхронизировано</option>
+            <option value="mock">Локальные данные</option>
+            <option value="mixed">Частично синхронизировано</option>
           </Select>
         </Field>
       ) : null}

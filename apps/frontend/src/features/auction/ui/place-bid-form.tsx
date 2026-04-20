@@ -47,7 +47,7 @@ export function PlaceBidForm({
   const canBid = isBuyerSession(session);
   const sessionError =
     !session?.companyId ? "Войдите в профиль, чтобы делать ставки" : !session.userId ? "Войдите в профиль, чтобы делать ставки" : null;
-  const roleError = session && !canBid ? "Ставки доступны только пользователю с ролью buyer" : null;
+  const roleError = session && !canBid ? "Ставки доступны только покупателям" : null;
   const bidAccessError = getBidAccessError({
     actorCompanyId: session?.companyId,
     sellerCompanyId,

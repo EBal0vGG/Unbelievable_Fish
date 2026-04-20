@@ -39,6 +39,17 @@ export interface ProductSnapshot {
 export type ProductStatus = "DRAFT" | "PUBLISHED";
 export type LotStatus = "DRAFT" | "PUBLISHED" | "CLOSED" | "CANCELLED";
 export type AuctionState = "DRAFT" | "PUBLISHED" | "CLOSED" | "WON" | "CANCELLED";
+export type DealStatus =
+  | "pending"
+  | "confirmed"
+  | "contract_prepared"
+  | "contract_signed"
+  | "payment_requested"
+  | "paid"
+  | "shipment_requested"
+  | "shipped"
+  | "completed"
+  | "cancelled";
 
 export interface FishRecord {
   id: string;
@@ -110,6 +121,16 @@ export interface DealProjectionRecord {
   publishedAt: string;
   status: string;
   productSnapshot: ProductSnapshot;
+  source: DataSource;
+}
+
+export interface DealContractRecord {
+  number?: string;
+  preparedAt?: string;
+  signedAt?: string;
+  signedBy?: string;
+  signatureRef?: string;
+  documentUrl?: string;
 }
 
 export interface DealRecord {
@@ -120,9 +141,13 @@ export interface DealRecord {
   quantity: number;
   unitPrice: number;
   totalAmount: number;
-  status: string;
+  status: DealStatus;
   type: string;
   createdAt: string;
+  confirmedAt?: string;
+  contract?: DealContractRecord;
+  productSnapshot: ProductSnapshot;
+  source: DataSource;
 }
 
 export interface ActivityRecord {
@@ -140,5 +165,7 @@ export interface FrontendStore {
   lots: LotRecord[];
   auctions: AuctionRecord[];
   bids: BidRecord[];
+  dealProjections: DealProjectionRecord[];
+  deals: DealRecord[];
   activities: ActivityRecord[];
 }

@@ -1,13 +1,15 @@
-# Frontend MVP
+# Frontend
 
-Next.js frontend для MVP рыбной биржи. UI собран как thin client над существующими сервисами `catalog`, `trading`, `deals` и не дублирует доменную логику во фронте.
+Next.js frontend для B2B marketplace рыбной биржи. UI собран как thin client над сервисами `identity`, `catalog`, `trading`, `deals` и не дублирует доменную логику во фронте.
 
 ## Что реализовано
 
 - Реальный `identity/auth` flow через backend: `register company`, `register user`, `login`, `me`
 - Header/navigation с отображением текущего контекста
-- Главная marketplace-страница
-- Разделы `Каталог`, `Лоты`, `Аукционы`
+- Главная marketplace-страница с торговой лентой, лотами и продуктами
+- Разделы `Каталог`, `Лоты`, `Аукционы`, `Твои сделки`
+- Сделки с lifecycle: подтверждение, контракт, подпись, оплата, отгрузка, завершение, отмена, изменение цены
+- Список и детали сделок видны только авторизованной компании-участнику: покупателю или поставщику
 - Формы:
   - `Создать рыбу`
   - `Создать продукт` как helper внутри `Создать лот`
@@ -15,6 +17,7 @@ Next.js frontend для MVP рыбной биржи. UI собран как thin
   - `Создать аукцион`
   - `Сделать ставку`
 - Страница деталей аукциона с polling/refetch и bid history
+- Страница деталей сделки с timeline и action panel по Deals-командам
 - Страница `Мой контекст / мои действия`
 - Graceful fallback на mock/local read model там, где backend query/flow не доведен до UI
 
@@ -24,8 +27,8 @@ Next.js frontend для MVP рыбной биржи. UI собран как thin
 apps/frontend/src
   app/                 # Next app router + API proxy routes
   shared/              # config, fetch client, ui kit, utils, types
-  entities/            # fish / lot / auction / session hooks + cards
-  features/            # auth, filters, create forms, place bid
+  entities/            # fish / lot / auction / deal / session hooks + cards
+  features/            # auth, filters, create forms, place bid, deal actions
   widgets/             # header, dashboard sections
 ```
 
@@ -94,6 +97,17 @@ NEXT_PUBLIC_ENABLE_API_FALLBACK=true
 
 - `GET /deal-projections/{auctionId}`
 - `GET /deals/by-auction/{auctionId}`
+- `GET /deals/{dealId}`
+- `POST /deals/{dealId}/confirm`
+- `POST /deals/{dealId}/contract/prepare`
+- `POST /deals/{dealId}/contract/sign`
+- `POST /deals/{dealId}/payment/request`
+- `POST /deals/{dealId}/payment/mark-paid`
+- `POST /deals/{dealId}/shipment/request`
+- `POST /deals/{dealId}/shipment/mark-shipped`
+- `POST /deals/{dealId}/complete`
+- `POST /deals/{dealId}/cancel`
+- `POST /deals/{dealId}/price`
 
 ### Есть в OpenAPI/handlers, но сейчас не считаются надежно доступными для UI
 
@@ -118,6 +132,7 @@ NEXT_PUBLIC_ENABLE_API_FALLBACK=true
 - список auctions
 - manual create auction screen
 - bid history list
+- deals list для текущей компании, потому что backend пока не отдает `GET /deals`
 - recent actions / my context read model
 
 ## Где real API, а где mock
@@ -128,11 +143,13 @@ NEXT_PUBLIC_ENABLE_API_FALLBACK=true
 - команды создания и публикации в `catalog`
 - `place bid` в `trading`
 - projection/deal read-side в `deals`
+- command lifecycle сделок в `deals`
 
 `mock / stub fallback`
 
 - любые list endpoints, которых backend пока не отдает
 - аукционы, если нужен список или детальная страница без готового query route
+- список твоих сделок собирается из известных аукционов через `GET /deals/by-auction/{auctionId}` и локальное зеркало, затем фильтруется по текущей компании
 - регистрация пользователя
 - сценарии, где backend команда принимается, но не возвращает идентификатор сущности обратно в UI
 
@@ -155,6 +172,7 @@ UI в этих местах не переносит бизнес-правила 
 - `catalog` не отдает list/query endpoints для marketplace
 - `trading` не отдает стабильный read-model списка аукционов
 - `CreateAuction` не возвращает `auction_id`
+- `deals` не отдает list endpoint для всех сделок
 - frontend хранит access token и подставляет Bearer token в защищенные запросы
 
-Из-за этого фронт хранит временный session context и локально зеркалит созданные сущности, чтобы MVP был usable до завершения backend query-side.
+Из-за этого фронт хранит временный session context и локально зеркалит созданные сущности, чтобы marketplace оставался usable до завершения backend query-side.

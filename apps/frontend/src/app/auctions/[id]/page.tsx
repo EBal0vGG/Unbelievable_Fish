@@ -1,6 +1,7 @@
 "use client";
 
 import { useParams } from "next/navigation";
+import Link from "next/link";
 
 import { useAuctionDetailsQuery } from "@/entities/auction/model/hooks";
 import { useFishCatalogQuery } from "@/entities/fish/model/hooks";
@@ -8,9 +9,11 @@ import { useLotsQuery, useProductsQuery } from "@/entities/lot/model/hooks";
 import { PlaceBidForm } from "@/features/auction/ui/place-bid-form";
 import { useAuth } from "@/entities/session/model/auth-context";
 import { formatDateTime, formatMoney, shortId } from "@/shared/lib/format";
+import { auctionStateLabels } from "@/shared/lib/labels";
 import { getAuctionEffectiveCurrentPrice } from "@/shared/lib/trading-domain";
 import { Button } from "@/shared/ui/button";
 import { Card } from "@/shared/ui/card";
+import { EntityPhoto } from "@/shared/ui/entity-photo";
 import { EmptyState } from "@/shared/ui/empty-state";
 import { Notice } from "@/shared/ui/notice";
 
@@ -70,7 +73,7 @@ export default function AuctionDetailsPage() {
           <p className="eyebrow">Аукцион</p>
           <h1>{shortId(auction.id)}</h1>
           <p className="muted">
-            Статус: {auction.state} · лот {shortId(auction.lotId)}
+            {auctionStateLabels[auction.state]} · лот {shortId(auction.lotId)}
           </p>
         </div>
         <Button onClick={() => auctionQuery.refetch()} variant="secondary" type="button">
@@ -79,6 +82,27 @@ export default function AuctionDetailsPage() {
       </div>
 
       <div className="info-grid">
+        <Card className="form-card auction-visual-card">
+          <EntityPhoto src={lot?.photo} alt={productTitle} className="detail-photo" />
+          <div className="stack-md">
+            <div>
+              <p className="eyebrow">Лот</p>
+              <h2>{productTitle}</h2>
+              {fishDescription ? <p className="muted">{fishDescription}</p> : null}
+            </div>
+            <div className="metric-grid">
+              <div>
+                <span>Продавец</span>
+                <strong>{sellerCompanyId ?? "н/д"}</strong>
+              </div>
+              <div>
+                <span>Лот</span>
+                <strong>{shortId(auction.lotId)}</strong>
+              </div>
+            </div>
+          </div>
+        </Card>
+
         <Card className="form-card">
           <div className="stack-md">
             <h2>Сводка аукциона</h2>
@@ -223,9 +247,29 @@ export default function AuctionDetailsPage() {
               </div>
             ) : null}
             {deal ? (
-              <Notice tone="success" title="Сделка">
-                {deal.id} · статус {deal.status} · сумма {formatMoney(deal.totalAmount)}
-              </Notice>
+              <div className="deal-inline stack-md">
+                <div className="metric-grid">
+                  <div>
+                    <span>Сделка</span>
+                    <strong>{deal.id}</strong>
+                  </div>
+                  <div>
+                    <span>Статус</span>
+                    <strong>{deal.status}</strong>
+                  </div>
+                  <div>
+                    <span>Сумма</span>
+                    <strong>{formatMoney(deal.totalAmount)}</strong>
+                  </div>
+                  <div>
+                    <span>Покупатель</span>
+                    <strong>{deal.customerId}</strong>
+                  </div>
+                </div>
+                <Link className="text-link" href={`/deals/${deal.id}`}>
+                  Открыть lifecycle сделки
+                </Link>
+              </div>
             ) : null}
           </div>
         </Card>

@@ -65,7 +65,7 @@ func TestUseCaseChainHappyPathAndWinnerFallback(t *testing.T) {
 			if !ok {
 				return errors.New("unexpected payload for LotPublished")
 			}
-			if err := ucCreateAuction.Execute(ctx, tradingMeta(), evt.LotID, startsAt, endsAt); err != nil {
+			if _, err := ucCreateAuction.Execute(ctx, tradingMeta(), evt.LotID, startsAt, endsAt); err != nil {
 				return err
 			}
 			if err := ucPublish.Execute(ctx, tradingMeta(), tradingapp.AuctionID(evt.AuctionID)); err != nil {

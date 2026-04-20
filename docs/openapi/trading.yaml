@@ -140,6 +140,10 @@ paths:
       responses:
         '202':
           description: Command accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateAuctionResult'
         '400':
           description: Invalid command
           content:
@@ -386,6 +390,12 @@ components:
         ends_at:
           type: string
           format: date-time
+    CreateAuctionResult:
+      type: object
+      required: [auction_id]
+      properties:
+        auction_id:
+          type: string
     PlaceBidCommand:
       type: object
       required: [amount, placed_at]

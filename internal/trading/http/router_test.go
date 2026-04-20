@@ -115,7 +115,11 @@ func TestCommandFlowSmoke(t *testing.T) {
 	}
 
 	router := httpapi.NewRouter(
+		http.NotFoundHandler(),
+		http.NotFoundHandler(),
 		handler.NewPlaceBidHandler(placeBidUC),
+		http.NotFoundHandler(),
+		http.NotFoundHandler(),
 	)
 
 	body, _ := json.Marshal(httpapi.PlaceBidRequest{

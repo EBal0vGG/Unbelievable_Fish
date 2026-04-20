@@ -1,6 +1,7 @@
 import { Badge } from "@/shared/ui/badge";
 import { Card } from "@/shared/ui/card";
 import { shortId } from "@/shared/lib/format";
+import { productStatusLabels } from "@/shared/lib/labels";
 import type { ProductRecord } from "@/shared/types/domain";
 
 function productTone(status: ProductRecord["status"]) {
@@ -20,7 +21,7 @@ export function ProductCard({ product }: { product: ProductRecord }) {
           <p className="eyebrow">Продукт</p>
           <h3>{product.fishName}</h3>
         </div>
-        <Badge tone={productTone(product.status)}>{product.status}</Badge>
+        <Badge tone={productTone(product.status)}>{productStatusLabels[product.status]}</Badge>
       </div>
       <div className="metric-grid">
         <div>

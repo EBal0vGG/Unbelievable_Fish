@@ -9,6 +9,7 @@ import { AuthGuard } from "@/features/auth/ui/auth-guard";
 import { listActivitiesStore } from "@/shared/api/mock-store";
 import { isOwnedLot, isOwnedProduct } from "@/shared/lib/access";
 import { formatDateTime } from "@/shared/lib/format";
+import { roleLabels } from "@/shared/lib/labels";
 import { Card } from "@/shared/ui/card";
 
 export default function MyProfilePage() {
@@ -58,7 +59,7 @@ export default function MyProfilePage() {
                 </div>
                 <div>
                   <span>Роль</span>
-                  <strong>{session?.role ?? "гость"}</strong>
+                  <strong>{session ? roleLabels[session.role] : "гость"}</strong>
                 </div>
                 <div>
                   <span>Сценарий</span>

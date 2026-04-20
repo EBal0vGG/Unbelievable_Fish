@@ -7,8 +7,8 @@ import { SiteHeader } from "@/widgets/header/site-header";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Unbelievable Fish",
-  description: "Оптовые продукты, лоты и аукционы.",
+  title: "Unbelievable Fish Exchange",
+  description: "B2B marketplace для рыбной продукции, торгов и сделок.",
 };
 
 export default function RootLayout({

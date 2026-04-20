@@ -8,6 +8,11 @@ type CreateAuctionRequest struct {
 	StartsAt time.Time `json:"starts_at"`
 	EndsAt   time.Time `json:"ends_at"`
 }
+
+type CreateAuctionResponse struct {
+	AuctionID string `json:"auction_id"`
+}
+
 type PlaceBidRequest struct {
 	Amount   int64     `json:"amount"`
 	PlacedAt time.Time `json:"placed_at"`

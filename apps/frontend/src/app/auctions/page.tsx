@@ -9,6 +9,7 @@ import { useLotsQuery, useProductsQuery } from "@/entities/lot/model/hooks";
 import { useAuth } from "@/entities/session/model/auth-context";
 import { FilterBar } from "@/features/marketplace/ui/filter-bar";
 import { isSellerSession } from "@/shared/lib/access";
+import { auctionStateLabels } from "@/shared/lib/labels";
 import { EmptyState } from "@/shared/ui/empty-state";
 import { Field } from "@/shared/ui/field";
 import { Select } from "@/shared/ui/select";
@@ -82,11 +83,11 @@ export default function AuctionsPage() {
         onStatusChange={setStatus}
         statusOptions={[
           { label: "Все статусы", value: "all" },
-          { label: "DRAFT", value: "DRAFT" },
-          { label: "PUBLISHED", value: "PUBLISHED" },
-          { label: "CLOSED", value: "CLOSED" },
-          { label: "WON", value: "WON" },
-          { label: "CANCELLED", value: "CANCELLED" },
+          { label: auctionStateLabels.DRAFT, value: "DRAFT" },
+          { label: auctionStateLabels.PUBLISHED, value: "PUBLISHED" },
+          { label: auctionStateLabels.CLOSED, value: "CLOSED" },
+          { label: auctionStateLabels.WON, value: "WON" },
+          { label: auctionStateLabels.CANCELLED, value: "CANCELLED" },
         ]}
         source="all"
         onSourceChange={() => undefined}
@@ -118,6 +119,7 @@ export default function AuctionsPage() {
                 auction={item}
                 fishName={product?.fishName}
                 productLabel={lot?.productLabel}
+                photo={lot?.photo}
                 sellerCompanyId={item.sellerCompanyId ?? lot?.sellerCompanyId}
               />
             );

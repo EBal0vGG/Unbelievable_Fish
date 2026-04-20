@@ -147,7 +147,7 @@ func subscribeHandlers(
 			auctionID,
 			tradingMeta.CorrelationID,
 		)
-		if err := createAuction.Execute(ctx, tradingMeta, evt.LotID, startsAt, endsAt); err != nil {
+		if _, err := createAuction.Execute(ctx, tradingMeta, evt.LotID, startsAt, endsAt); err != nil {
 			return err
 		}
 		if err := publishAuction.Execute(ctx, tradingMeta, auctionID); err != nil {
