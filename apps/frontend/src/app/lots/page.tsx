@@ -6,6 +6,7 @@ import { useLotsQuery } from "@/entities/lot/model/hooks";
 import { useAuth } from "@/entities/session/model/auth-context";
 import { LotCard } from "@/entities/lot/ui/lot-card";
 import { isOwnedLot, isSellerSession } from "@/shared/lib/access";
+import { lotStatusLabels } from "@/shared/lib/labels";
 import { FilterBar } from "@/features/marketplace/ui/filter-bar";
 import { EmptyState } from "@/shared/ui/empty-state";
 import { Field } from "@/shared/ui/field";
@@ -50,10 +51,10 @@ export default function LotsPage() {
         onStatusChange={setStatus}
         statusOptions={[
           { label: "Все статусы", value: "all" },
-          { label: "DRAFT", value: "DRAFT" },
-          { label: "PUBLISHED", value: "PUBLISHED" },
-          { label: "CLOSED", value: "CLOSED" },
-          { label: "CANCELLED", value: "CANCELLED" },
+          { label: lotStatusLabels.DRAFT, value: "DRAFT" },
+          { label: lotStatusLabels.PUBLISHED, value: "PUBLISHED" },
+          { label: lotStatusLabels.CLOSED, value: "CLOSED" },
+          { label: lotStatusLabels.CANCELLED, value: "CANCELLED" },
         ]}
         source="all"
         onSourceChange={() => undefined}

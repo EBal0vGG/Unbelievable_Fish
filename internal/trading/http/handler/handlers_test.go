@@ -137,6 +137,13 @@ func TestCreateAuctionHandlerSuccess(t *testing.T) {
 	if repo.saveCount != 1 {
 		t.Fatalf("expected save to be called once, got %d", repo.saveCount)
 	}
+	var response httpapi.CreateAuctionResponse
+	if err := json.NewDecoder(rec.Body).Decode(&response); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if response.AuctionID != "gen-1" {
+		t.Fatalf("expected auction_id gen-1, got %s", response.AuctionID)
+	}
 }
 
 func TestPublishAuctionHandlerMissingCompanyID(t *testing.T) {

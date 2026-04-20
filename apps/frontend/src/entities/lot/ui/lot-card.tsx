@@ -1,6 +1,8 @@
 import { Badge } from "@/shared/ui/badge";
 import { Card } from "@/shared/ui/card";
+import { EntityPhoto } from "@/shared/ui/entity-photo";
 import { formatDateTime, formatMoney } from "@/shared/lib/format";
+import { lotStatusLabels } from "@/shared/lib/labels";
 import type { LotRecord } from "@/shared/types/domain";
 
 function lotTone(status: LotRecord["status"]) {
@@ -18,13 +20,14 @@ function lotTone(status: LotRecord["status"]) {
 
 export function LotCard({ lot }: { lot: LotRecord }) {
   return (
-    <Card className="entity-card">
+    <Card className="entity-card lot-card">
+      <EntityPhoto src={lot.photo} alt={lot.productLabel} />
       <div className="entity-card-header">
         <div>
           <p className="eyebrow">Лот</p>
           <h3>{lot.productLabel}</h3>
         </div>
-        <Badge tone={lotTone(lot.status)}>{lot.status}</Badge>
+        <Badge tone={lotTone(lot.status)}>{lotStatusLabels[lot.status]}</Badge>
       </div>
       <div className="metric-grid">
         <div>

@@ -7,17 +7,19 @@ import { usePathname } from "next/navigation";
 import { useAuth } from "@/entities/session/model/auth-context";
 import { isAdminSession, isSellerSession } from "@/shared/lib/access";
 import { cn } from "@/shared/lib/cn";
+import { roleLabels } from "@/shared/lib/labels";
 import { buttonStyles } from "@/shared/ui/button";
 
 const navItems = [
-  { href: "/", label: "Главная" },
+  { href: "/", label: "Биржа" },
   { href: "/catalog", label: "Каталог" },
   { href: "/products", label: "Продукты" },
   { href: "/lots", label: "Лоты" },
-  { href: "/auctions", label: "Аукционы" },
-  { href: "/create/lot", label: "Создать лот" },
-  { href: "/create/auction", label: "Создать аукцион" },
-  { href: "/me", label: "Мой профиль" },
+  { href: "/auctions", label: "Торги" },
+  { href: "/deals", label: "Твои сделки" },
+  { href: "/create/lot", label: "Новый лот" },
+  { href: "/create/auction", label: "Новый аукцион" },
+  { href: "/me", label: "Профиль" },
 ];
 
 export function SiteHeader() {
@@ -26,13 +28,16 @@ export function SiteHeader() {
   const canManageFish = isAdminSession(session);
   const canCreateSupply = isSellerSession(session);
   const visibleNavItems = navItems.filter((item) => {
+    if (item.href === "/deals" && !session) {
+      return false;
+    }
     if ((item.href === "/create/lot" || item.href === "/create/auction") && !canCreateSupply) {
       return false;
     }
     return true;
   });
   const extendedNavItems = canManageFish
-    ? [...visibleNavItems.slice(0, 5), { href: "/create/fish", label: "Создать рыбу" }, ...visibleNavItems.slice(5)]
+    ? [...visibleNavItems.slice(0, 5), { href: "/create/fish", label: "Новая рыба" }, ...visibleNavItems.slice(5)]
     : visibleNavItems;
 
   return (
@@ -43,6 +48,7 @@ export function SiteHeader() {
         </Link>
         <div>
           <p className="brand-title">Рыбная биржа</p>
+          <p className="brand-subtitle">B2B marketplace</p>
         </div>
       </div>
 
@@ -50,7 +56,11 @@ export function SiteHeader() {
         {extendedNavItems.map((item) => (
           <Link
             key={item.href}
-            className={cn("nav-link", pathname === item.href && "nav-link-active")}
+            className={cn(
+              "nav-link",
+              (pathname === item.href || (item.href !== "/" && pathname.startsWith(`${item.href}/`))) &&
+                "nav-link-active",
+            )}
             href={item.href}
           >
             {item.label}
@@ -63,7 +73,7 @@ export function SiteHeader() {
           <>
             <Link className="session-chip" href="/me">
               <span>{session.name}</span>
-              <span>{session.companyId} · {session.role}</span>
+              <span>Профиль компании · {roleLabels[session.role]}</span>
             </Link>
             <button className={buttonStyles({ variant: "ghost", size: "sm" })} onClick={logout} type="button">
               Выйти

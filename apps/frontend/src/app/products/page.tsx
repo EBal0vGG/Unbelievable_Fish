@@ -7,6 +7,7 @@ import { ProductCard } from "@/entities/product/ui/product-card";
 import { useAuth } from "@/entities/session/model/auth-context";
 import { FilterBar } from "@/features/marketplace/ui/filter-bar";
 import { isOwnedProduct, isSellerSession } from "@/shared/lib/access";
+import { productStatusLabels } from "@/shared/lib/labels";
 import { EmptyState } from "@/shared/ui/empty-state";
 import { Field } from "@/shared/ui/field";
 import { Select } from "@/shared/ui/select";
@@ -50,8 +51,8 @@ export default function ProductsPage() {
         onStatusChange={setStatus}
         statusOptions={[
           { label: "Все статусы", value: "all" },
-          { label: "DRAFT", value: "DRAFT" },
-          { label: "PUBLISHED", value: "PUBLISHED" },
+          { label: productStatusLabels.DRAFT, value: "DRAFT" },
+          { label: productStatusLabels.PUBLISHED, value: "PUBLISHED" },
         ]}
         source="all"
         onSourceChange={() => undefined}
@@ -60,9 +61,9 @@ export default function ProductsPage() {
           <Field label="Обработка">
             <Select value={processingType} onChange={(event) => setProcessingType(event.target.value)}>
               <option value="all">Все</option>
-              <option value="chilled">chilled</option>
-              <option value="frozen">frozen</option>
-              <option value="live">live</option>
+              <option value="chilled">Охлажденная</option>
+              <option value="frozen">Замороженная</option>
+              <option value="live">Живая</option>
             </Select>
           </Field>
         }

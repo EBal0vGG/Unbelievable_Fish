@@ -54,11 +54,11 @@ func (s *spyPublisher) Publish(ctx context.Context, events []auction.Event) erro
 }
 
 type spyBidRepo struct {
-	calls      *[]string
-	saveCount  int
-	topCount   int
-	lastSaved  auction.Bid
-	topBids    []auction.Bid
+	calls     *[]string
+	saveCount int
+	topCount  int
+	lastSaved auction.Bid
+	topBids   []auction.Bid
 }
 
 func (s *spyBidRepo) Save(ctx context.Context, auctionID AuctionID, bid auction.Bid) error {
@@ -81,8 +81,8 @@ func (s *spyBidRepo) TopBids(ctx context.Context, auctionID AuctionID) ([]auctio
 }
 
 type spyOutbox struct {
-	calls     *[]string
-	saveCount int
+	calls      *[]string
+	saveCount  int
 	lastEvents []auction.Event
 	lastMeta   CommandMeta
 }
@@ -117,9 +117,9 @@ type spyTx struct {
 	winners *spyWinners
 }
 
-func (s *spyTx) Auctions() AuctionRepository { return s.repo }
-func (s *spyTx) Bids() BidRepository         { return s.bids }
-func (s *spyTx) Outbox() OutboxRepository    { return s.outbox }
+func (s *spyTx) Auctions() AuctionRepository       { return s.repo }
+func (s *spyTx) Bids() BidRepository               { return s.bids }
+func (s *spyTx) Outbox() OutboxRepository          { return s.outbox }
 func (s *spyTx) Winners() AuctionWinnersRepository { return s.winners }
 
 type spyUOW struct {
@@ -152,8 +152,12 @@ func TestCreateAuctionSavesAggregate(t *testing.T) {
 	startsAt := time.Now().Add(-time.Hour)
 	endsAt := startsAt.Add(time.Hour)
 	logf(t, "create auction lot_id=%s starts_at=%s ends_at=%s", "lot-1", startsAt, endsAt)
-	if err := uc.Execute(context.Background(), testMeta(), "lot-1", startsAt, endsAt); err != nil {
+	auctionID, err := uc.Execute(context.Background(), testMeta(), "lot-1", startsAt, endsAt)
+	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
+	}
+	if auctionID != "gen-1" {
+		t.Fatalf("expected auction id gen-1, got %s", auctionID)
 	}
 	assertCalls(t, calls, []string{"load", "save"})
 	assertCreatedAggregate(t, repo, "lot-1")
@@ -181,8 +185,12 @@ func TestCreateAuctionIsIdempotentWhenAuctionExists(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected constructor error: %v", err)
 	}
-	if err := uc.Execute(context.Background(), testMeta(), "lot-1", startsAt, endsAt); err != nil {
+	auctionID, err := uc.Execute(context.Background(), testMeta(), "lot-1", startsAt, endsAt)
+	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
+	}
+	if auctionID != "gen-1" {
+		t.Fatalf("expected auction id gen-1, got %s", auctionID)
 	}
 	assertCalls(t, calls, []string{"load"})
 	if repo.saveCount != 0 {

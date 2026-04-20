@@ -3,7 +3,9 @@ import Link from "next/link";
 import { Badge } from "@/shared/ui/badge";
 import { buttonStyles } from "@/shared/ui/button";
 import { Card } from "@/shared/ui/card";
+import { EntityPhoto } from "@/shared/ui/entity-photo";
 import { formatDateTime, formatMoney, shortId } from "@/shared/lib/format";
+import { auctionStateLabels } from "@/shared/lib/labels";
 import type { AuctionRecord } from "@/shared/types/domain";
 
 function auctionTone(state: AuctionRecord["state"]) {
@@ -25,21 +27,24 @@ export function AuctionCard({
   productLabel,
   fishName,
   sellerCompanyId,
+  photo,
 }: {
   auction: AuctionRecord;
   productLabel?: string;
   fishName?: string;
   sellerCompanyId?: string;
+  photo?: string;
 }) {
   return (
-    <Card className="entity-card">
+    <Card className="entity-card auction-card">
+      <EntityPhoto src={photo} alt={productLabel ?? fishName ?? `Аукцион ${shortId(auction.id)}`} />
       <div className="entity-card-header">
         <div>
           <p className="eyebrow">Аукцион</p>
           <h3>{productLabel ?? fishName ?? `Аукцион ${shortId(auction.id)}`}</h3>
           <p className="muted">Сессия #{shortId(auction.id)}</p>
         </div>
-        <Badge tone={auctionTone(auction.state)}>{auction.state}</Badge>
+        <Badge tone={auctionTone(auction.state)}>{auctionStateLabels[auction.state]}</Badge>
       </div>
       <div className="metric-grid">
         <div>

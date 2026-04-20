@@ -9,8 +9,8 @@ import (
 )
 
 type CreateAuction struct {
-	uow       UnitOfWork
-	factory   AuctionIDFactory
+	uow     UnitOfWork
+	factory AuctionIDFactory
 }
 
 func NewCreateAuction(uow UnitOfWork, factory AuctionIDFactory) (*CreateAuction, error) {
@@ -26,12 +26,12 @@ func NewCreateAuction(uow UnitOfWork, factory AuctionIDFactory) (*CreateAuction,
 	}, nil
 }
 
-func (uc *CreateAuction) Execute(ctx context.Context, meta CommandMeta, lotID string, startsAt, endsAt time.Time) error {
+func (uc *CreateAuction) Execute(ctx context.Context, meta CommandMeta, lotID string, startsAt, endsAt time.Time) (AuctionID, error) {
 	id, err := uc.factory.NewID()
 	if err != nil {
-		return err
+		return "", err
 	}
-	return uc.uow.Do(ctx, func(tx Tx) error {
+	err = uc.uow.Do(ctx, func(tx Tx) error {
 		if _, err := tx.Auctions().Load(ctx, id); err == nil {
 			return nil
 		} else if !errors.Is(err, ErrNotFound) {
@@ -43,6 +43,10 @@ func (uc *CreateAuction) Execute(ctx context.Context, meta CommandMeta, lotID st
 		}
 		return tx.Auctions().Save(ctx, a)
 	})
+	if err != nil {
+		return "", err
+	}
+	return id, nil
 }
 
 type PublishAuction struct {

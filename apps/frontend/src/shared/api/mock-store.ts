@@ -4,6 +4,8 @@ import type {
   ActivityRecord,
   AuctionRecord,
   BidRecord,
+  DealProjectionRecord,
+  DealRecord,
   FishRecord,
   FrontendStore,
   LotRecord,
@@ -65,33 +67,35 @@ const seedProducts: ProductRecord[] = [
 
 const seedLots: LotRecord[] = [
   {
-    id: "lot-salmon-apr-01",
+    id: "lot-salmon-apr-20",
     productId: "product-salmon-fillet",
     productLabel: "Лосось chilled 2-4 / 22 kg",
     sellerCompanyId: "north-sea-llc",
     creatorUserId: "manager-01",
+    photo: "https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2?auto=format&fit=crop&w=900&q=80",
     quantity: 12,
     startPrice: 540000,
     currentPrice: 590000,
     status: "PUBLISHED",
-    auctionStartsAt: "2026-04-06T09:00:00.000Z",
-    auctionDurationMinutes: 180,
-    auctionId: "auction-salmon-apr-01",
+    auctionStartsAt: "2026-04-20T08:00:00.000Z",
+    auctionDurationMinutes: 1680,
+    auctionId: "auction-salmon-apr-20",
     source: "mock",
   },
   {
-    id: "lot-pollock-apr-02",
+    id: "lot-pollock-apr-18",
     productId: "product-pollock-block",
     productLabel: "Минтай frozen block / 1000 kg",
     sellerCompanyId: "arctic-export",
     creatorUserId: "seller-02",
+    photo: "https://images.unsplash.com/photo-1534766555764-ce878a5e3a2b?auto=format&fit=crop&w=900&q=80",
     quantity: 28,
     startPrice: 260000,
     finalPrice: 315000,
     status: "CLOSED",
-    auctionStartsAt: "2026-04-05T08:00:00.000Z",
+    auctionStartsAt: "2026-04-18T08:00:00.000Z",
     auctionDurationMinutes: 120,
-    auctionId: "auction-pollock-apr-02",
+    auctionId: "auction-pollock-apr-18",
     source: "mock",
   },
   {
@@ -100,6 +104,7 @@ const seedLots: LotRecord[] = [
     productLabel: "Сельдь переработка / тестовый драфт",
     sellerCompanyId: "north-sea-llc",
     creatorUserId: "manager-01",
+    photo: "https://images.unsplash.com/photo-1506368249639-73a05d6f6488?auto=format&fit=crop&w=900&q=80",
     quantity: 18,
     startPrice: 180000,
     status: "DRAFT",
@@ -112,23 +117,23 @@ const seedLots: LotRecord[] = [
 
 const seedAuctions: AuctionRecord[] = [
   {
-    id: "auction-salmon-apr-01",
-    lotId: "lot-salmon-apr-01",
+    id: "auction-salmon-apr-20",
+    lotId: "lot-salmon-apr-20",
     sellerCompanyId: "north-sea-llc",
     state: "PUBLISHED",
-    startsAt: "2026-04-06T09:00:00.000Z",
-    endsAt: "2026-04-06T12:00:00.000Z",
+    startsAt: "2026-04-20T08:00:00.000Z",
+    endsAt: "2026-04-21T12:00:00.000Z",
     currentPrice: 590000,
     leaderCompanyId: "vostok-trade",
     source: "mock",
   },
   {
-    id: "auction-pollock-apr-02",
-    lotId: "lot-pollock-apr-02",
+    id: "auction-pollock-apr-18",
+    lotId: "lot-pollock-apr-18",
     sellerCompanyId: "arctic-export",
     state: "WON",
-    startsAt: "2026-04-05T08:00:00.000Z",
-    endsAt: "2026-04-05T10:00:00.000Z",
+    startsAt: "2026-04-18T08:00:00.000Z",
+    endsAt: "2026-04-18T10:00:00.000Z",
     currentPrice: 315000,
     finalPrice: 315000,
     winnerCompanyId: "omega-foods",
@@ -138,24 +143,93 @@ const seedAuctions: AuctionRecord[] = [
 
 const seedBids: BidRecord[] = [
   {
-    auctionId: "auction-salmon-apr-01",
+    auctionId: "auction-salmon-apr-20",
     bidderCompanyId: "borealis-food",
     amount: 560000,
-    placedAt: "2026-04-06T09:20:00.000Z",
+    placedAt: "2026-04-20T09:20:00.000Z",
     source: "mock",
   },
   {
-    auctionId: "auction-salmon-apr-01",
+    auctionId: "auction-salmon-apr-20",
     bidderCompanyId: "vostok-trade",
     amount: 590000,
-    placedAt: "2026-04-06T09:48:00.000Z",
+    placedAt: "2026-04-20T09:48:00.000Z",
     source: "mock",
   },
   {
-    auctionId: "auction-pollock-apr-02",
+    auctionId: "auction-pollock-apr-18",
     bidderCompanyId: "omega-foods",
     amount: 315000,
-    placedAt: "2026-04-05T09:55:00.000Z",
+    placedAt: "2026-04-18T09:55:00.000Z",
+    source: "mock",
+  },
+];
+
+const seedDealProjections: DealProjectionRecord[] = [
+  {
+    auctionId: "auction-salmon-apr-20",
+    supplierId: "north-sea-llc",
+    startPrice: 540000,
+    publishedAt: "2026-04-20T07:45:00.000Z",
+    status: "active",
+    productSnapshot: {
+      productId: "product-salmon-fillet",
+      name: "Атлантический лосось",
+      description: "Филе для B2B-поставок, охлажденная линия.",
+      category: "premium chilled",
+      weight: 22,
+      unit: "kg",
+      size: "2-4",
+      processingType: "chilled",
+      volume: 12,
+      originCountry: "NO",
+    },
+    source: "mock",
+  },
+  {
+    auctionId: "auction-pollock-apr-18",
+    supplierId: "arctic-export",
+    startPrice: 260000,
+    publishedAt: "2026-04-18T07:40:00.000Z",
+    status: "converted",
+    productSnapshot: {
+      productId: "product-pollock-block",
+      name: "Минтай дальневосточный",
+      description: "Экспортный поток, фасовка под оптовый канал.",
+      category: "frozen block",
+      weight: 1000,
+      unit: "kg",
+      size: "block",
+      processingType: "frozen",
+      volume: 28,
+      originCountry: "RU",
+    },
+    source: "mock",
+  },
+];
+
+const seedDeals: DealRecord[] = [
+  {
+    id: "deal-pollock-apr-18",
+    customerId: "omega-foods",
+    supplierId: "arctic-export",
+    auctionId: "auction-pollock-apr-18",
+    quantity: 28,
+    unitPrice: 315000,
+    totalAmount: 8820000,
+    status: "contract_signed",
+    type: "auction",
+    createdAt: "2026-04-18T10:01:00.000Z",
+    confirmedAt: "2026-04-18T10:08:00.000Z",
+    contract: {
+      number: "CNT-2026-0418",
+      preparedAt: "2026-04-18T11:00:00.000Z",
+      signedAt: "2026-04-18T12:35:00.000Z",
+      signedBy: "omega-foods",
+      signatureRef: "SIG-OF-0418",
+      documentUrl: "https://contracts.example/deal-pollock-apr-18",
+    },
+    productSnapshot: seedDealProjections[1].productSnapshot,
     source: "mock",
   },
 ];
@@ -175,8 +249,12 @@ const seedStore: FrontendStore = {
   lots: seedLots,
   auctions: seedAuctions,
   bids: seedBids,
+  dealProjections: seedDealProjections,
+  deals: seedDeals,
   activities: seedActivities,
 };
+
+const seedLotPhotos = new Map(seedLots.map((lot) => [lot.id, lot.photo]));
 
 function cloneStore(store: FrontendStore): FrontendStore {
   return JSON.parse(JSON.stringify(store)) as FrontendStore;
@@ -193,6 +271,30 @@ function migrateStore(store: FrontendStore): FrontendStore {
     lots: store.lots.map((lot) => ({
       ...lot,
       creatorUserId: lot.creatorUserId ?? "legacy-user",
+      photo: lot.photo ?? seedLotPhotos.get(lot.id),
+    })),
+    dealProjections: (store.dealProjections ?? seedDealProjections).map((projection) => ({
+      ...projection,
+      source: projection.source ?? "mock",
+    })),
+    deals: (store.deals ?? seedDeals).map((deal) => ({
+      ...deal,
+      source: deal.source ?? "mock",
+      productSnapshot:
+        deal.productSnapshot ??
+        seedDealProjections.find((projection) => projection.auctionId === deal.auctionId)?.productSnapshot ??
+        {
+          productId: "unknown-product",
+          name: "Продукт",
+          description: "",
+          category: "",
+          weight: 0,
+          unit: "",
+          size: "",
+          processingType: "",
+          volume: deal.quantity ?? 0,
+          originCountry: "",
+        },
     })),
     activities: store.activities.map((activity) => ({
       ...activity,
@@ -243,6 +345,18 @@ export function listBidsStore(auctionId?: string): BidRecord[] {
     return bids;
   }
   return bids.filter((item) => item.auctionId === auctionId);
+}
+
+export function listDealProjectionsStore(auctionId?: string): DealProjectionRecord[] {
+  const projections = getFrontendStore().dealProjections;
+  if (!auctionId) {
+    return projections;
+  }
+  return projections.filter((item) => item.auctionId === auctionId);
+}
+
+export function listDealsStore(): DealRecord[] {
+  return getFrontendStore().deals;
 }
 
 export function listActivitiesStore(session?: UserSession | null): ActivityRecord[] {
@@ -310,6 +424,29 @@ export function upsertAuctionStore(item: AuctionRecord): AuctionRecord {
         }
       : lot,
   );
+  saveFrontendStore(store);
+  return item;
+}
+
+export function upsertDealProjectionStore(item: DealProjectionRecord): DealProjectionRecord {
+  const store = getFrontendStore();
+  store.dealProjections = upsertById(
+    store.dealProjections.map((projection) => ({
+      ...projection,
+      id: projection.auctionId,
+    })),
+    {
+      ...item,
+      id: item.auctionId,
+    },
+  ).map(({ id: _id, ...projection }) => projection);
+  saveFrontendStore(store);
+  return item;
+}
+
+export function upsertDealStore(item: DealRecord): DealRecord {
+  const store = getFrontendStore();
+  store.deals = upsertById(store.deals, item);
   saveFrontendStore(store);
   return item;
 }

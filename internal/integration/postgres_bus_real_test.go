@@ -118,7 +118,7 @@ func TestPostgresOutboxBusChains_RealPG(t *testing.T) {
 
 	bus.Subscribe("catalog.LotPublished", func(ctx context.Context, envelope events.Envelope) error {
 		evt := envelope.Payload.(catalog.LotPublished)
-		if err := createAuctionUC.Execute(ctx, tradingMeta(), evt.LotID, startsAt, endsAt); err != nil {
+		if _, err := createAuctionUC.Execute(ctx, tradingMeta(), evt.LotID, startsAt, endsAt); err != nil {
 			return err
 		}
 		if err := publishAuctionUC.Execute(ctx, tradingMeta(), tradingapp.AuctionID(evt.AuctionID)); err != nil {

@@ -26,7 +26,23 @@ func main() {
 	defer db.Close()
 
 	uow := tradingpg.NewUnitOfWork(db)
+	createAuctionUC, err := tradingapp.NewCreateAuction(uow, tradingapp.RandomAuctionIDFactory{})
+	if err != nil {
+		log.Fatal(err)
+	}
+	publishAuctionUC, err := tradingapp.NewPublishAuction(uow)
+	if err != nil {
+		log.Fatal(err)
+	}
 	placeBidUC, err := tradingapp.NewPlaceBid(uow)
+	if err != nil {
+		log.Fatal(err)
+	}
+	closeAuctionUC, err := tradingapp.NewCloseAuction(uow)
+	if err != nil {
+		log.Fatal(err)
+	}
+	cancelAuctionUC, err := tradingapp.NewCancelAuction(uow)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -34,11 +50,7 @@ func main() {
 		envOrDefault("IDENTITY_TOKEN_SECRET", "dev-secret"),
 		envDurationMinutes("IDENTITY_TOKEN_TTL_MINUTES", 24*60),
 	)
-
-	router := httpapi.NewRouter(
-		handler.NewPlaceBidHandler(placeBidUC),
-	)
-	protected := identityauth.NewMiddleware(tokenProvider, func(w http.ResponseWriter, r *http.Request, err error) {
+	authMiddleware := identityauth.NewMiddleware(tokenProvider, func(w http.ResponseWriter, r *http.Request, err error) {
 		httpErr := httpapi.MapError(err)
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(httpErr.Status)
@@ -46,11 +58,19 @@ func main() {
 			Code:    httpErr.Code,
 			Message: httpErr.Message,
 		})
-	}).RequireRole(identity.RoleBuyer, router)
+	})
+
+	router := httpapi.NewRouter(
+		authMiddleware.RequireRole(identity.RoleSeller, handler.NewCreateAuctionHandler(createAuctionUC)),
+		authMiddleware.RequireRole(identity.RoleSeller, handler.NewPublishAuctionHandler(publishAuctionUC)),
+		authMiddleware.RequireRole(identity.RoleBuyer, handler.NewPlaceBidHandler(placeBidUC)),
+		authMiddleware.RequireRole(identity.RoleSeller, handler.NewCloseAuctionHandler(closeAuctionUC)),
+		authMiddleware.RequireRole(identity.RoleSeller, handler.NewCancelAuctionHandler(cancelAuctionUC)),
+	)
 
 	port := envOrDefault("TRADING_PORT", "8082")
 	log.Printf("trading http listening on :%s", port)
-	log.Fatal(http.ListenAndServe(":"+port, protected))
+	log.Fatal(http.ListenAndServe(":"+port, router))
 }
 
 func openDB() (*sql.DB, bool) {

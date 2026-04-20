@@ -5,32 +5,40 @@ import { useDeferredValue, useMemo, useState } from "react";
 
 import { useAuctionsQuery } from "@/entities/auction/model/hooks";
 import { AuctionCard } from "@/entities/auction/ui/auction-card";
+import { DealCard } from "@/entities/deal/ui/deal-card";
+import { useDealsQuery } from "@/entities/deal/model/hooks";
 import { useLotsQuery, useProductsQuery } from "@/entities/lot/model/hooks";
 import { LotCard } from "@/entities/lot/ui/lot-card";
 import { ProductCard } from "@/entities/product/ui/product-card";
 import { useAuth } from "@/entities/session/model/auth-context";
 import { FilterBar } from "@/features/marketplace/ui/filter-bar";
 import { isSellerSession } from "@/shared/lib/access";
+import { formatMoney } from "@/shared/lib/format";
+import { auctionStateLabels, lotStatusLabels, productStatusLabels } from "@/shared/lib/labels";
 import { buttonStyles } from "@/shared/ui/button";
-import { Field } from "@/shared/ui/field";
 import { Card } from "@/shared/ui/card";
+import { Field } from "@/shared/ui/field";
 import { Select } from "@/shared/ui/select";
 
 export function MarketOverview() {
   const { session } = useAuth();
   const canCreateSupply = isSellerSession(session);
+  const canSeeDeals = Boolean(session?.companyId);
   const productsQuery = useProductsQuery();
   const lotsQuery = useLotsQuery();
   const auctionsQuery = useAuctionsQuery();
+  const dealsQuery = useDealsQuery(session);
   const [search, setSearch] = useState("");
   const [productStatus, setProductStatus] = useState("all");
   const [lotStatus, setLotStatus] = useState("all");
   const [auctionStatus, setAuctionStatus] = useState("all");
+  const [dealStatus, setDealStatus] = useState("all");
   const deferredSearch = useDeferredValue(search);
 
   const products = productsQuery.data?.data ?? [];
   const lots = lotsQuery.data?.data ?? [];
   const auctions = auctionsQuery.data?.data ?? [];
+  const deals = dealsQuery.data?.data ?? [];
 
   const filtered = useMemo(() => {
     const normalized = deferredSearch.trim().toLowerCase();
@@ -53,35 +61,70 @@ export function MarketOverview() {
           matchesSearch(`${item.id} ${item.lotId} ${item.state} ${item.sellerCompanyId ?? ""}`) &&
           (auctionStatus === "all" || item.state === auctionStatus),
       ),
+      deals: deals.filter(
+        (item) =>
+          matchesSearch(
+            `${item.id} ${item.auctionId} ${item.supplierId} ${item.customerId} ${item.productSnapshot.name}`,
+          ) && (dealStatus === "all" || item.status === dealStatus),
+      ),
     };
-  }, [auctionStatus, auctions, deferredSearch, lotStatus, lots, productStatus, products]);
+  }, [
+    auctionStatus,
+    auctions,
+    dealStatus,
+    deals,
+    deferredSearch,
+    lotStatus,
+    lots,
+    productStatus,
+    products,
+  ]);
+
+  const activeAuctions = auctions.filter((item) => item.state === "PUBLISHED").length;
+  const activeDeals = deals.filter((item) => item.status !== "completed" && item.status !== "cancelled");
+  const dealTurnover = activeDeals.reduce((sum, item) => sum + item.totalAmount, 0);
+  const bestAuction = auctions
+    .filter((item) => item.state === "PUBLISHED")
+    .sort((left, right) => (right.currentPrice ?? 0) - (left.currentPrice ?? 0))[0];
 
   return (
     <div className="stack-xl">
-      <section className="hero-panel">
-        <div className="stack-md">
-          <p className="eyebrow">Биржа</p>
-          <h1>Рыбная биржа</h1>
+      <section className="market-hero">
+        <div className="hero-content">
+          <p className="eyebrow">Оптовая рыбная биржа</p>
+          <h1>Торги, поставки и сделки для крупных покупателей</h1>
           <p className="hero-copy">
-            Платформа для управления ассортиментом, лотами и торгами в одном рабочем пространстве.
+            Живой marketplace для рыбной продукции: поставщик выпускает лот, покупатель конкурирует в торгах,
+            победитель проходит контракт, оплату и отгрузку.
           </p>
-        </div>
-        <div className="hero-actions">
-          <Link className={buttonStyles({ variant: "secondary" })} href="/products">
-            Мои продукты
-          </Link>
-          {canCreateSupply ? (
-            <Link className={buttonStyles({ variant: "primary" })} href="/create/lot">
-              Разместить лот
+          <div className="hero-actions">
+            <Link className={buttonStyles({ variant: "primary", size: "lg" })} href="/auctions">
+              Открыть торги
             </Link>
-          ) : null}
-          <Link className={buttonStyles({ variant: "secondary" })} href="/auctions">
-            Открыть аукционы
-          </Link>
+            {canCreateSupply ? (
+              <Link className={buttonStyles({ variant: "secondary", size: "lg" })} href="/create/lot">
+                Разместить лот
+              </Link>
+            ) : null}
+            {canSeeDeals ? (
+              <Link className={buttonStyles({ variant: "ghost", size: "lg" })} href="/deals">
+                Твои сделки
+              </Link>
+            ) : null}
+          </div>
+        </div>
+        <div className="hero-market-ticket">
+          <span>Лидер торгов</span>
+          <strong>{bestAuction ? formatMoney(bestAuction.currentPrice) : "нет активных ставок"}</strong>
+          <small>{bestAuction ? bestAuction.sellerCompanyId : "Ожидаем публикацию лота"}</small>
         </div>
       </section>
 
       <section className="stats-grid">
+        <Card className="stat-card stat-card-primary">
+          <span>Активные торги</span>
+          <strong>{activeAuctions}</strong>
+        </Card>
         <Card className="stat-card">
           <span>Продукты</span>
           <strong>{products.length}</strong>
@@ -90,35 +133,32 @@ export function MarketOverview() {
           <span>Лоты</span>
           <strong>{lots.length}</strong>
         </Card>
-        <Card className="stat-card">
-          <span>Аукционы</span>
-          <strong>{auctions.length}</strong>
-        </Card>
-        <Card className="stat-card">
-          <span>Мой профиль</span>
-          <strong>{session ? "Рейтинг 4.8" : "Гостевой вход"}</strong>
-        </Card>
+        {canSeeDeals ? (
+          <>
+            <Card className="stat-card">
+              <span>Твои сделки</span>
+              <strong>{activeDeals.length}</strong>
+            </Card>
+            <Card className="stat-card">
+              <span>Оборот в работе</span>
+              <strong>{formatMoney(dealTurnover)}</strong>
+            </Card>
+          </>
+        ) : null}
       </section>
 
-      <section className="card-grid card-grid-2">
-        <Card className="form-card">
-          <div className="stack-md">
-            <p className="eyebrow">Логистика</p>
-            <h2>Маршруты и окна отгрузки</h2>
-            <p className="muted">
-              Заглушка для планирования перевозок, статусов доставки и расписания отгрузок.
-            </p>
-          </div>
-        </Card>
-        <Card className="form-card">
-          <div className="stack-md">
-            <p className="eyebrow">Хранение</p>
-            <h2>Остатки и свободные мощности</h2>
-            <p className="muted">
-              Заглушка для складских остатков, температуры хранения и доступных ячеек.
-            </p>
-          </div>
-        </Card>
+      <section className="command-strip">
+        <div className="command-copy">
+          <p className="eyebrow">Операционный поток</p>
+          <h2>От продукта до закрытой сделки</h2>
+        </div>
+        <div className="command-lane">
+          <Link href="/catalog">Каталог</Link>
+          <span>Продукт</span>
+          <span>Лот</span>
+          <Link href="/auctions">Торги</Link>
+          {canSeeDeals ? <Link href="/deals">Твои сделки</Link> : <span>Закрытие</span>}
+        </div>
       </section>
 
       <FilterBar
@@ -136,80 +176,112 @@ export function MarketOverview() {
             <Field label="Продукты">
               <Select value={productStatus} onChange={(event) => setProductStatus(event.target.value)}>
                 <option value="all">Все</option>
-                <option value="DRAFT">DRAFT</option>
-                <option value="PUBLISHED">PUBLISHED</option>
+                <option value="DRAFT">{productStatusLabels.DRAFT}</option>
+                <option value="PUBLISHED">{productStatusLabels.PUBLISHED}</option>
               </Select>
             </Field>
             <Field label="Лоты">
               <Select value={lotStatus} onChange={(event) => setLotStatus(event.target.value)}>
                 <option value="all">Все</option>
-                <option value="DRAFT">DRAFT</option>
-                <option value="PUBLISHED">PUBLISHED</option>
-                <option value="CLOSED">CLOSED</option>
-                <option value="CANCELLED">CANCELLED</option>
+                <option value="DRAFT">{lotStatusLabels.DRAFT}</option>
+                <option value="PUBLISHED">{lotStatusLabels.PUBLISHED}</option>
+                <option value="CLOSED">{lotStatusLabels.CLOSED}</option>
+                <option value="CANCELLED">{lotStatusLabels.CANCELLED}</option>
               </Select>
             </Field>
-            <Field label="Аукционы">
+            <Field label="Торги">
               <Select value={auctionStatus} onChange={(event) => setAuctionStatus(event.target.value)}>
                 <option value="all">Все</option>
-                <option value="PUBLISHED">PUBLISHED</option>
-                <option value="CLOSED">CLOSED</option>
-                <option value="WON">WON</option>
-                <option value="CANCELLED">CANCELLED</option>
+                <option value="PUBLISHED">{auctionStateLabels.PUBLISHED}</option>
+                <option value="CLOSED">{auctionStateLabels.CLOSED}</option>
+                <option value="WON">{auctionStateLabels.WON}</option>
+                <option value="CANCELLED">{auctionStateLabels.CANCELLED}</option>
               </Select>
             </Field>
+            {canSeeDeals ? (
+              <Field label="Твои сделки">
+                <Select value={dealStatus} onChange={(event) => setDealStatus(event.target.value)}>
+                  <option value="all">Все</option>
+                  <option value="pending">pending</option>
+                  <option value="confirmed">confirmed</option>
+                  <option value="contract_signed">contract_signed</option>
+                  <option value="payment_requested">payment_requested</option>
+                  <option value="paid">paid</option>
+                  <option value="completed">completed</option>
+                </Select>
+              </Field>
+            ) : null}
           </>
         }
       />
 
-      <section className="stack-md">
+      <section className="market-sections">
         <div className="section-heading">
           <div>
-            <p className="eyebrow">Продукты</p>
-            <h2>Текущие позиции</h2>
-          </div>
-          <Link className={buttonStyles({ variant: "ghost", size: "sm" })} href="/products">
-            Все продукты
-          </Link>
-        </div>
-        <div className="card-grid card-grid-3">
-          {filtered.products.slice(0, 3).map((item) => (
-            <ProductCard key={item.id} product={item} />
-          ))}
-        </div>
-      </section>
-
-      <section className="stack-md">
-        <div className="section-heading">
-          <div>
-            <p className="eyebrow">Лоты</p>
-            <h2>Активные позиции</h2>
-          </div>
-          <Link className={buttonStyles({ variant: "ghost", size: "sm" })} href="/lots">
-            Все лоты
-          </Link>
-        </div>
-        <div className="card-grid card-grid-3">
-          {filtered.lots.slice(0, 3).map((item) => (
-            <LotCard key={item.id} lot={item} />
-          ))}
-        </div>
-      </section>
-
-      <section className="stack-md">
-        <div className="section-heading">
-          <div>
-            <p className="eyebrow">Аукционы</p>
-            <h2>Торговая лента</h2>
+            <p className="eyebrow">Торги</p>
+            <h2>Живая лента</h2>
           </div>
           <Link className={buttonStyles({ variant: "ghost", size: "sm" })} href="/auctions">
-            Все аукционы
+            Все торги
           </Link>
         </div>
         <div className="card-grid card-grid-2">
           {filtered.auctions.slice(0, 2).map((item) => (
-            <AuctionCard key={item.id} auction={item} sellerCompanyId={item.sellerCompanyId} />
+            <AuctionCard
+              key={item.id}
+              auction={item}
+              photo={lots.find((lot) => lot.id === item.lotId)?.photo}
+              sellerCompanyId={item.sellerCompanyId}
+            />
           ))}
+        </div>
+      </section>
+
+      {canSeeDeals ? (
+        <section className="market-sections">
+          <div className="section-heading">
+            <div>
+              <p className="eyebrow">Твои сделки</p>
+              <h2>Сделки в работе</h2>
+            </div>
+            <Link className={buttonStyles({ variant: "ghost", size: "sm" })} href="/deals">
+              Все твои сделки
+            </Link>
+          </div>
+          <div className="card-grid card-grid-3">
+            {filtered.deals.slice(0, 3).map((item) => (
+              <DealCard key={item.id} deal={item} />
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      <section className="market-sections">
+        <div className="section-heading">
+          <div>
+            <p className="eyebrow">Поставка</p>
+            <h2>Лоты и продукты</h2>
+          </div>
+          <div className="inline-actions">
+            <Link className={buttonStyles({ variant: "ghost", size: "sm" })} href="/products">
+              Продукты
+            </Link>
+            <Link className={buttonStyles({ variant: "ghost", size: "sm" })} href="/lots">
+              Лоты
+            </Link>
+          </div>
+        </div>
+        <div className="split-market-grid">
+          <div className="card-grid">
+            {filtered.products.slice(0, 2).map((item) => (
+              <ProductCard key={item.id} product={item} />
+            ))}
+          </div>
+          <div className="card-grid">
+            {filtered.lots.slice(0, 2).map((item) => (
+              <LotCard key={item.id} lot={item} />
+            ))}
+          </div>
         </div>
       </section>
     </div>

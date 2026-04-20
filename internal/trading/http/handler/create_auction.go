@@ -40,9 +40,10 @@ func (h *CreateAuctionHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		writeError(w, httpErr.Status, httpErr.Code, httpErr.Message, meta)
 		return
 	}
-	if err := h.uc.Execute(r.Context(), meta, req.LotID, req.StartsAt, req.EndsAt); err != nil {
+	auctionID, err := h.uc.Execute(r.Context(), meta, req.LotID, req.StartsAt, req.EndsAt)
+	if err != nil {
 		handleCommandError(w, err, meta)
 		return
 	}
-	writeAccepted(w)
+	writeAcceptedJSON(w, httpapi.CreateAuctionResponse{AuctionID: string(auctionID)})
 }

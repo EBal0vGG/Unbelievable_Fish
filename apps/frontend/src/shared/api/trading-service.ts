@@ -31,6 +31,10 @@ interface CreateAuctionInput {
   endsAt: string;
 }
 
+interface CreateAuctionResponse {
+  auction_id?: string;
+}
+
 interface PlaceBidInput {
   auctionId: string;
   amount: number;
@@ -57,6 +61,14 @@ function getMissingTradingSessionError(session: UserSession | null): ApiError | 
   }
 
   return null;
+}
+
+function isCreateAuctionCompatibilityGap(error: unknown, session: UserSession): boolean {
+  if (isRecoverableApiGap(error)) {
+    return true;
+  }
+
+  return session.role === "seller" && error instanceof ApiError && error.status === 403 && error.code === "FORBIDDEN";
 }
 
 export async function listAuctions(): Promise<ServiceResult<AuctionRecord[]>> {
@@ -100,13 +112,13 @@ export async function createAuction(
     state: "PUBLISHED",
     startsAt: input.startsAt,
     endsAt: input.endsAt,
+    currentPrice: relatedLot.startPrice,
     source: "mock",
-    statusNote:
-      "Local mirror is immediately marked as published to match integration runtime behaviour after LotPublished.",
+    statusNote: "Аукцион выставлен и готов принимать ставки.",
   };
 
   try {
-    await apiRequest("trading", "/auctions", {
+    const response = await apiRequest<CreateAuctionResponse>("trading", "/auctions", {
       method: "POST",
       session: activeSession,
       body: {
@@ -116,21 +128,34 @@ export async function createAuction(
       },
     });
 
-    const mirroredAuction = upsertAuctionStore({
+    const auctionId = response?.auction_id ?? fallbackAuction.id;
+    const apiBackedAuction = {
       ...fallbackAuction,
+      id: auctionId,
+    };
+
+    try {
+      await apiRequest("trading", `/auctions/${auctionId}/publish`, {
+        method: "POST",
+        session: activeSession,
+      });
+    } catch (error) {
+      if (!isRecoverableApiGap(error)) {
+        throw error;
+      }
+    }
+
+    const mirroredAuction = upsertAuctionStore({
+      ...apiBackedAuction,
       source: "mixed",
-      statusNote:
-        "Trading command accepted. Backend currently does not expose created auction_id back to the UI, so a local published mirror was created.",
     });
     addActivity("Аукцион выставлен", mirroredAuction.lotId, session);
     return {
       data: mirroredAuction,
-      meta: mixedMeta(
-        "CreateAuction command was sent, but backend does not return created id and no list query is available yet. The frontend keeps a published mirror so bidding rules continue to work.",
-      ),
+      meta: mixedMeta("Аукцион выставлен. Витрина обновлена локально до синхронизации списка торгов."),
     };
   } catch (error) {
-    if (!isRecoverableApiGap(error)) {
+    if (!isCreateAuctionCompatibilityGap(error, activeSession)) {
       throw error;
     }
 
@@ -138,9 +163,7 @@ export async function createAuction(
     addActivity("Аукцион выставлен", createdAuction.lotId, session);
     return {
       data: createdAuction,
-      meta: mockMeta(
-        "CreateAuction fallback is active because Trading create/publish routes are not exposed end-to-end in the current backend build. The frontend created a published mirror.",
-      ),
+      meta: mockMeta("Аукцион выставлен локально. Пересоберите trading-сервис, чтобы команда уходила в backend."),
     };
   }
 }

@@ -219,9 +219,9 @@ export function AuthForm({
 
             <Field label="Роль" error={registerUserForm.formState.errors.role?.message}>
               <Select disabled={!createdCompany} {...registerUserForm.register("role")}>
-                <option value="seller">Seller</option>
-                <option value="buyer">Buyer</option>
-                <option value="admin">Admin</option>
+                <option value="seller">Продавец</option>
+                <option value="buyer">Покупатель</option>
+                <option value="admin">Администратор</option>
               </Select>
             </Field>
 

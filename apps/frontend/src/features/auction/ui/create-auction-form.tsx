@@ -11,9 +11,9 @@ import { useAuth } from "@/entities/session/model/auth-context";
 import { ApiError } from "@/shared/api/http-client";
 import { createAuction } from "@/shared/api/trading-service";
 import { isOwnedLot, isSellerSession } from "@/shared/lib/access";
-import { toDateTimeLocalValue } from "@/shared/lib/format";
+import { formatDateTime, formatMoney, toDateTimeLocalValue } from "@/shared/lib/format";
 import { Button } from "@/shared/ui/button";
-import { Card } from "@/shared/ui/card";
+import { EntityPhoto } from "@/shared/ui/entity-photo";
 import { Field } from "@/shared/ui/field";
 import { Input } from "@/shared/ui/input";
 import { Notice } from "@/shared/ui/notice";
@@ -52,6 +52,8 @@ export function CreateAuctionForm() {
       endsAt: toDateTimeLocalValue(new Date(Date.now() + 3 * 60 * 60 * 1000)),
     },
   });
+  const selectedLotId = form.watch("lotId");
+  const selectedLot = availableLots.find((lot) => lot.id === selectedLotId);
 
   const mutation = useMutation({
     mutationFn: (values: Values) => {
@@ -61,7 +63,7 @@ export function CreateAuctionForm() {
         throw new ApiError("Войдите в профиль, чтобы выставить аукцион", 400, "MISSING_COMPANY_ID");
       }
       if (!canCreateAuction) {
-        throw new ApiError("Создание аукциона доступно только продавцу", 403, "SELLER_ONLY");
+        throw new ApiError("Выставление аукциона доступно только компании-поставщику", 403, "SELLER_ONLY");
       }
       return createAuction(
         {
@@ -78,16 +80,17 @@ export function CreateAuctionForm() {
       void queryClient.invalidateQueries({ queryKey: ["lots"] });
     },
     onError: (error) => {
-      setError(error instanceof ApiError ? error.message : "Не удалось создать аукцион.");
+      setError(error instanceof ApiError ? error.message : "Не удалось выставить аукцион.");
     },
   });
 
   return (
-    <Card className="form-card">
+    <section className="auction-panel">
       <div className="stack-lg">
         <div>
-          <p className="eyebrow">Аукционы</p>
+          <p className="eyebrow">Торги</p>
           <h1>Выставить аукцион</h1>
+          <p className="muted">Выберите опубликованный лот, проверьте фото партии и задайте окно приема ставок.</p>
         </div>
 
         {isCreated ? (
@@ -101,69 +104,86 @@ export function CreateAuctionForm() {
             Войдите в профиль, чтобы выставить аукцион.
           </Notice>
         ) : !canCreateAuction ? (
-          <Notice tone="warning" title="Нужна роль seller">
-            Выставление аукциона доступно только пользователю с ролью seller.
+          <Notice tone="warning" title="Доступно продавцам">
+            Выставление аукциона доступно только компании-поставщику.
           </Notice>
         ) : null}
 
         {error ? (
-          <Notice tone="warning" title="Ошибка создания аукциона">
+          <Notice tone="warning" title="Не удалось выставить аукцион">
             {error}
           </Notice>
         ) : null}
 
-        <form className="stack-md" onSubmit={form.handleSubmit((values) => mutation.mutate(values))}>
-          <Field label="Лот" error={form.formState.errors.lotId?.message}>
-            <div className="stack-md">
-              <div className="inline-actions inline-actions-start">
-                <Button
-                  onClick={() => setUseManualLotId(false)}
-                  size="sm"
-                  type="button"
-                  variant={useManualLotId ? "ghost" : "secondary"}
-                >
-                  Выбрать из списка
-                </Button>
-                <Button
-                  onClick={() => setUseManualLotId(true)}
-                  size="sm"
-                  type="button"
-                  variant={useManualLotId ? "secondary" : "ghost"}
-                >
-                  Ввести номер вручную
-                </Button>
-              </div>
-
-              {useManualLotId ? (
-                <Input placeholder="lot-123" {...form.register("lotId")} />
-              ) : (
-                <Select {...form.register("lotId")}>
-                  <option value="">Выберите лот</option>
-                  {availableLots.map((lot) => (
-                    <option key={lot.id} value={lot.id}>
-                      {lot.productLabel} · {lot.id}
-                    </option>
-                  ))}
-                </Select>
-              )}
+        <form className="auction-choice" onSubmit={form.handleSubmit((values) => mutation.mutate(values))}>
+          <div className="auction-lot-preview stack-md">
+            <EntityPhoto src={selectedLot?.photo} alt={selectedLot?.productLabel ?? "Фото лота"} />
+            <div>
+              <p className="eyebrow">Выбранный лот</p>
+              <h2>{selectedLot?.productLabel ?? "Лот не выбран"}</h2>
+              <p className="muted">
+                {selectedLot
+                  ? `${formatMoney(selectedLot.startPrice)} · старт ${formatDateTime(selectedLot.auctionStartsAt)}`
+                  : "Выберите опубликованный лот из списка."}
+              </p>
             </div>
-          </Field>
-          <Field label="Старт" error={form.formState.errors.startsAt?.message}>
-            <Input type="datetime-local" {...form.register("startsAt")} />
-          </Field>
-          <Field label="Завершение" error={form.formState.errors.endsAt?.message}>
-            <Input type="datetime-local" {...form.register("endsAt")} />
-          </Field>
-          <div className="inline-actions">
-            <Button
-              disabled={mutation.isPending || !session?.companyId || !session.userId || !canCreateAuction}
-              type="submit"
-            >
-              {mutation.isPending ? "Отправляем..." : "Создать аукцион"}
-            </Button>
+          </div>
+
+          <div className="stack-md">
+            <Field label="Лот" error={form.formState.errors.lotId?.message}>
+              <div className="stack-md">
+                <div className="inline-actions inline-actions-start">
+                  <Button
+                    onClick={() => setUseManualLotId(false)}
+                    size="sm"
+                    type="button"
+                    variant={useManualLotId ? "ghost" : "secondary"}
+                  >
+                    Выбрать из списка
+                  </Button>
+                  <Button
+                    onClick={() => setUseManualLotId(true)}
+                    size="sm"
+                    type="button"
+                    variant={useManualLotId ? "secondary" : "ghost"}
+                  >
+                    Ввести номер вручную
+                  </Button>
+                </div>
+
+                {useManualLotId ? (
+                  <Input placeholder="Номер лота" {...form.register("lotId")} />
+                ) : (
+                  <Select {...form.register("lotId")}>
+                    <option value="">Выберите лот</option>
+                    {availableLots.map((lot) => (
+                      <option key={lot.id} value={lot.id}>
+                        {lot.productLabel} · {formatMoney(lot.startPrice)}
+                      </option>
+                    ))}
+                  </Select>
+                )}
+              </div>
+            </Field>
+            <div className="form-grid-2">
+              <Field label="Старт" error={form.formState.errors.startsAt?.message}>
+                <Input type="datetime-local" {...form.register("startsAt")} />
+              </Field>
+              <Field label="Завершение" error={form.formState.errors.endsAt?.message}>
+                <Input type="datetime-local" {...form.register("endsAt")} />
+              </Field>
+            </div>
+            <div className="inline-actions">
+              <Button
+                disabled={mutation.isPending || !session?.companyId || !session.userId || !canCreateAuction}
+                type="submit"
+              >
+                {mutation.isPending ? "Выставляем..." : "Выставить аукцион"}
+              </Button>
+            </div>
           </div>
         </form>
       </div>
-    </Card>
+    </section>
   );
 }
