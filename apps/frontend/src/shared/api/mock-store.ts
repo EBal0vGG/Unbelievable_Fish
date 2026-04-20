@@ -88,7 +88,7 @@ const seedLots: LotRecord[] = [
     productLabel: "Минтай frozen block / 1000 kg",
     sellerCompanyId: "arctic-export",
     creatorUserId: "seller-02",
-    photo: "https://images.unsplash.com/photo-1534766555764-ce878a5e3a2b?auto=format&fit=crop&w=900&q=80",
+    photo: "https://main-cdn.sbermegamarket.ru/big2/hlr-system/187/133/181/810/182/232/100061076386b0.jpg",
     quantity: 28,
     startPrice: 260000,
     finalPrice: 315000,
