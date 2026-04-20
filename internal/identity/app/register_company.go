@@ -2,6 +2,8 @@ package app
 
 import (
 	"context"
+	"errors"
+	"strings"
 
 	identity "github.com/EBal0vGG/Unbelievable_Fish/internal/identity/domain"
 )
@@ -30,6 +32,14 @@ func NewRegisterCompany(companies CompanyRepository, ids IDGenerator, clock Cloc
 }
 
 func (uc *RegisterCompany) Execute(ctx context.Context, cmd RegisterCompanyCommand) (CompanyDTO, error) {
+	existing, err := uc.companies.GetByRequisites(ctx, strings.TrimSpace(cmd.INN), strings.TrimSpace(cmd.OGRN))
+	if err == nil && existing != nil {
+		return companyDTOFromDomain(existing), nil
+	}
+	if err != nil && !errors.Is(err, ErrCompanyNotFound) {
+		return CompanyDTO{}, err
+	}
+
 	company, err := identity.NewCompany(
 		uc.ids.NewCompanyID(),
 		cmd.Name,

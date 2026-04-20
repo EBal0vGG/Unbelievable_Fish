@@ -81,7 +81,7 @@ func (c *integrationConn) ExecContext(_ context.Context, query string, args []dr
 }
 
 func (c *integrationConn) QueryContext(_ context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
-	if len(args) != 1 {
+	if len(args) != 1 && len(args) != 2 {
 		return nil, errors.New("unexpected query args length")
 	}
 
@@ -94,6 +94,24 @@ func (c *integrationConn) QueryContext(_ context.Context, query string, args []d
 			return &integrationRows{}, nil
 		}
 		return &integrationRows{values: [][]driver.Value{{1}}}, nil
+	case strings.Contains(query, "FROM identity_companies") && strings.Contains(query, "WHERE inn = $1 AND ogrn = $2"):
+		inn := args[0].Value.(string)
+		ogrn := args[1].Value.(string)
+		c.store.mu.Lock()
+		defer c.store.mu.Unlock()
+		for _, record := range c.store.companies {
+			if record.inn == inn && record.ogrn == ogrn {
+				return &integrationRows{values: [][]driver.Value{{
+					record.companyID,
+					record.name,
+					record.inn,
+					record.ogrn,
+					record.status,
+					record.createdAt,
+				}}}, nil
+			}
+		}
+		return &integrationRows{}, nil
 	case strings.Contains(query, "FROM identity_companies"):
 		companyID := args[0].Value.(string)
 		c.store.mu.Lock()
