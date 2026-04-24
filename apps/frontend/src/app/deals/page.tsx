@@ -62,7 +62,7 @@ export default function DealsPage() {
     <div className="page-stack">
       <section className="page-hero compact-hero">
         <div>
-          <p className="eyebrow">Твои сделки</p>
+          <p className="eyebrow">Ваши сделки</p>
           <h1>Контракты после торгов</h1>
           <p className="hero-copy">
             Подтверждение победителя, контракт, оплата и отгрузка в одном рабочем контуре.
@@ -96,7 +96,7 @@ export default function DealsPage() {
         source="all"
         onSourceChange={() => undefined}
         showSource={false}
-        searchPlaceholder="Твоя сделка, аукцион, продукт или компания"
+        searchPlaceholder="Ваша сделка, аукцион, продукт или компания"
         extraFilters={
           <Field label="Сторона">
             <Select value={side} onChange={(event) => setSide(event.target.value)}>
@@ -116,14 +116,14 @@ export default function DealsPage() {
         </div>
       ) : !session ? (
         <EmptyState
-          title="Войдите, чтобы увидеть свои сделки"
+          title="Войдите, чтобы увидеть ваши сделки"
           description="Сделки доступны только поставщику и покупателю, которые участвуют в контракте."
           actionHref="/login?next=/deals"
           actionLabel="Войти"
         />
       ) : (
         <EmptyState
-          title="Твои сделки не найдены"
+          title="Ваши сделки не найдены"
           description="Сделка появляется после завершения аукциона и выбора победителя."
           actionHref="/auctions"
           actionLabel="Открыть аукционы"
