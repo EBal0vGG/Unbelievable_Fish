@@ -17,6 +17,8 @@ import { Input } from "@/shared/ui/input";
 import { Notice } from "@/shared/ui/notice";
 import { Select } from "@/shared/ui/select";
 
+const currentTermsVersion = "2026-04-24";
+
 const loginSchema = z.object({
   login: z.string().min(2, "Укажите логин или email"),
   password: z.string().min(1, "Укажите пароль"),
@@ -33,6 +35,7 @@ const registerUserSchema = z.object({
   role: z.enum(["admin", "seller", "buyer"]),
   login: z.string().min(2, "Укажите логин или email"),
   password: z.string().min(1, "Укажите пароль"),
+  acceptedTerms: z.boolean().refine((value) => value, "Нужно согласиться с условиями пользования"),
 });
 
 type LoginValues = z.infer<typeof loginSchema>;
@@ -75,6 +78,7 @@ export function AuthForm({
       role: "seller",
       login: "",
       password: "",
+      acceptedTerms: false,
     },
   });
 
@@ -115,6 +119,8 @@ export function AuthForm({
         role: values.role,
         login: values.login,
         password: values.password,
+        acceptedTerms: values.acceptedTerms,
+        termsVersion: currentTermsVersion,
       });
       await login(values.login, values.password);
       router.push(nextPath);
@@ -233,8 +239,29 @@ export function AuthForm({
               <Input disabled={!createdCompany} type="password" {...registerUserForm.register("password")} />
             </Field>
 
+            <div className="stack-md">
+              <label className="checkbox">
+                <input
+                  disabled={!createdCompany || registerUserForm.formState.isSubmitting}
+                  type="checkbox"
+                  {...registerUserForm.register("acceptedTerms")}
+                />
+                <span>Я соглашаюсь с условиями пользования сервиса.</span>
+              </label>
+              {registerUserForm.formState.errors.acceptedTerms ? (
+                <span className="field-error">{registerUserForm.formState.errors.acceptedTerms.message}</span>
+              ) : null}
+            </div>
+
             <div className="inline-actions">
-              <Button disabled={!createdCompany || registerUserForm.formState.isSubmitting} type="submit">
+              <Button
+                disabled={
+                  !createdCompany ||
+                  registerUserForm.formState.isSubmitting ||
+                  !registerUserForm.watch("acceptedTerms")
+                }
+                type="submit"
+              >
                 {registerUserForm.formState.isSubmitting ? "Создаем..." : "Создать пользователя и войти"}
               </Button>
               <Link className={buttonStyles({ variant: "ghost" })} href="/login">

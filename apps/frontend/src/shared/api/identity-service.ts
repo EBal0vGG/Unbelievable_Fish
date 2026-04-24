@@ -15,6 +15,8 @@ interface RegisterUserInput {
   role: UserRole;
   login: string;
   password: string;
+  acceptedTerms: boolean;
+  termsVersion: string;
 }
 
 interface LoginInput {
@@ -62,6 +64,8 @@ export async function registerUser(input: RegisterUserInput): Promise<UserRespon
       role: input.role,
       login: input.login,
       password: input.password,
+      accepted_terms: input.acceptedTerms,
+      terms_version: input.termsVersion,
     },
   });
 }

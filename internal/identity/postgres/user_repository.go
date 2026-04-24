@@ -26,16 +26,28 @@ INSERT INTO identity_users (
     name,
     role,
     login,
-    password_hash
-) VALUES ($1, $2, $3, $4, $5, $6)
+    password_hash,
+    terms_accepted_at,
+    terms_version
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 ON CONFLICT (user_id) DO UPDATE SET
     company_id = EXCLUDED.company_id,
     name = EXCLUDED.name,
     role = EXCLUDED.role,
     login = EXCLUDED.login,
-    password_hash = EXCLUDED.password_hash
+    password_hash = EXCLUDED.password_hash,
+    terms_accepted_at = EXCLUDED.terms_accepted_at,
+    terms_version = EXCLUDED.terms_version
 `
 	dbtx := DBTXFromContext(ctx, r.db)
+	var termsAcceptedAt any
+	if !user.TermsAcceptedAt().IsZero() {
+		termsAcceptedAt = user.TermsAcceptedAt()
+	}
+	var termsVersion any
+	if user.TermsVersion() != "" {
+		termsVersion = user.TermsVersion()
+	}
 	_, err := dbtx.ExecContext(
 		ctx,
 		query,
@@ -45,13 +57,15 @@ ON CONFLICT (user_id) DO UPDATE SET
 		string(user.Role()),
 		user.Login(),
 		user.PasswordHash(),
+		termsAcceptedAt,
+		termsVersion,
 	)
 	return err
 }
 
 func (r *UserRepository) GetByID(ctx context.Context, userID string) (*identity.User, error) {
 	const query = `
-SELECT user_id, company_id, name, role, login, password_hash
+SELECT user_id, company_id, name, role, login, password_hash, terms_accepted_at, terms_version
 FROM identity_users
 WHERE user_id = $1
 `
@@ -60,7 +74,7 @@ WHERE user_id = $1
 
 func (r *UserRepository) GetByLogin(ctx context.Context, login string) (*identity.User, error) {
 	const query = `
-SELECT user_id, company_id, name, role, login, password_hash
+SELECT user_id, company_id, name, role, login, password_hash, terms_accepted_at, terms_version
 FROM identity_users
 WHERE login = $1
 `
@@ -86,18 +100,35 @@ func (r *UserRepository) getOne(ctx context.Context, query string, arg string) (
 	row := dbtx.QueryRowContext(ctx, query, arg)
 
 	var (
-		id           string
-		companyID    string
-		name         string
-		role         string
-		login        string
-		passwordHash string
+		id              string
+		companyID       string
+		name            string
+		role            string
+		login           string
+		passwordHash    string
+		termsAcceptedAt sql.NullTime
+		termsVersion    sql.NullString
 	)
-	if err := row.Scan(&id, &companyID, &name, &role, &login, &passwordHash); err != nil {
+	if err := row.Scan(&id, &companyID, &name, &role, &login, &passwordHash, &termsAcceptedAt, &termsVersion); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, app.ErrUserNotFound
 		}
 		return nil, err
 	}
-	return identity.NewUser(id, companyID, name, identity.Role(role), login, passwordHash)
+	user, err := identity.NewUser(id, companyID, name, identity.Role(role), login, passwordHash)
+	if err != nil {
+		return nil, err
+	}
+	if termsAcceptedAt.Valid != termsVersion.Valid {
+		if !termsAcceptedAt.Valid {
+			return nil, identity.ErrEmptyTermsAcceptedAt
+		}
+		return nil, identity.ErrEmptyTermsVersion
+	}
+	if termsAcceptedAt.Valid {
+		if err := user.AcceptTerms(termsVersion.String, termsAcceptedAt.Time); err != nil {
+			return nil, err
+		}
+	}
+	return user, nil
 }

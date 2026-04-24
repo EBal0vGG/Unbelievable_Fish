@@ -66,6 +66,10 @@ func TestUserRepositorySaveAndLoad(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+	acceptedAt := time.Date(2024, time.April, 1, 10, 0, 0, 0, time.UTC)
+	if err := user.AcceptTerms("2026-04-24", acceptedAt); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
 	if err := userRepo.Save(context.Background(), user); err != nil {
 		t.Fatalf("save user error: %v", err)
 	}
@@ -84,6 +88,12 @@ func TestUserRepositorySaveAndLoad(t *testing.T) {
 	}
 	if loadedByLogin.ID() != user.ID() {
 		t.Fatalf("unexpected user by login: %+v", loadedByLogin)
+	}
+	if loadedByLogin.TermsVersion() != "2026-04-24" {
+		t.Fatalf("expected terms version 2026-04-24, got %q", loadedByLogin.TermsVersion())
+	}
+	if !loadedByLogin.TermsAcceptedAt().Equal(acceptedAt) {
+		t.Fatalf("expected accepted at %v, got %v", acceptedAt, loadedByLogin.TermsAcceptedAt())
 	}
 
 	exists, err := userRepo.ExistsByLogin(context.Background(), user.Login())

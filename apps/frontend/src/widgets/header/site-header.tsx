@@ -16,7 +16,7 @@ const navItems = [
   { href: "/products", label: "Продукты" },
   { href: "/lots", label: "Лоты" },
   { href: "/auctions", label: "Торги" },
-  { href: "/deals", label: "Твои сделки" },
+  { href: "/deals", label: "Ваши сделки" },
   { href: "/create/lot", label: "Новый лот" },
   { href: "/create/auction", label: "Новый аукцион" },
   { href: "/me", label: "Профиль" },

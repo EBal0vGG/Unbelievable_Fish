@@ -1,14 +1,19 @@
 package identity
 
-import "strings"
+import (
+	"strings"
+	"time"
+)
 
 type User struct {
-	id           string
-	companyID    string
-	name         string
-	role         Role
-	login        string
-	passwordHash string
+	id              string
+	companyID       string
+	name            string
+	role            Role
+	login           string
+	passwordHash    string
+	termsAcceptedAt time.Time
+	termsVersion    string
 }
 
 func NewUser(userID string, companyID string, name string, role Role, login string, passwordHash string) (*User, error) {
@@ -73,4 +78,26 @@ func (u *User) Login() string {
 
 func (u *User) PasswordHash() string {
 	return u.passwordHash
+}
+
+func (u *User) TermsAcceptedAt() time.Time {
+	return u.termsAcceptedAt
+}
+
+func (u *User) TermsVersion() string {
+	return u.termsVersion
+}
+
+func (u *User) AcceptTerms(version string, acceptedAt time.Time) error {
+	version = strings.TrimSpace(version)
+	if isBlank(version) {
+		return ErrEmptyTermsVersion
+	}
+	if acceptedAt.IsZero() {
+		return ErrEmptyTermsAcceptedAt
+	}
+
+	u.termsVersion = version
+	u.termsAcceptedAt = acceptedAt
+	return nil
 }

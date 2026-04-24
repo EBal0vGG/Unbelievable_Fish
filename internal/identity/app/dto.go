@@ -13,13 +13,15 @@ type RegisterCompanyCommand struct {
 }
 
 type RegisterUserCommand struct {
-	CompanyID   string
-	CompanyINN  string
-	CompanyOGRN string
-	Name        string
-	Role        identity.Role
-	Login       string
-	Password    string
+	CompanyID     string
+	CompanyINN    string
+	CompanyOGRN   string
+	Name          string
+	Role          identity.Role
+	Login         string
+	Password      string
+	AcceptedTerms bool
+	TermsVersion  string
 }
 
 type LoginCommand struct {

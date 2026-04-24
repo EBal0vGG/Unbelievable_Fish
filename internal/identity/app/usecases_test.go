@@ -250,18 +250,21 @@ func TestRegisterUserSuccess(t *testing.T) {
 	companies.byKey[company.INN()+"|"+company.OGRN()] = company
 	users := newFakeUserRepo()
 	hasher := &fakePasswordHasher{hashValue: "hashed-password"}
+	acceptedAt := time.Date(2024, time.April, 1, 11, 30, 0, 0, time.UTC)
 
-	uc, err := NewRegisterUser(users, companies, hasher, fakeIDGenerator{userID: "user-1"})
+	uc, err := NewRegisterUser(users, companies, hasher, fakeIDGenerator{userID: "user-1"}, fixedClock{now: acceptedAt})
 	if err != nil {
 		t.Fatalf("unexpected constructor error: %v", err)
 	}
 
 	result, err := uc.Execute(context.Background(), RegisterUserCommand{
-		CompanyID: "company-1",
-		Name:      "Alice",
-		Role:      identity.RoleAdmin,
-		Login:     " Alice@Example.com ",
-		Password:  "secret",
+		CompanyID:     "company-1",
+		Name:          "Alice",
+		Role:          identity.RoleAdmin,
+		Login:         " Alice@Example.com ",
+		Password:      "secret",
+		AcceptedTerms: true,
+		TermsVersion:  "2026-04-24",
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -283,6 +286,12 @@ func TestRegisterUserSuccess(t *testing.T) {
 	if stored.PasswordHash() != "hashed-password" {
 		t.Fatalf("expected stored hash, got %q", stored.PasswordHash())
 	}
+	if stored.TermsVersion() != "2026-04-24" {
+		t.Fatalf("expected stored terms version, got %q", stored.TermsVersion())
+	}
+	if !stored.TermsAcceptedAt().Equal(acceptedAt) {
+		t.Fatalf("expected stored accepted at %v, got %v", acceptedAt, stored.TermsAcceptedAt())
+	}
 }
 
 func TestRegisterUserSuccessByCompanyRequisites(t *testing.T) {
@@ -296,18 +305,20 @@ func TestRegisterUserSuccessByCompanyRequisites(t *testing.T) {
 	users := newFakeUserRepo()
 	hasher := &fakePasswordHasher{hashValue: "hashed-password"}
 
-	uc, err := NewRegisterUser(users, companies, hasher, fakeIDGenerator{userID: "user-2"})
+	uc, err := NewRegisterUser(users, companies, hasher, fakeIDGenerator{userID: "user-2"}, fixedClock{now: time.Date(2024, time.April, 2, 10, 0, 0, 0, time.UTC)})
 	if err != nil {
 		t.Fatalf("unexpected constructor error: %v", err)
 	}
 
 	result, err := uc.Execute(context.Background(), RegisterUserCommand{
-		CompanyINN:  "7707083893",
-		CompanyOGRN: "1027700132195",
-		Name:        "Bob",
-		Role:        identity.RoleSeller,
-		Login:       "bob@example.com",
-		Password:    "secret",
+		CompanyINN:    "7707083893",
+		CompanyOGRN:   "1027700132195",
+		Name:          "Bob",
+		Role:          identity.RoleSeller,
+		Login:         "bob@example.com",
+		Password:      "secret",
+		AcceptedTerms: true,
+		TermsVersion:  "2026-04-24",
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -326,17 +337,19 @@ func TestRegisterUserFailsWhenCompanyNotFound(t *testing.T) {
 	companies := newFakeCompanyRepo()
 	hasher := &fakePasswordHasher{}
 
-	uc, err := NewRegisterUser(users, companies, hasher, fakeIDGenerator{userID: "user-1"})
+	uc, err := NewRegisterUser(users, companies, hasher, fakeIDGenerator{userID: "user-1"}, fixedClock{now: time.Date(2024, time.April, 1, 10, 0, 0, 0, time.UTC)})
 	if err != nil {
 		t.Fatalf("unexpected constructor error: %v", err)
 	}
 
 	_, err = uc.Execute(context.Background(), RegisterUserCommand{
-		CompanyID: "missing-company",
-		Name:      "Alice",
-		Role:      identity.RoleAdmin,
-		Login:     "alice@example.com",
-		Password:  "secret",
+		CompanyID:     "missing-company",
+		Name:          "Alice",
+		Role:          identity.RoleAdmin,
+		Login:         "alice@example.com",
+		Password:      "secret",
+		AcceptedTerms: true,
+		TermsVersion:  "2026-04-24",
 	})
 	if err != ErrCompanyNotFound {
 		t.Fatalf("expected %v, got %v", ErrCompanyNotFound, err)
@@ -360,17 +373,19 @@ func TestRegisterUserFailsWhenLoginAlreadyUsed(t *testing.T) {
 	users.byID[existing.ID()] = existing
 	users.byLogin[existing.Login()] = existing
 
-	uc, err := NewRegisterUser(users, companies, &fakePasswordHasher{}, fakeIDGenerator{userID: "user-1"})
+	uc, err := NewRegisterUser(users, companies, &fakePasswordHasher{}, fakeIDGenerator{userID: "user-1"}, fixedClock{now: time.Date(2024, time.April, 1, 10, 0, 0, 0, time.UTC)})
 	if err != nil {
 		t.Fatalf("unexpected constructor error: %v", err)
 	}
 
 	_, err = uc.Execute(context.Background(), RegisterUserCommand{
-		CompanyID: "company-1",
-		Name:      "Alice",
-		Role:      identity.RoleAdmin,
-		Login:     "Alice@Example.com",
-		Password:  "secret",
+		CompanyID:     "company-1",
+		Name:          "Alice",
+		Role:          identity.RoleAdmin,
+		Login:         "Alice@Example.com",
+		Password:      "secret",
+		AcceptedTerms: true,
+		TermsVersion:  "2026-04-24",
 	})
 	if err != ErrLoginAlreadyUsed {
 		t.Fatalf("expected %v, got %v", ErrLoginAlreadyUsed, err)
@@ -382,20 +397,70 @@ func TestRegisterUserFailsWhenPasswordEmpty(t *testing.T) {
 	companies := newFakeCompanyRepo()
 	hasher := &fakePasswordHasher{}
 
-	uc, err := NewRegisterUser(users, companies, hasher, fakeIDGenerator{userID: "user-1"})
+	uc, err := NewRegisterUser(users, companies, hasher, fakeIDGenerator{userID: "user-1"}, fixedClock{now: time.Date(2024, time.April, 1, 10, 0, 0, 0, time.UTC)})
 	if err != nil {
 		t.Fatalf("unexpected constructor error: %v", err)
 	}
 
 	_, err = uc.Execute(context.Background(), RegisterUserCommand{
-		CompanyID: "company-1",
-		Name:      "Alice",
-		Role:      identity.RoleAdmin,
-		Login:     "alice@example.com",
-		Password:  " ",
+		CompanyID:     "company-1",
+		Name:          "Alice",
+		Role:          identity.RoleAdmin,
+		Login:         "alice@example.com",
+		Password:      " ",
+		AcceptedTerms: true,
+		TermsVersion:  "2026-04-24",
 	})
 	if err != ErrPasswordRequired {
 		t.Fatalf("expected %v, got %v", ErrPasswordRequired, err)
+	}
+}
+
+func TestRegisterUserFailsWhenTermsNotAccepted(t *testing.T) {
+	users := newFakeUserRepo()
+	companies := newFakeCompanyRepo()
+	hasher := &fakePasswordHasher{}
+
+	uc, err := NewRegisterUser(users, companies, hasher, fakeIDGenerator{userID: "user-1"}, fixedClock{now: time.Date(2024, time.April, 1, 10, 0, 0, 0, time.UTC)})
+	if err != nil {
+		t.Fatalf("unexpected constructor error: %v", err)
+	}
+
+	_, err = uc.Execute(context.Background(), RegisterUserCommand{
+		CompanyID:     "company-1",
+		Name:          "Alice",
+		Role:          identity.RoleAdmin,
+		Login:         "alice@example.com",
+		Password:      "secret",
+		AcceptedTerms: false,
+		TermsVersion:  "2026-04-24",
+	})
+	if err != ErrTermsAcceptanceRequired {
+		t.Fatalf("expected %v, got %v", ErrTermsAcceptanceRequired, err)
+	}
+}
+
+func TestRegisterUserFailsWhenTermsVersionEmpty(t *testing.T) {
+	users := newFakeUserRepo()
+	companies := newFakeCompanyRepo()
+	hasher := &fakePasswordHasher{}
+
+	uc, err := NewRegisterUser(users, companies, hasher, fakeIDGenerator{userID: "user-1"}, fixedClock{now: time.Date(2024, time.April, 1, 10, 0, 0, 0, time.UTC)})
+	if err != nil {
+		t.Fatalf("unexpected constructor error: %v", err)
+	}
+
+	_, err = uc.Execute(context.Background(), RegisterUserCommand{
+		CompanyID:     "company-1",
+		Name:          "Alice",
+		Role:          identity.RoleAdmin,
+		Login:         "alice@example.com",
+		Password:      "secret",
+		AcceptedTerms: true,
+		TermsVersion:  " ",
+	})
+	if err != ErrTermsVersionRequired {
+		t.Fatalf("expected %v, got %v", ErrTermsVersionRequired, err)
 	}
 }
 

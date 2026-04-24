@@ -164,18 +164,20 @@ func TestRegisterUserHandlerSuccess(t *testing.T) {
 	companies.byID[company.ID()] = company
 
 	users := newFakeUserRepo()
-	uc, err := identityapp.NewRegisterUser(users, companies, fakePasswordHasher{hashValue: "hashed:"}, fixedIDGenerator{userID: "user-1"})
+	uc, err := identityapp.NewRegisterUser(users, companies, fakePasswordHasher{hashValue: "hashed:"}, fixedIDGenerator{userID: "user-1"}, fixedClock{now: time.Date(2024, time.April, 1, 10, 5, 0, 0, time.UTC)})
 	if err != nil {
 		t.Fatalf("unexpected constructor error: %v", err)
 	}
 	handler := NewRegisterUserHandler(uc)
 
 	body, _ := json.Marshal(httpapi.RegisterUserRequest{
-		CompanyID: "company-1",
-		Name:      "Alice",
-		Role:      identity.RoleAdmin,
-		Login:     "alice@example.com",
-		Password:  "secret",
+		CompanyID:     "company-1",
+		Name:          "Alice",
+		Role:          identity.RoleAdmin,
+		Login:         "alice@example.com",
+		Password:      "secret",
+		AcceptedTerms: true,
+		TermsVersion:  "2026-04-24",
 	})
 	req := httptest.NewRequest(http.MethodPost, "/users", bytes.NewReader(body))
 	rec := httptest.NewRecorder()
@@ -192,6 +194,41 @@ func TestRegisterUserHandlerSuccess(t *testing.T) {
 	if resp.ID != "user-1" {
 		t.Fatalf("expected user id user-1, got %q", resp.ID)
 	}
+}
+
+func TestRegisterUserHandlerRequiresTermsAcceptance(t *testing.T) {
+	companies := newFakeCompanyRepo()
+	company, err := identity.NewCompany("company-1", "Acme Fish", "7707083893", "1027700132195", time.Now())
+	if err != nil {
+		t.Fatalf("unexpected domain error: %v", err)
+	}
+	companies.byID[company.ID()] = company
+
+	users := newFakeUserRepo()
+	uc, err := identityapp.NewRegisterUser(users, companies, fakePasswordHasher{hashValue: "hashed:"}, fixedIDGenerator{userID: "user-1"}, fixedClock{now: time.Date(2024, time.April, 1, 10, 5, 0, 0, time.UTC)})
+	if err != nil {
+		t.Fatalf("unexpected constructor error: %v", err)
+	}
+	handler := NewRegisterUserHandler(uc)
+
+	body, _ := json.Marshal(httpapi.RegisterUserRequest{
+		CompanyID:     "company-1",
+		Name:          "Alice",
+		Role:          identity.RoleAdmin,
+		Login:         "alice@example.com",
+		Password:      "secret",
+		AcceptedTerms: false,
+		TermsVersion:  "2026-04-24",
+	})
+	req := httptest.NewRequest(http.MethodPost, "/users", bytes.NewReader(body))
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected status %d, got %d", http.StatusBadRequest, rec.Code)
+	}
+	assertErrorCode(t, rec, "TERMS_ACCEPTANCE_REQUIRED")
 }
 
 func TestLoginHandlerSuccess(t *testing.T) {

@@ -80,23 +80,36 @@ func TestIdentityUseCasesWithPostgresRepositories(t *testing.T) {
 		companyRepo,
 		fakePasswordHasher{hashValue: "hashed:"},
 		fixedIDGenerator{userID: "user-1"},
+		fixedClock{now: time.Date(2024, time.April, 1, 10, 5, 0, 0, time.UTC)},
 	)
 	if err != nil {
 		t.Fatalf("unexpected constructor error: %v", err)
 	}
 
 	user, err := registerUser.Execute(context.Background(), identityapp.RegisterUserCommand{
-		CompanyID: company.ID,
-		Name:      "Alice",
-		Role:      identity.RoleAdmin,
-		Login:     " Alice@Example.com ",
-		Password:  "secret",
+		CompanyID:     company.ID,
+		Name:          "Alice",
+		Role:          identity.RoleAdmin,
+		Login:         " Alice@Example.com ",
+		Password:      "secret",
+		AcceptedTerms: true,
+		TermsVersion:  "2026-04-24",
 	})
 	if err != nil {
 		t.Fatalf("register user error: %v", err)
 	}
 	if user.Login != "alice@example.com" {
 		t.Fatalf("expected normalized login, got %q", user.Login)
+	}
+	storedUser, err := userRepo.GetByID(context.Background(), user.ID)
+	if err != nil {
+		t.Fatalf("load stored user error: %v", err)
+	}
+	if storedUser.TermsVersion() != "2026-04-24" {
+		t.Fatalf("expected stored terms version, got %q", storedUser.TermsVersion())
+	}
+	if storedUser.TermsAcceptedAt().IsZero() {
+		t.Fatal("expected stored accepted at to be set")
 	}
 
 	login, err := identityapp.NewLogin(
@@ -175,18 +188,21 @@ func TestRegisterUserWithExistingCompanyByRequisites(t *testing.T) {
 		companyRepo,
 		fakePasswordHasher{hashValue: "hashed:"},
 		fixedIDGenerator{userID: "user-2"},
+		fixedClock{now: time.Date(2024, time.April, 1, 10, 10, 0, 0, time.UTC)},
 	)
 	if err != nil {
 		t.Fatalf("unexpected constructor error: %v", err)
 	}
 
 	user, err := registerUser.Execute(context.Background(), identityapp.RegisterUserCommand{
-		CompanyINN:  "7707083893",
-		CompanyOGRN: "1027700132195",
-		Name:        "Bob",
-		Role:        identity.RoleSeller,
-		Login:       "bob@example.com",
-		Password:    "secret",
+		CompanyINN:    "7707083893",
+		CompanyOGRN:   "1027700132195",
+		Name:          "Bob",
+		Role:          identity.RoleSeller,
+		Login:         "bob@example.com",
+		Password:      "secret",
+		AcceptedTerms: true,
+		TermsVersion:  "2026-04-24",
 	})
 	if err != nil {
 		t.Fatalf("register user error: %v", err)
