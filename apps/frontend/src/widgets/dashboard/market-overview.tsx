@@ -108,7 +108,7 @@ export function MarketOverview() {
             ) : null}
             {canSeeDeals ? (
               <Link className={buttonStyles({ variant: "ghost", size: "lg" })} href="/deals">
-                Твои сделки
+                Ваши сделки
               </Link>
             ) : null}
           </div>
@@ -136,7 +136,7 @@ export function MarketOverview() {
         {canSeeDeals ? (
           <>
             <Card className="stat-card">
-              <span>Твои сделки</span>
+              <span>Ваши сделки</span>
               <strong>{activeDeals.length}</strong>
             </Card>
             <Card className="stat-card">
@@ -157,7 +157,7 @@ export function MarketOverview() {
           <span>Продукт</span>
           <span>Лот</span>
           <Link href="/auctions">Торги</Link>
-          {canSeeDeals ? <Link href="/deals">Твои сделки</Link> : <span>Закрытие</span>}
+          {canSeeDeals ? <Link href="/deals">Ваши сделки</Link> : <span>Закрытие</span>}
         </div>
       </section>
 
@@ -199,7 +199,7 @@ export function MarketOverview() {
               </Select>
             </Field>
             {canSeeDeals ? (
-              <Field label="Твои сделки">
+              <Field label="Ваши сделки">
                 <Select value={dealStatus} onChange={(event) => setDealStatus(event.target.value)}>
                   <option value="all">Все</option>
                   <option value="pending">pending</option>
@@ -241,11 +241,11 @@ export function MarketOverview() {
         <section className="market-sections">
           <div className="section-heading">
             <div>
-              <p className="eyebrow">Твои сделки</p>
+              <p className="eyebrow">Ваши сделки</p>
               <h2>Сделки в работе</h2>
             </div>
             <Link className={buttonStyles({ variant: "ghost", size: "sm" })} href="/deals">
-              Все твои сделки
+              Все ваши сделки
             </Link>
           </div>
           <div className="card-grid card-grid-3">
