@@ -14,13 +14,15 @@ type RegisterCompanyRequest struct {
 }
 
 type RegisterUserRequest struct {
-	CompanyID   string        `json:"company_id"`
-	CompanyINN  string        `json:"company_inn"`
-	CompanyOGRN string        `json:"company_ogrn"`
-	Name        string        `json:"name"`
-	Role        identity.Role `json:"role"`
-	Login       string        `json:"login"`
-	Password    string        `json:"password"`
+	CompanyID     string        `json:"company_id"`
+	CompanyINN    string        `json:"company_inn"`
+	CompanyOGRN   string        `json:"company_ogrn"`
+	Name          string        `json:"name"`
+	Role          identity.Role `json:"role"`
+	Login         string        `json:"login"`
+	Password      string        `json:"password"`
+	AcceptedTerms bool          `json:"accepted_terms"`
+	TermsVersion  string        `json:"terms_version"`
 }
 
 type LoginRequest struct {

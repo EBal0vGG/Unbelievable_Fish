@@ -29,13 +29,15 @@ func (h *RegisterUserHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 	}
 
 	result, err := h.uc.Execute(r.Context(), identityapp.RegisterUserCommand{
-		CompanyID:   req.CompanyID,
-		CompanyINN:  req.CompanyINN,
-		CompanyOGRN: req.CompanyOGRN,
-		Name:        req.Name,
-		Role:        req.Role,
-		Login:       req.Login,
-		Password:    req.Password,
+		CompanyID:     req.CompanyID,
+		CompanyINN:    req.CompanyINN,
+		CompanyOGRN:   req.CompanyOGRN,
+		Name:          req.Name,
+		Role:          req.Role,
+		Login:         req.Login,
+		Password:      req.Password,
+		AcceptedTerms: req.AcceptedTerms,
+		TermsVersion:  req.TermsVersion,
 	})
 	if err != nil {
 		writeError(w, err, meta)

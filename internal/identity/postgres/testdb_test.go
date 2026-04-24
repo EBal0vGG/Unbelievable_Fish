@@ -22,12 +22,14 @@ type integrationCompanyRecord struct {
 }
 
 type integrationUserRecord struct {
-	userID       string
-	companyID    string
-	name         string
-	role         string
-	login        string
-	passwordHash string
+	userID          string
+	companyID       string
+	name            string
+	role            string
+	login           string
+	passwordHash    string
+	termsAcceptedAt sql.NullTime
+	termsVersion    sql.NullString
 }
 
 type integrationStore struct {
@@ -153,6 +155,8 @@ func (c *integrationConn) QueryContext(_ context.Context, query string, args []d
 			record.role,
 			record.login,
 			record.passwordHash,
+			nullTimeValue(record.termsAcceptedAt),
+			nullStringValue(record.termsVersion),
 		}}}, nil
 	case strings.Contains(query, "FROM identity_users") && strings.Contains(query, "WHERE login = $1"):
 		login := args[0].Value.(string)
@@ -167,6 +171,8 @@ func (c *integrationConn) QueryContext(_ context.Context, query string, args []d
 					record.role,
 					record.login,
 					record.passwordHash,
+					nullTimeValue(record.termsAcceptedAt),
+					nullStringValue(record.termsVersion),
 				}}}, nil
 			}
 		}
@@ -197,17 +203,19 @@ func (c *integrationConn) execCompanyInsert(args []driver.NamedValue) (driver.Re
 }
 
 func (c *integrationConn) execUserInsert(args []driver.NamedValue) (driver.Result, error) {
-	if len(args) != 6 {
+	if len(args) != 8 {
 		return nil, errors.New("unexpected user args length")
 	}
 
 	record := integrationUserRecord{
-		userID:       args[0].Value.(string),
-		companyID:    args[1].Value.(string),
-		name:         args[2].Value.(string),
-		role:         args[3].Value.(string),
-		login:        args[4].Value.(string),
-		passwordHash: args[5].Value.(string),
+		userID:          args[0].Value.(string),
+		companyID:       args[1].Value.(string),
+		name:            args[2].Value.(string),
+		role:            args[3].Value.(string),
+		login:           args[4].Value.(string),
+		passwordHash:    args[5].Value.(string),
+		termsAcceptedAt: namedValueTime(args[6]),
+		termsVersion:    namedValueString(args[7]),
 	}
 
 	c.store.mu.Lock()
@@ -280,4 +288,40 @@ func openIntegrationDB(t *testing.T, name string) *sql.DB {
 		_ = db.Close()
 	})
 	return db
+}
+
+func namedValueTime(value driver.NamedValue) sql.NullTime {
+	if value.Value == nil {
+		return sql.NullTime{}
+	}
+	tm, ok := value.Value.(time.Time)
+	if !ok {
+		return sql.NullTime{}
+	}
+	return sql.NullTime{Time: tm, Valid: true}
+}
+
+func namedValueString(value driver.NamedValue) sql.NullString {
+	if value.Value == nil {
+		return sql.NullString{}
+	}
+	text, ok := value.Value.(string)
+	if !ok {
+		return sql.NullString{}
+	}
+	return sql.NullString{String: text, Valid: true}
+}
+
+func nullTimeValue(value sql.NullTime) driver.Value {
+	if !value.Valid {
+		return nil
+	}
+	return value.Time
+}
+
+func nullStringValue(value sql.NullString) driver.Value {
+	if !value.Valid {
+		return nil
+	}
+	return value.String
 }

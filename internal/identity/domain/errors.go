@@ -3,13 +3,15 @@ package identity
 import "errors"
 
 var (
-	ErrEmptyUserID       = errors.New("user id is required")
-	ErrEmptyCompanyID    = errors.New("company id is required")
-	ErrEmptyUserName     = errors.New("user name is required")
-	ErrEmptyLogin        = errors.New("login is required")
-	ErrInvalidLogin      = errors.New("login must be a valid email address")
-	ErrInvalidRole       = errors.New("role is invalid")
-	ErrEmptyPasswordHash = errors.New("password hash is required")
+	ErrEmptyUserID          = errors.New("user id is required")
+	ErrEmptyCompanyID       = errors.New("company id is required")
+	ErrEmptyUserName        = errors.New("user name is required")
+	ErrEmptyLogin           = errors.New("login is required")
+	ErrInvalidLogin         = errors.New("login must be a valid email address")
+	ErrInvalidRole          = errors.New("role is invalid")
+	ErrEmptyPasswordHash    = errors.New("password hash is required")
+	ErrEmptyTermsVersion    = errors.New("terms version is required")
+	ErrEmptyTermsAcceptedAt = errors.New("terms accepted at is required")
 
 	ErrEmptyCompanyName    = errors.New("company name is required")
 	ErrCompanyNameTooLong  = errors.New("company name is too long")

@@ -49,6 +49,10 @@ func MapError(err error) HTTPError {
 		return HTTPError{http.StatusUnauthorized, "INVALID_CREDENTIALS", "invalid credentials"}
 	case errors.Is(err, identityapp.ErrPasswordRequired):
 		return HTTPError{http.StatusBadRequest, "PASSWORD_REQUIRED", err.Error()}
+	case errors.Is(err, identityapp.ErrTermsAcceptanceRequired):
+		return HTTPError{http.StatusBadRequest, "TERMS_ACCEPTANCE_REQUIRED", err.Error()}
+	case errors.Is(err, identityapp.ErrTermsVersionRequired):
+		return HTTPError{http.StatusBadRequest, "TERMS_VERSION_REQUIRED", err.Error()}
 	case errors.Is(err, identityapp.ErrUserIDRequired):
 		return HTTPError{http.StatusBadRequest, "USER_ID_REQUIRED", err.Error()}
 	case errors.Is(err, identity.ErrEmptyCompanyID):
@@ -75,6 +79,10 @@ func MapError(err error) HTTPError {
 		return HTTPError{http.StatusBadRequest, "INVALID_ROLE", err.Error()}
 	case errors.Is(err, identity.ErrEmptyPasswordHash):
 		return HTTPError{http.StatusBadRequest, "PASSWORD_HASH_REQUIRED", err.Error()}
+	case errors.Is(err, identity.ErrEmptyTermsVersion):
+		return HTTPError{http.StatusBadRequest, "TERMS_VERSION_REQUIRED", err.Error()}
+	case errors.Is(err, identity.ErrEmptyTermsAcceptedAt):
+		return HTTPError{http.StatusBadRequest, "TERMS_ACCEPTED_AT_REQUIRED", err.Error()}
 	default:
 		return HTTPError{http.StatusInternalServerError, "INTERNAL_ERROR", "internal error"}
 	}

@@ -13,6 +13,7 @@ type RegisterUser struct {
 	companies CompanyRepository
 	hasher    PasswordHasher
 	ids       IDGenerator
+	clock     Clock
 }
 
 func NewRegisterUser(
@@ -20,6 +21,7 @@ func NewRegisterUser(
 	companies CompanyRepository,
 	hasher PasswordHasher,
 	ids IDGenerator,
+	clock Clock,
 ) (*RegisterUser, error) {
 	if users == nil {
 		return nil, ErrNilUserRepository
@@ -33,17 +35,27 @@ func NewRegisterUser(
 	if ids == nil {
 		ids = NewRandomIDGenerator()
 	}
+	if clock == nil {
+		clock = systemClock{}
+	}
 	return &RegisterUser{
 		users:     users,
 		companies: companies,
 		hasher:    hasher,
 		ids:       ids,
+		clock:     clock,
 	}, nil
 }
 
 func (uc *RegisterUser) Execute(ctx context.Context, cmd RegisterUserCommand) (UserDTO, error) {
 	if strings.TrimSpace(cmd.Password) == "" {
 		return UserDTO{}, ErrPasswordRequired
+	}
+	if !cmd.AcceptedTerms {
+		return UserDTO{}, ErrTermsAcceptanceRequired
+	}
+	if strings.TrimSpace(cmd.TermsVersion) == "" {
+		return UserDTO{}, ErrTermsVersionRequired
 	}
 
 	companyID, err := uc.resolveCompanyID(ctx, cmd)
@@ -74,6 +86,9 @@ func (uc *RegisterUser) Execute(ctx context.Context, cmd RegisterUserCommand) (U
 		passwordHash,
 	)
 	if err != nil {
+		return UserDTO{}, err
+	}
+	if err := user.AcceptTerms(cmd.TermsVersion, uc.clock.Now()); err != nil {
 		return UserDTO{}, err
 	}
 	if err := uc.users.Save(ctx, user); err != nil {

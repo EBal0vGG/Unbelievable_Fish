@@ -134,7 +134,7 @@ func TestCommandFlowSmoke(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected constructor error: %v", err)
 	}
-	registerUserUC, err := identityapp.NewRegisterUser(users, companies, fakePasswordHasher{hashValue: "hashed:"}, fixedIDGenerator{userID: "user-1"})
+	registerUserUC, err := identityapp.NewRegisterUser(users, companies, fakePasswordHasher{hashValue: "hashed:"}, fixedIDGenerator{userID: "user-1"}, fixedClock{now: time.Date(2024, time.April, 1, 10, 5, 0, 0, time.UTC)})
 	if err != nil {
 		t.Fatalf("unexpected constructor error: %v", err)
 	}
@@ -168,11 +168,13 @@ func TestCommandFlowSmoke(t *testing.T) {
 	}
 
 	userBody, _ := json.Marshal(httpapi.RegisterUserRequest{
-		CompanyID: "company-1",
-		Name:      "Alice",
-		Role:      identity.RoleAdmin,
-		Login:     "alice@example.com",
-		Password:  "secret",
+		CompanyID:     "company-1",
+		Name:          "Alice",
+		Role:          identity.RoleAdmin,
+		Login:         "alice@example.com",
+		Password:      "secret",
+		AcceptedTerms: true,
+		TermsVersion:  "2026-04-24",
 	})
 	userReq := httptest.NewRequest(http.MethodPost, "/users", bytes.NewReader(userBody))
 	userRec := httptest.NewRecorder()

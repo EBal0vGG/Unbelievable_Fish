@@ -35,7 +35,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	registerUserUC, err := identityapp.NewRegisterUser(userRepo, companyRepo, passwordHasher, identityapp.NewRandomIDGenerator())
+	registerUserUC, err := identityapp.NewRegisterUser(userRepo, companyRepo, passwordHasher, identityapp.NewRandomIDGenerator(), nil)
 	if err != nil {
 		log.Fatal(err)
 	}
