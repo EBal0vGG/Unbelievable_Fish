@@ -111,6 +111,9 @@ func (uc *RegisterUser) resolveCompanyID(ctx context.Context, cmd RegisterUserCo
 
 	companyINN := strings.TrimSpace(cmd.CompanyINN)
 	companyOGRN := strings.TrimSpace(cmd.CompanyOGRN)
+	if companyINN == "" && companyOGRN == "" {
+		return "", nil
+	}
 	if companyINN == "" || companyOGRN == "" {
 		return "", identity.ErrEmptyCompanyID
 	}

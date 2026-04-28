@@ -211,3 +211,54 @@ func TestRegisterUserWithExistingCompanyByRequisites(t *testing.T) {
 		t.Fatalf("expected company id %q, got %q", firstCompany.ID, user.CompanyID)
 	}
 }
+
+func TestRegisterUserWithoutCompany(t *testing.T) {
+	db := openIntegrationDB(t, "identity-no-company")
+	companyRepo := NewCompanyRepository(db)
+	userRepo := NewUserRepository(db)
+
+	registerUser, err := identityapp.NewRegisterUser(
+		userRepo,
+		companyRepo,
+		fakePasswordHasher{hashValue: "hashed:"},
+		fixedIDGenerator{userID: "user-3"},
+		fixedClock{now: time.Date(2024, time.April, 1, 10, 15, 0, 0, time.UTC)},
+	)
+	if err != nil {
+		t.Fatalf("unexpected constructor error: %v", err)
+	}
+
+	user, err := registerUser.Execute(context.Background(), identityapp.RegisterUserCommand{
+		Name:          "Carol",
+		Role:          identity.RoleBuyer,
+		Login:         "carol@example.com",
+		Password:      "secret",
+		AcceptedTerms: true,
+		TermsVersion:  "2026-04-24",
+	})
+	if err != nil {
+		t.Fatalf("register user error: %v", err)
+	}
+	if user.CompanyID != "" {
+		t.Fatalf("expected empty company id, got %q", user.CompanyID)
+	}
+
+	login, err := identityapp.NewLogin(
+		userRepo,
+		fakePasswordHasher{hashValue: "hashed:"},
+		fakeTokenProvider{token: "token-2"},
+	)
+	if err != nil {
+		t.Fatalf("unexpected constructor error: %v", err)
+	}
+	loginResult, err := login.Execute(context.Background(), identityapp.LoginCommand{
+		Login:    "carol@example.com",
+		Password: "secret",
+	})
+	if err != nil {
+		t.Fatalf("login error: %v", err)
+	}
+	if loginResult.User.CompanyID != "" {
+		t.Fatalf("expected empty company id in login result, got %q", loginResult.User.CompanyID)
+	}
+}

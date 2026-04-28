@@ -332,6 +332,41 @@ func TestRegisterUserSuccessByCompanyRequisites(t *testing.T) {
 	}
 }
 
+func TestRegisterUserSuccessWithoutCompany(t *testing.T) {
+	users := newFakeUserRepo()
+	companies := newFakeCompanyRepo()
+	hasher := &fakePasswordHasher{hashValue: "hashed-password"}
+	acceptedAt := time.Date(2024, time.April, 2, 10, 0, 0, 0, time.UTC)
+
+	uc, err := NewRegisterUser(users, companies, hasher, fakeIDGenerator{userID: "user-3"}, fixedClock{now: acceptedAt})
+	if err != nil {
+		t.Fatalf("unexpected constructor error: %v", err)
+	}
+
+	result, err := uc.Execute(context.Background(), RegisterUserCommand{
+		Name:          "Carol",
+		Role:          identity.RoleBuyer,
+		Login:         "carol@example.com",
+		Password:      "secret",
+		AcceptedTerms: true,
+		TermsVersion:  "2026-04-24",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if result.CompanyID != "" {
+		t.Fatalf("expected empty company id, got %q", result.CompanyID)
+	}
+	stored, err := users.GetByID(context.Background(), "user-3")
+	if err != nil {
+		t.Fatalf("expected stored user, got %v", err)
+	}
+	if stored.CompanyID() != "" {
+		t.Fatalf("expected stored empty company id, got %q", stored.CompanyID())
+	}
+}
+
 func TestRegisterUserFailsWhenCompanyNotFound(t *testing.T) {
 	users := newFakeUserRepo()
 	companies := newFakeCompanyRepo()

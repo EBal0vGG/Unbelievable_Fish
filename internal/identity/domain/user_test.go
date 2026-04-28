@@ -53,16 +53,6 @@ func TestNewUser_Validation(t *testing.T) {
 			wantErr:      ErrEmptyUserID,
 		},
 		{
-			name:         "empty company id",
-			userID:       "user-1",
-			companyID:    " ",
-			userName:     "Alice",
-			role:         RoleAdmin,
-			login:        "alice@example.com",
-			passwordHash: "hash",
-			wantErr:      ErrEmptyCompanyID,
-		},
-		{
 			name:         "empty name",
 			userID:       "user-1",
 			companyID:    "company-1",
@@ -121,6 +111,16 @@ func TestNewUser_Validation(t *testing.T) {
 				t.Fatalf("expected %v, got %v", tt.wantErr, err)
 			}
 		})
+	}
+}
+
+func TestNewUser_WithoutCompanyID(t *testing.T) {
+	user, err := NewUser("user-1", " ", "Alice", RoleAdmin, "alice@example.com", "hash")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if user.CompanyID() != "" {
+		t.Fatalf("expected empty company id, got %q", user.CompanyID())
 	}
 }
 

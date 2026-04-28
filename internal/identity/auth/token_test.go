@@ -36,6 +36,31 @@ func TestTokenGenerationAndValidation(t *testing.T) {
 	}
 }
 
+func TestTokenGenerationAndValidationWithoutCompany(t *testing.T) {
+	provider := NewTokenProvider("secret", time.Hour)
+	provider.now = func() time.Time {
+		return time.Date(2024, time.April, 1, 10, 0, 0, 0, time.UTC)
+	}
+
+	user, err := identity.NewUser("user-2", "", "Bob", identity.RoleBuyer, "bob@example.com", "hash")
+	if err != nil {
+		t.Fatalf("unexpected user error: %v", err)
+	}
+
+	token, err := provider.Generate(user)
+	if err != nil {
+		t.Fatalf("generate token: %v", err)
+	}
+
+	claims, err := provider.Validate(token)
+	if err != nil {
+		t.Fatalf("validate token: %v", err)
+	}
+	if claims.UserID != "user-2" || claims.CompanyID != "" || claims.Role != identity.RoleBuyer {
+		t.Fatalf("unexpected claims: %+v", claims)
+	}
+}
+
 func TestTokenValidationInvalidToken(t *testing.T) {
 	provider := NewTokenProvider("secret", time.Hour)
 	if _, err := provider.Validate("invalid.token"); err != ErrInvalidToken {

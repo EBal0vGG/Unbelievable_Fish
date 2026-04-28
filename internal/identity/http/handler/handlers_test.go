@@ -196,6 +196,40 @@ func TestRegisterUserHandlerSuccess(t *testing.T) {
 	}
 }
 
+func TestRegisterUserHandlerSuccessWithoutCompany(t *testing.T) {
+	companies := newFakeCompanyRepo()
+	users := newFakeUserRepo()
+	uc, err := identityapp.NewRegisterUser(users, companies, fakePasswordHasher{hashValue: "hashed:"}, fixedIDGenerator{userID: "user-2"}, fixedClock{now: time.Date(2024, time.April, 1, 10, 5, 0, 0, time.UTC)})
+	if err != nil {
+		t.Fatalf("unexpected constructor error: %v", err)
+	}
+	handler := NewRegisterUserHandler(uc)
+
+	body, _ := json.Marshal(httpapi.RegisterUserRequest{
+		Name:          "Bob",
+		Role:          identity.RoleBuyer,
+		Login:         "bob@example.com",
+		Password:      "secret",
+		AcceptedTerms: true,
+		TermsVersion:  "2026-04-24",
+	})
+	req := httptest.NewRequest(http.MethodPost, "/users", bytes.NewReader(body))
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusAccepted {
+		t.Fatalf("expected status %d, got %d", http.StatusAccepted, rec.Code)
+	}
+	var resp httpapi.UserResponse
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	if resp.CompanyID != "" {
+		t.Fatalf("expected empty company id, got %q", resp.CompanyID)
+	}
+}
+
 func TestRegisterUserHandlerRequiresTermsAcceptance(t *testing.T) {
 	companies := newFakeCompanyRepo()
 	company, err := identity.NewCompany("company-1", "Acme Fish", "7707083893", "1027700132195", time.Now())

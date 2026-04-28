@@ -104,3 +104,31 @@ func TestUserRepositorySaveAndLoad(t *testing.T) {
 		t.Fatal("expected user to exist")
 	}
 }
+
+func TestUserRepositorySaveAndLoadWithoutCompany(t *testing.T) {
+	db := openIntegrationDB(t, "user-repo-without-company")
+	userRepo := NewUserRepository(db)
+
+	user, err := identity.NewUser("user-2", "", "Bob", identity.RoleBuyer, "bob@example.com", "hash")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	acceptedAt := time.Date(2024, time.April, 2, 10, 0, 0, 0, time.UTC)
+	if err := user.AcceptTerms("2026-04-24", acceptedAt); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if err := userRepo.Save(context.Background(), user); err != nil {
+		t.Fatalf("save user error: %v", err)
+	}
+
+	loaded, err := userRepo.GetByID(context.Background(), user.ID())
+	if err != nil {
+		t.Fatalf("load user error: %v", err)
+	}
+	if loaded.CompanyID() != "" {
+		t.Fatalf("expected empty company id, got %q", loaded.CompanyID())
+	}
+	if loaded.TermsVersion() != "2026-04-24" {
+		t.Fatalf("expected terms version 2026-04-24, got %q", loaded.TermsVersion())
+	}
+}

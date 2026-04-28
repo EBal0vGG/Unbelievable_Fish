@@ -23,7 +23,7 @@ type integrationCompanyRecord struct {
 
 type integrationUserRecord struct {
 	userID          string
-	companyID       string
+	companyID       sql.NullString
 	name            string
 	role            string
 	login           string
@@ -150,7 +150,7 @@ func (c *integrationConn) QueryContext(_ context.Context, query string, args []d
 		}
 		return &integrationRows{values: [][]driver.Value{{
 			record.userID,
-			record.companyID,
+			nullStringValue(record.companyID),
 			record.name,
 			record.role,
 			record.login,
@@ -166,7 +166,7 @@ func (c *integrationConn) QueryContext(_ context.Context, query string, args []d
 			if record.login == login {
 				return &integrationRows{values: [][]driver.Value{{
 					record.userID,
-					record.companyID,
+					nullStringValue(record.companyID),
 					record.name,
 					record.role,
 					record.login,
@@ -209,7 +209,7 @@ func (c *integrationConn) execUserInsert(args []driver.NamedValue) (driver.Resul
 
 	record := integrationUserRecord{
 		userID:          args[0].Value.(string),
-		companyID:       args[1].Value.(string),
+		companyID:       namedValueString(args[1]),
 		name:            args[2].Value.(string),
 		role:            args[3].Value.(string),
 		login:           args[4].Value.(string),
