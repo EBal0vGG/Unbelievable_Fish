@@ -40,6 +40,10 @@ ON CONFLICT (user_id) DO UPDATE SET
     terms_version = EXCLUDED.terms_version
 `
 	dbtx := DBTXFromContext(ctx, r.db)
+	var companyID any
+	if user.CompanyID() != "" {
+		companyID = user.CompanyID()
+	}
 	var termsAcceptedAt any
 	if !user.TermsAcceptedAt().IsZero() {
 		termsAcceptedAt = user.TermsAcceptedAt()
@@ -52,7 +56,7 @@ ON CONFLICT (user_id) DO UPDATE SET
 		ctx,
 		query,
 		user.ID(),
-		user.CompanyID(),
+		companyID,
 		user.Name(),
 		string(user.Role()),
 		user.Login(),
@@ -101,7 +105,7 @@ func (r *UserRepository) getOne(ctx context.Context, query string, arg string) (
 
 	var (
 		id              string
-		companyID       string
+		companyID       sql.NullString
 		name            string
 		role            string
 		login           string
@@ -115,7 +119,7 @@ func (r *UserRepository) getOne(ctx context.Context, query string, arg string) (
 		}
 		return nil, err
 	}
-	user, err := identity.NewUser(id, companyID, name, identity.Role(role), login, passwordHash)
+	user, err := identity.NewUser(id, companyID.String, name, identity.Role(role), login, passwordHash)
 	if err != nil {
 		return nil, err
 	}

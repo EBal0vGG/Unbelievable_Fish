@@ -96,7 +96,7 @@ func (p *TokenProvider) Validate(token string) (Claims, error) {
 	if err := p.decode(parts[1], &claims); err != nil {
 		return Claims{}, ErrInvalidToken
 	}
-	if claims.UserID == "" || claims.CompanyID == "" || !identity.IsValidRole(claims.Role) {
+	if claims.UserID == "" || !identity.IsValidRole(claims.Role) {
 		return Claims{}, ErrInvalidToken
 	}
 	if claims.ExpiresAt <= p.now().Unix() {
@@ -142,7 +142,7 @@ func ParseBearerToken(header string) (string, error) {
 }
 
 func IdentityFromClaims(claims Claims) (Identity, error) {
-	if claims.UserID == "" || claims.CompanyID == "" || !identity.IsValidRole(claims.Role) {
+	if claims.UserID == "" || !identity.IsValidRole(claims.Role) {
 		return Identity{}, ErrInvalidToken
 	}
 	return Identity{

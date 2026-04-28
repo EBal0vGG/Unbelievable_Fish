@@ -44,7 +44,9 @@ export async function apiRequest<T>(
 
   if (options.session) {
     headers.set("Authorization", `Bearer ${options.session.accessToken}`);
-    headers.set("X-Company-ID", options.session.companyId);
+    if (options.session.companyId) {
+      headers.set("X-Company-ID", options.session.companyId);
+    }
     headers.set("X-User-ID", options.session.userId);
   }
 

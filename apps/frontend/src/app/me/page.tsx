@@ -43,7 +43,7 @@ export default function MyProfilePage() {
         <div className="info-grid">
           <Card className="form-card">
             <div className="stack-md">
-              <h2>Профиль компании</h2>
+              <h2>{session?.companyId ? "Профиль компании" : "Профиль пользователя"}</h2>
               <div className="metric-grid">
                 <div>
                   <span>Компания</span>

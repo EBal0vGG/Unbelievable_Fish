@@ -103,18 +103,19 @@ export function AuthForm({
     }
   });
 
-  const submitUser = registerUserForm.handleSubmit(async (values) => {
-    if (!createdCompany) {
-      setAuthError("Сначала зарегистрируйте компанию.");
-      return;
-    }
+  const continueWithoutCompany = () => {
+    setAuthError(null);
+    setCreatedCompany(null);
+    setCompanyMessage("Регистрация продолжится без компании.");
+  };
 
+  const submitUser = registerUserForm.handleSubmit(async (values) => {
     setAuthError(null);
     try {
       await registerUser({
-        companyId: createdCompany.id,
-        companyInn: companyForm.getValues("inn"),
-        companyOgrn: companyForm.getValues("ogrn"),
+        companyId: createdCompany?.id,
+        companyInn: createdCompany ? companyForm.getValues("inn") : undefined,
+        companyOgrn: createdCompany ? companyForm.getValues("ogrn") : undefined,
         name: values.name,
         role: values.role,
         login: values.login,
@@ -174,8 +175,8 @@ export function AuthForm({
       <Card className="auth-card">
         <div className="stack-lg">
           <div>
-            <h1>Регистрация компании и пользователя</h1>
-            <p className="muted">Укажите реквизиты компании, чтобы выбрать существующую или зарегистрировать новую, затем создайте пользователя.</p>
+            <h1>Регистрация пользователя</h1>
+            <p className="muted">Создайте пользователя сразу или при необходимости сначала привяжите компанию.</p>
           </div>
 
           {authError ? (
@@ -209,22 +210,32 @@ export function AuthForm({
                   ? "Сохраняем..."
                   : isCompanyRegistered
                     ? "Компания выбрана"
-                    : "Продолжить с компанией"}
+                    : "Привязать компанию"}
               </Button>
+              {!isCompanyRegistered ? (
+                <Button
+                  disabled={companyForm.formState.isSubmitting}
+                  onClick={continueWithoutCompany}
+                  type="button"
+                  variant="ghost"
+                >
+                  Продолжить без компании
+                </Button>
+              ) : null}
             </div>
           </form>
 
           <form className="stack-md" onSubmit={submitUser}>
             <Field label="Company ID">
-              <Input disabled value={createdCompany?.id ?? "Сначала зарегистрируйте компанию"} />
+              <Input disabled value={createdCompany?.id ?? "Компания не выбрана"} />
             </Field>
 
             <Field label="Имя пользователя" error={registerUserForm.formState.errors.name?.message}>
-              <Input disabled={!createdCompany} placeholder="Менеджер продаж" {...registerUserForm.register("name")} />
+              <Input placeholder="Менеджер продаж" {...registerUserForm.register("name")} />
             </Field>
 
             <Field label="Роль" error={registerUserForm.formState.errors.role?.message}>
-              <Select disabled={!createdCompany} {...registerUserForm.register("role")}>
+              <Select {...registerUserForm.register("role")}>
                 <option value="seller">Продавец</option>
                 <option value="buyer">Покупатель</option>
                 <option value="admin">Администратор</option>
@@ -232,17 +243,17 @@ export function AuthForm({
             </Field>
 
             <Field label="Логин или email" error={registerUserForm.formState.errors.login?.message}>
-              <Input disabled={!createdCompany} placeholder="manager@north-sea.ru" {...registerUserForm.register("login")} />
+              <Input placeholder="manager@north-sea.ru" {...registerUserForm.register("login")} />
             </Field>
 
             <Field label="Пароль" error={registerUserForm.formState.errors.password?.message}>
-              <Input disabled={!createdCompany} type="password" {...registerUserForm.register("password")} />
+              <Input type="password" {...registerUserForm.register("password")} />
             </Field>
 
             <div className="stack-md">
               <label className="checkbox">
                 <input
-                  disabled={!createdCompany || registerUserForm.formState.isSubmitting}
+                  disabled={registerUserForm.formState.isSubmitting}
                   type="checkbox"
                   {...registerUserForm.register("acceptedTerms")}
                 />
@@ -256,7 +267,6 @@ export function AuthForm({
             <div className="inline-actions">
               <Button
                 disabled={
-                  !createdCompany ||
                   registerUserForm.formState.isSubmitting ||
                   !registerUserForm.watch("acceptedTerms")
                 }

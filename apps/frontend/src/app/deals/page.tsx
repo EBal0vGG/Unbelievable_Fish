@@ -121,6 +121,11 @@ export default function DealsPage() {
           actionHref="/login?next=/deals"
           actionLabel="Войти"
         />
+      ) : !session.companyId ? (
+        <EmptyState
+          title="Привяжите компанию, чтобы увидеть сделки"
+          description="Сделки становятся доступны после регистрации или выбора компании в рабочем профиле."
+        />
       ) : (
         <EmptyState
           title="Ваши сделки не найдены"

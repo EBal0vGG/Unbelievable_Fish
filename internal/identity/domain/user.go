@@ -27,9 +27,6 @@ func NewUser(userID string, companyID string, name string, role Role, login stri
 	if isBlank(userID) {
 		return nil, ErrEmptyUserID
 	}
-	if isBlank(companyID) {
-		return nil, ErrEmptyCompanyID
-	}
 	if isBlank(name) {
 		return nil, ErrEmptyUserName
 	}

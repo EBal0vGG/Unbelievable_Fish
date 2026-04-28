@@ -28,7 +28,7 @@ export function SiteHeader() {
   const canManageFish = isAdminSession(session);
   const canCreateSupply = isSellerSession(session);
   const visibleNavItems = navItems.filter((item) => {
-    if (item.href === "/deals" && !session) {
+    if (item.href === "/deals" && !session?.companyId) {
       return false;
     }
     if ((item.href === "/create/lot" || item.href === "/create/auction") && !canCreateSupply) {
@@ -73,7 +73,7 @@ export function SiteHeader() {
           <>
             <Link className="session-chip" href="/me">
               <span>{session.name}</span>
-              <span>Профиль компании · {roleLabels[session.role]}</span>
+              <span>{session.companyId ? "Профиль компании" : "Профиль пользователя"} · {roleLabels[session.role]}</span>
             </Link>
             <button className={buttonStyles({ variant: "ghost", size: "sm" })} onClick={logout} type="button">
               Выйти
