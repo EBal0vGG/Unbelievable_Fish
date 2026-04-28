@@ -72,3 +72,9 @@ test-log/*.log
 ############################
 node_modules/
 .next/
+out/
+build/
+coverage/
+.turbo/
+.vercel/
+test-logs/
