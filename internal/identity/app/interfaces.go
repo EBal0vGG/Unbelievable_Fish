@@ -11,6 +11,7 @@ type UserRepository interface {
 	Save(ctx context.Context, user *identity.User) error
 	GetByID(ctx context.Context, userID string) (*identity.User, error)
 	GetByLogin(ctx context.Context, login string) (*identity.User, error)
+	List(ctx context.Context) ([]*identity.User, error)
 }
 
 type CompanyRepository interface {

@@ -32,6 +32,8 @@ INSERT INTO deals (
     type_name,
     created_at,
     confirmed_at,
+    contract_sign_deadline,
+    payment_deadline,
     contract_number,
     contract_prepared_at,
     contract_signed_at,
@@ -48,7 +50,7 @@ INSERT INTO deals (
     product_processing_type,
     product_volume,
     product_origin_country
-) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26)
+) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28)
 ON CONFLICT (deal_id) DO UPDATE SET
     customer_id = EXCLUDED.customer_id,
     supplier_id = EXCLUDED.supplier_id,
@@ -59,6 +61,8 @@ ON CONFLICT (deal_id) DO UPDATE SET
     type_name = EXCLUDED.type_name,
     created_at = EXCLUDED.created_at,
     confirmed_at = EXCLUDED.confirmed_at,
+    contract_sign_deadline = EXCLUDED.contract_sign_deadline,
+    payment_deadline = EXCLUDED.payment_deadline,
     contract_number = EXCLUDED.contract_number,
     contract_prepared_at = EXCLUDED.contract_prepared_at,
     contract_signed_at = EXCLUDED.contract_signed_at,
@@ -115,6 +119,8 @@ ON CONFLICT (deal_id) DO UPDATE SET
 		string(item.Type()),
 		item.CreatedAt(),
 		item.ConfirmedAt(),
+		item.ContractSignDeadline(),
+		item.PaymentDeadline(),
 		contractNumber,
 		contractPrepared,
 		contractSigned,
@@ -138,7 +144,7 @@ ON CONFLICT (deal_id) DO UPDATE SET
 func (r *DealRepository) GetByID(ctx context.Context, dealID string) (*deal.Deal, error) {
 	const query = `
 SELECT deal_id, customer_id, supplier_id, auction_id, quantity, unit_price, status, type_name,
-       created_at, confirmed_at, contract_number, contract_prepared_at, contract_signed_at,
+       created_at, confirmed_at, contract_sign_deadline, payment_deadline, contract_number, contract_prepared_at, contract_signed_at,
        contract_signed_by, signature_ref, document_url,
        product_id, product_name, product_description, product_category, product_weight,
        product_unit, product_size, product_processing_type, product_volume, product_origin_country
@@ -151,7 +157,7 @@ WHERE deal_id = $1
 func (r *DealRepository) GetByAuctionID(ctx context.Context, auctionID string) (*deal.Deal, error) {
 	const query = `
 SELECT deal_id, customer_id, supplier_id, auction_id, quantity, unit_price, status, type_name,
-       created_at, confirmed_at, contract_number, contract_prepared_at, contract_signed_at,
+       created_at, confirmed_at, contract_sign_deadline, payment_deadline, contract_number, contract_prepared_at, contract_signed_at,
        contract_signed_by, signature_ref, document_url,
        product_id, product_name, product_description, product_category, product_weight,
        product_unit, product_size, product_processing_type, product_volume, product_origin_country
@@ -170,6 +176,8 @@ func (r *DealRepository) getOne(ctx context.Context, query string, arg string) (
 		quantity, unitPrice                                                        int64
 		createdAt                                                                  sql.NullTime
 		confirmedAt                                                                sql.NullTime
+		contractSignDeadline                                                       sql.NullTime
+		paymentDeadline                                                            sql.NullTime
 		contractNumber                                                             sql.NullString
 		contractPrepared                                                           sql.NullTime
 		contractSigned                                                             sql.NullTime
@@ -183,7 +191,7 @@ func (r *DealRepository) getOne(ctx context.Context, query string, arg string) (
 
 	if err := row.Scan(
 		&id, &customerID, &supplierID, &auctionID, &quantity, &unitPrice, &status, &typeName,
-		&createdAt, &confirmedAt, &contractNumber, &contractPrepared, &contractSigned,
+		&createdAt, &confirmedAt, &contractSignDeadline, &paymentDeadline, &contractNumber, &contractPrepared, &contractSigned,
 		&contractSignedBy, &signatureRef, &documentURL,
 		&productID, &productName, &productDescription, &productCategory, &productWeight,
 		&productUnit, &productSize, &productProcessingType, &productVolume, &productOrigin,
@@ -226,6 +234,18 @@ func (r *DealRepository) getOne(ctx context.Context, query string, arg string) (
 		ConfirmedAt: func() *time.Time {
 			if confirmedAt.Valid {
 				return &confirmedAt.Time
+			}
+			return nil
+		}(),
+		ContractSignDeadline: func() *time.Time {
+			if contractSignDeadline.Valid {
+				return &contractSignDeadline.Time
+			}
+			return nil
+		}(),
+		PaymentDeadline: func() *time.Time {
+			if paymentDeadline.Valid {
+				return &paymentDeadline.Time
 			}
 			return nil
 		}(),

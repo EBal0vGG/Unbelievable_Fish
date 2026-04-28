@@ -98,3 +98,7 @@ func (u *User) AcceptTerms(version string, acceptedAt time.Time) error {
 	u.termsAcceptedAt = acceptedAt
 	return nil
 }
+
+func (u *User) PromoteToAdmin() {
+	u.role = RoleAdmin
+}

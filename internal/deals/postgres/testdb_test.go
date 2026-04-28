@@ -23,6 +23,8 @@ type integrationDealRecord struct {
 	typeName              string
 	createdAt             time.Time
 	confirmedAt           sql.NullTime
+	contractSignDeadline  sql.NullTime
+	paymentDeadline       sql.NullTime
 	contractNumber        sql.NullString
 	contractPrepared      sql.NullTime
 	contractSigned        sql.NullTime
@@ -210,7 +212,7 @@ func (c *integrationConn) QueryContext(_ context.Context, query string, args []d
 }
 
 func (c *integrationConn) execDealInsert(args []driver.NamedValue) (driver.Result, error) {
-	if len(args) != 26 {
+	if len(args) != 28 {
 		return nil, errors.New("unexpected deal args length")
 	}
 	record := integrationDealRecord{
@@ -224,22 +226,24 @@ func (c *integrationConn) execDealInsert(args []driver.NamedValue) (driver.Resul
 		typeName:              args[7].Value.(string),
 		createdAt:             args[8].Value.(time.Time),
 		confirmedAt:           toNullTime(args[9].Value),
-		contractNumber:        toNullString(args[10].Value),
-		contractPrepared:      toNullTime(args[11].Value),
-		contractSigned:        toNullTime(args[12].Value),
-		contractSignedBy:      toNullString(args[13].Value),
-		signatureRef:          toNullString(args[14].Value),
-		documentURL:           toNullString(args[15].Value),
-		productID:             args[16].Value.(string),
-		productName:           args[17].Value.(string),
-		productDescription:    args[18].Value.(string),
-		productCategory:       args[19].Value.(string),
-		productWeight:         args[20].Value.(float64),
-		productUnit:           args[21].Value.(string),
-		productSize:           args[22].Value.(string),
-		productProcessingType: args[23].Value.(string),
-		productVolume:         args[24].Value.(float64),
-		productOrigin:         args[25].Value.(string),
+		contractSignDeadline:  toNullTime(args[10].Value),
+		paymentDeadline:       toNullTime(args[11].Value),
+		contractNumber:        toNullString(args[12].Value),
+		contractPrepared:      toNullTime(args[13].Value),
+		contractSigned:        toNullTime(args[14].Value),
+		contractSignedBy:      toNullString(args[15].Value),
+		signatureRef:          toNullString(args[16].Value),
+		documentURL:           toNullString(args[17].Value),
+		productID:             args[18].Value.(string),
+		productName:           args[19].Value.(string),
+		productDescription:    args[20].Value.(string),
+		productCategory:       args[21].Value.(string),
+		productWeight:         args[22].Value.(float64),
+		productUnit:           args[23].Value.(string),
+		productSize:           args[24].Value.(string),
+		productProcessingType: args[25].Value.(string),
+		productVolume:         args[26].Value.(float64),
+		productOrigin:         args[27].Value.(string),
 	}
 	c.store.mu.Lock()
 	defer c.store.mu.Unlock()
@@ -469,6 +473,8 @@ func dealRow(record integrationDealRecord) []driver.Value {
 		record.typeName,
 		record.createdAt,
 		nullTimeValue(record.confirmedAt),
+		nullTimeValue(record.contractSignDeadline),
+		nullTimeValue(record.paymentDeadline),
 		nullStringValue(record.contractNumber),
 		nullTimeValue(record.contractPrepared),
 		nullTimeValue(record.contractSigned),

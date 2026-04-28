@@ -1,7 +1,9 @@
 package main
 
 import (
+	"context"
 	"database/sql"
+	"errors"
 	"log"
 	"net/http"
 	"os"
@@ -10,6 +12,7 @@ import (
 
 	identityapp "github.com/EBal0vGG/Unbelievable_Fish/internal/identity/app"
 	identityauth "github.com/EBal0vGG/Unbelievable_Fish/internal/identity/auth"
+	identity "github.com/EBal0vGG/Unbelievable_Fish/internal/identity/domain"
 	httpapi "github.com/EBal0vGG/Unbelievable_Fish/internal/identity/http"
 	"github.com/EBal0vGG/Unbelievable_Fish/internal/identity/http/handler"
 	identitypg "github.com/EBal0vGG/Unbelievable_Fish/internal/identity/postgres"
@@ -47,13 +50,28 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	listUsersUC, err := identityapp.NewListUsers(userRepo)
+	if err != nil {
+		log.Fatal(err)
+	}
+	promoteUserAdminUC, err := identityapp.NewPromoteUserToAdmin(userRepo)
+	if err != nil {
+		log.Fatal(err)
+	}
+	authMiddleware := handler.NewAuthMiddleware(tokenProvider)
 
 	router := httpapi.NewRouter(
 		handler.NewRegisterCompanyHandler(registerCompanyUC),
 		handler.NewRegisterUserHandler(registerUserUC),
+		authMiddleware.RequireRole(identity.RoleAdmin, handler.NewListUsersHandler(listUsersUC)),
+		authMiddleware.RequireRole(identity.RoleAdmin, handler.NewPromoteUserAdminHandler(promoteUserAdminUC)),
 		handler.NewLoginHandler(loginUC),
-		handler.NewAuthMiddleware(tokenProvider).Wrap(handler.NewGetCurrentUserHandler(getCurrentUserUC)),
+		authMiddleware.Wrap(handler.NewGetCurrentUserHandler(getCurrentUserUC)),
 	)
+
+	if err := ensureBootstrapAdmin(context.Background(), companyRepo, userRepo, passwordHasher); err != nil {
+		log.Fatalf("bootstrap admin: %v", err)
+	}
 
 	port := envOrDefault("IDENTITY_PORT", "8084")
 	log.Printf("identity http listening on :%s", port)
@@ -107,4 +125,66 @@ func envDurationMinutes(key string, def int) time.Duration {
 		return time.Duration(def) * time.Minute
 	}
 	return time.Duration(minutes) * time.Minute
+}
+
+func ensureBootstrapAdmin(
+	ctx context.Context,
+	companyRepo *identitypg.CompanyRepository,
+	userRepo *identitypg.UserRepository,
+	hasher identityauth.PasswordHasher,
+) error {
+	enabled := envOrDefault("IDENTITY_BOOTSTRAP_ADMIN_ENABLED", "true") != "false"
+	if !enabled {
+		return nil
+	}
+
+	login := envOrDefault("IDENTITY_BOOTSTRAP_ADMIN_LOGIN", "admin@fish.local")
+	password := envOrDefault("IDENTITY_BOOTSTRAP_ADMIN_PASSWORD", "admin12345")
+	companyID := envOrDefault("IDENTITY_BOOTSTRAP_ADMIN_COMPANY_ID", "company-admin")
+	companyName := envOrDefault("IDENTITY_BOOTSTRAP_ADMIN_COMPANY_NAME", "Fish Platform Admin")
+	userID := envOrDefault("IDENTITY_BOOTSTRAP_ADMIN_USER_ID", "user-admin")
+	userName := envOrDefault("IDENTITY_BOOTSTRAP_ADMIN_USER_NAME", "Platform Administrator")
+	inn := envOrDefault("IDENTITY_BOOTSTRAP_ADMIN_INN", "7707083893")
+	ogrn := envOrDefault("IDENTITY_BOOTSTRAP_ADMIN_OGRN", "1027700132195")
+	termsVersion := envOrDefault("IDENTITY_BOOTSTRAP_ADMIN_TERMS_VERSION", "v1")
+
+	exists, err := userRepo.ExistsByLogin(ctx, login)
+	if err != nil {
+		return err
+	}
+	if exists {
+		log.Printf("bootstrap_admin_exists login=%s", login)
+		return nil
+	}
+
+	company, err := companyRepo.GetByRequisites(ctx, inn, ogrn)
+	if err != nil {
+		if !errors.Is(err, identityapp.ErrCompanyNotFound) {
+			return err
+		}
+		company, err = identity.NewCompany(companyID, companyName, inn, ogrn, time.Now().UTC())
+		if err != nil {
+			return err
+		}
+		if err := companyRepo.Save(ctx, company); err != nil {
+			return err
+		}
+	}
+
+	passwordHash, err := hasher.Hash(password)
+	if err != nil {
+		return err
+	}
+	user, err := identity.NewUser(userID, company.ID(), userName, identity.RoleAdmin, login, passwordHash)
+	if err != nil {
+		return err
+	}
+	if err := user.AcceptTerms(termsVersion, time.Now().UTC()); err != nil {
+		return err
+	}
+	if err := userRepo.Save(ctx, user); err != nil {
+		return err
+	}
+	log.Printf("bootstrap_admin_created login=%s company_id=%s", login, company.ID())
+	return nil
 }

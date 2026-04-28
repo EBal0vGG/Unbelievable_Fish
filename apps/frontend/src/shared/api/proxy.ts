@@ -43,6 +43,12 @@ export async function proxyRequest(
       cache: "no-store",
     });
   } catch (error) {
+    console.error("[api-proxy] upstream unavailable", {
+      service,
+      targetUrl,
+      method: request.method,
+      error: error instanceof Error ? error.message : String(error),
+    });
     return Response.json(
       {
         code: "UPSTREAM_UNAVAILABLE",
@@ -56,6 +62,17 @@ export async function proxyRequest(
   nextHeaders.delete("content-encoding");
   nextHeaders.delete("content-length");
   nextHeaders.delete("transfer-encoding");
+
+  // 4xx are often expected domain responses (validation, not-found while async read-model catches up).
+  // Keep proxy logs focused on real infrastructure failures.
+  if (response.status >= 500) {
+    console.warn("[api-proxy] upstream error", {
+      service,
+      targetUrl,
+      method: request.method,
+      status: response.status,
+    });
+  }
 
   return new Response(response.body, {
     status: response.status,

@@ -45,7 +45,7 @@ export function getBidAccessError(input: {
 }
 
 export function getBidValidationError(
-  auction: Pick<AuctionRecord, "state" | "startsAt" | "endsAt" | "currentPrice" | "finalPrice">,
+  auction: Pick<AuctionRecord, "state" | "startsAt" | "endsAt" | "currentPrice" | "finalPrice" | "minBidStep" | "leaderCompanyId">,
   amount: number,
   placedAt: Date,
   bids: BidRecord[] = [],
@@ -65,11 +65,25 @@ export function getBidValidationError(
     return "Аукцион уже завершен";
   }
 
-  if (amount <= getAuctionEffectiveCurrentPrice(auction, bids)) {
-    return "Ставка должна быть выше текущей цены";
+  const current = getAuctionEffectiveCurrentPrice(auction, bids);
+  const minStep = Math.max(auction.minBidStep ?? 1, 1);
+  const isFirstBid = !auction.leaderCompanyId && bids.length === 0;
+  const minAllowed = isFirstBid ? current : current + minStep;
+  if (amount < minAllowed) {
+    return `Ставка слишком маленькая. Минимум: ${minAllowed}`;
   }
 
   return null;
+}
+
+export function getMinAllowedBid(
+  auction: Pick<AuctionRecord, "currentPrice" | "finalPrice" | "minBidStep" | "leaderCompanyId">,
+  bids: BidRecord[] = [],
+): number {
+  const current = getAuctionEffectiveCurrentPrice(auction, bids);
+  const minStep = Math.max(auction.minBidStep ?? 1, 1);
+  const isFirstBid = !auction.leaderCompanyId && bids.length === 0;
+  return isFirstBid ? current : current + minStep;
 }
 
 export function getAuctionEndAfterBid(

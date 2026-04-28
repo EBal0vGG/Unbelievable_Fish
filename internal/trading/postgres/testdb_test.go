@@ -20,6 +20,7 @@ type integrationAuctionRecord struct {
 	startsAt        time.Time
 	endsAt          time.Time
 	currentPrice    int64
+	minBidStep      int64
 	leaderCompanyID string
 }
 
@@ -138,6 +139,7 @@ func (c *integrationConn) QueryContext(_ context.Context, query string, args []d
 				record.startsAt,
 				record.endsAt,
 				record.currentPrice,
+				record.minBidStep,
 				record.leaderCompanyID,
 			}},
 		}, nil
@@ -176,7 +178,7 @@ func (c *integrationConn) QueryRowContext(ctx context.Context, query string, arg
 }
 
 func (c *integrationConn) execAuctionInsert(args []driver.NamedValue) (driver.Result, error) {
-	if len(args) != 7 {
+	if len(args) != 8 {
 		return nil, errors.New("unexpected auction args length")
 	}
 	record := integrationAuctionRecord{
@@ -186,7 +188,8 @@ func (c *integrationConn) execAuctionInsert(args []driver.NamedValue) (driver.Re
 		startsAt:        args[3].Value.(time.Time),
 		endsAt:          args[4].Value.(time.Time),
 		currentPrice:    args[5].Value.(int64),
-		leaderCompanyID: args[6].Value.(string),
+		minBidStep:      args[6].Value.(int64),
+		leaderCompanyID: args[7].Value.(string),
 	}
 	c.store.mu.Lock()
 	defer c.store.mu.Unlock()

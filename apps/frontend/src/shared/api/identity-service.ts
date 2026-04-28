@@ -46,6 +46,10 @@ interface LoginResponse {
   user: UserResponse;
 }
 
+interface ListUsersResponse {
+  users: UserResponse[];
+}
+
 export async function registerCompany(input: RegisterCompanyInput): Promise<CompanyResponse> {
   return apiRequest<CompanyResponse>("identity", "/companies", {
     method: "POST",
@@ -79,6 +83,21 @@ export async function login(input: LoginInput): Promise<LoginResponse> {
 
 export async function getCurrentUser(session: UserSession): Promise<UserResponse> {
   return apiRequest<UserResponse>("identity", "/users/me", { session });
+}
+
+export async function promoteUserToAdmin(userId: string, session: UserSession): Promise<UserResponse> {
+  return apiRequest<UserResponse>("identity", `/users/${userId}/promote-admin`, {
+    method: "POST",
+    session,
+  });
+}
+
+export async function listUsers(session: UserSession): Promise<UserResponse[]> {
+  const response = await apiRequest<ListUsersResponse>("identity", "/users", {
+    method: "GET",
+    session,
+  });
+  return response.users;
 }
 
 export function toUserSession(

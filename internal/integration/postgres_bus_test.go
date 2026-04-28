@@ -66,6 +66,7 @@ func TestPostgresOutboxBusChains(t *testing.T) {
 		"photo",
 		10,
 		100,
+		10,
 		catalog.NewAuctionScheduleAt(startsAt, time.Hour),
 	)
 	if err != nil {
@@ -108,7 +109,7 @@ func TestPostgresOutboxBusChains(t *testing.T) {
 
 	bus.Subscribe("catalog.LotPublished", func(ctx context.Context, envelope events.Envelope) error {
 		evt := envelope.Payload.(catalog.LotPublished)
-		if _, err := createAuctionUC.Execute(ctx, tradingMeta(), evt.LotID, startsAt, endsAt); err != nil {
+		if _, err := createAuctionUC.Execute(ctx, tradingMeta(), evt.LotID, startsAt, endsAt, evt.StartPrice, evt.MinBidStep); err != nil {
 			return err
 		}
 		if err := publishAuctionUC.Execute(ctx, tradingMeta(), tradingapp.AuctionID(evt.AuctionID)); err != nil {
@@ -330,6 +331,7 @@ type catalogLotRecord struct {
 	photo                  sql.NullString
 	quantity               float64
 	startPrice             int64
+	minBidStep             int64
 	curPrice               int64
 	finalPrice             int64
 	status                 string
@@ -338,7 +340,7 @@ type catalogLotRecord struct {
 }
 
 func (c *combinedConn) execCatalogLotInsert(args []driver.NamedValue) (driver.Result, error) {
-	if len(args) != 12 {
+	if len(args) != 13 {
 		return nil, errors.New("unexpected lot args length")
 	}
 	record := catalogLotRecord{
@@ -349,11 +351,12 @@ func (c *combinedConn) execCatalogLotInsert(args []driver.NamedValue) (driver.Re
 		photo:                  toNullString(args[4].Value),
 		quantity:               args[5].Value.(float64),
 		startPrice:             args[6].Value.(int64),
-		curPrice:               args[7].Value.(int64),
-		finalPrice:             args[8].Value.(int64),
-		status:                 args[9].Value.(string),
-		auctionStartsAt:        args[10].Value.(time.Time),
-		auctionDurationMinutes: args[11].Value.(int64),
+		minBidStep:             args[7].Value.(int64),
+		curPrice:               args[8].Value.(int64),
+		finalPrice:             args[9].Value.(int64),
+		status:                 args[10].Value.(string),
+		auctionStartsAt:        args[11].Value.(time.Time),
+		auctionDurationMinutes: args[12].Value.(int64),
 	}
 	c.store.mu.Lock()
 	defer c.store.mu.Unlock()
@@ -388,6 +391,7 @@ func (c *combinedConn) queryCatalogLots(query, arg string) (driver.Rows, error) 
 		nullStringValue(record.photo),
 		record.quantity,
 		record.startPrice,
+		record.minBidStep,
 		record.curPrice,
 		record.finalPrice,
 		record.status,
@@ -404,6 +408,7 @@ type tradingAuctionRecord struct {
 	startsAt        time.Time
 	endsAt          time.Time
 	currentPrice    int64
+	minBidStep      int64
 	leaderCompanyID string
 }
 
@@ -423,7 +428,7 @@ type tradingWinnerRecord struct {
 }
 
 func (c *combinedConn) execTradingAuctionInsert(args []driver.NamedValue) (driver.Result, error) {
-	if len(args) != 7 {
+	if len(args) != 8 {
 		return nil, errors.New("unexpected auction args length")
 	}
 	record := tradingAuctionRecord{
@@ -433,7 +438,8 @@ func (c *combinedConn) execTradingAuctionInsert(args []driver.NamedValue) (drive
 		startsAt:        args[3].Value.(time.Time),
 		endsAt:          args[4].Value.(time.Time),
 		currentPrice:    args[5].Value.(int64),
-		leaderCompanyID: args[6].Value.(string),
+		minBidStep:      args[6].Value.(int64),
+		leaderCompanyID: args[7].Value.(string),
 	}
 	c.store.mu.Lock()
 	defer c.store.mu.Unlock()
@@ -505,6 +511,7 @@ func (c *combinedConn) queryTradingAuctions(auctionID string) (driver.Rows, erro
 		record.startsAt,
 		record.endsAt,
 		record.currentPrice,
+		record.minBidStep,
 		record.leaderCompanyID,
 	}}}, nil
 }
@@ -537,6 +544,8 @@ type dealRecord struct {
 	typeName              string
 	createdAt             time.Time
 	confirmedAt           sql.NullTime
+	contractSignDeadline  sql.NullTime
+	paymentDeadline       sql.NullTime
 	contractNumber        sql.NullString
 	contractPrepared      sql.NullTime
 	contractSigned        sql.NullTime
@@ -595,7 +604,7 @@ type selectionRecord struct {
 }
 
 func (c *combinedConn) execDealInsert(args []driver.NamedValue) (driver.Result, error) {
-	if len(args) != 26 {
+	if len(args) != 28 {
 		return nil, errors.New("unexpected deal args length")
 	}
 	record := dealRecord{
@@ -609,22 +618,24 @@ func (c *combinedConn) execDealInsert(args []driver.NamedValue) (driver.Result, 
 		typeName:              args[7].Value.(string),
 		createdAt:             args[8].Value.(time.Time),
 		confirmedAt:           toNullTime(args[9].Value),
-		contractNumber:        toNullString(args[10].Value),
-		contractPrepared:      toNullTime(args[11].Value),
-		contractSigned:        toNullTime(args[12].Value),
-		contractSignedBy:      toNullString(args[13].Value),
-		signatureRef:          toNullString(args[14].Value),
-		documentURL:           toNullString(args[15].Value),
-		productID:             args[16].Value.(string),
-		productName:           args[17].Value.(string),
-		productDescription:    args[18].Value.(string),
-		productCategory:       args[19].Value.(string),
-		productWeight:         args[20].Value.(float64),
-		productUnit:           args[21].Value.(string),
-		productSize:           args[22].Value.(string),
-		productProcessingType: args[23].Value.(string),
-		productVolume:         args[24].Value.(float64),
-		productOrigin:         args[25].Value.(string),
+		contractSignDeadline:  toNullTime(args[10].Value),
+		paymentDeadline:       toNullTime(args[11].Value),
+		contractNumber:        toNullString(args[12].Value),
+		contractPrepared:      toNullTime(args[13].Value),
+		contractSigned:        toNullTime(args[14].Value),
+		contractSignedBy:      toNullString(args[15].Value),
+		signatureRef:          toNullString(args[16].Value),
+		documentURL:           toNullString(args[17].Value),
+		productID:             args[18].Value.(string),
+		productName:           args[19].Value.(string),
+		productDescription:    args[20].Value.(string),
+		productCategory:       args[21].Value.(string),
+		productWeight:         args[22].Value.(float64),
+		productUnit:           args[23].Value.(string),
+		productSize:           args[24].Value.(string),
+		productProcessingType: args[25].Value.(string),
+		productVolume:         args[26].Value.(float64),
+		productOrigin:         args[27].Value.(string),
 	}
 	c.store.mu.Lock()
 	defer c.store.mu.Unlock()
@@ -891,6 +902,8 @@ func dealRow(record dealRecord) []driver.Value {
 		record.typeName,
 		record.createdAt,
 		nullTimeValue(record.confirmedAt),
+		nullTimeValue(record.contractSignDeadline),
+		nullTimeValue(record.paymentDeadline),
 		nullStringValue(record.contractNumber),
 		nullTimeValue(record.contractPrepared),
 		nullTimeValue(record.contractSigned),

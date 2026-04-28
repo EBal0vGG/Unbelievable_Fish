@@ -1,7 +1,8 @@
 import { ApiError, apiRequest, isRecoverableApiGap } from "@/shared/api/http-client";
-import { mixedMeta, mockMeta, withFallback } from "@/shared/api/service-helpers";
+import { canFallbackCommand, mixedMeta, mockMeta, withFallback } from "@/shared/api/service-helpers";
 import {
   addActivity,
+  upsertAuctionStore,
   listFishStore,
   listLotsStore,
   listProductsStore,
@@ -40,8 +41,39 @@ interface CreateLotInput {
   photo?: string;
   quantity: number;
   startPrice: number;
+  minBidStep: number;
   auctionStartsAt: string;
   auctionDurationMinutes: number;
+}
+interface TradingAuctionByLotResponse {
+  auction_id?: string;
+  lot_id?: string;
+  state?: string;
+}
+
+async function waitAuctionIDByLot(
+  lotId: string,
+  session: UserSession | null,
+  attempts = 12,
+  delayMs = 500,
+): Promise<string | undefined> {
+  for (let i = 0; i < attempts; i += 1) {
+    try {
+      const result = await apiRequest<TradingAuctionByLotResponse>("trading", `/auctions/by-lot/${lotId}`, {
+        method: "GET",
+        session,
+      });
+      if (result.auction_id) {
+        return result.auction_id;
+      }
+    } catch (error) {
+      if (!isRecoverableApiGap(error)) {
+        throw error;
+      }
+    }
+    await new Promise((resolve) => setTimeout(resolve, delayMs));
+  }
+  return undefined;
 }
 
 export async function listFish(session: UserSession | null): Promise<ServiceResult<FishRecord[]>> {
@@ -116,7 +148,7 @@ export async function createFish(
         : mixedMeta("Catalog accepted CreateFish but did not return fish_id, local mirror was created."),
     };
   } catch (error) {
-    if (!isRecoverableApiGap(error)) {
+    if (!isRecoverableApiGap(error) || !canFallbackCommand()) {
       throw error;
     }
 
@@ -178,7 +210,7 @@ export async function createProduct(
         : mixedMeta("Catalog accepted CreateProduct without returning product_id, local mirror was created."),
     };
   } catch (error) {
-    if (!isRecoverableApiGap(error)) {
+    if (!isRecoverableApiGap(error) || !canFallbackCommand()) {
       throw error;
     }
 
@@ -213,7 +245,7 @@ export async function publishProduct(
       meta: { source: "api" },
     };
   } catch (error) {
-    if (!isRecoverableApiGap(error)) {
+    if (!isRecoverableApiGap(error) || !canFallbackCommand()) {
       throw error;
     }
 
@@ -250,6 +282,7 @@ export async function createLot(
     photo: input.photo,
     quantity: input.quantity,
     startPrice: input.startPrice,
+    minBidStep: input.minBidStep,
     currentPrice: input.startPrice,
     status: "DRAFT",
     auctionStartsAt: input.auctionStartsAt,
@@ -266,6 +299,7 @@ export async function createLot(
         photo: input.photo,
         quantity: input.quantity,
         start_price: input.startPrice,
+        min_bid_step: input.minBidStep,
         auction_starts_at: input.auctionStartsAt,
         auction_duration_minutes: input.auctionDurationMinutes,
       },
@@ -285,7 +319,7 @@ export async function createLot(
         : mixedMeta("Catalog accepted CreateLot without returning lot_id, local mirror was created."),
     };
   } catch (error) {
-    if (!isRecoverableApiGap(error)) {
+    if (!isRecoverableApiGap(error) || !canFallbackCommand()) {
       throw error;
     }
 
@@ -314,12 +348,30 @@ export async function publishLot(
       return { data: null, meta: { source: "api" } };
     }
 
+    const linkedAuctionId = (await waitAuctionIDByLot(lotId, session)) ?? existing?.auctionId;
+
     const published = upsertLotStore({
       ...existing,
       status: "PUBLISHED",
       currentPrice: existing.currentPrice ?? existing.startPrice,
+      auctionId: linkedAuctionId,
       source: "mixed",
     });
+    if (linkedAuctionId) {
+      const startsAt = new Date(published.auctionStartsAt);
+      const endsAt = new Date(startsAt.getTime() + published.auctionDurationMinutes * 60_000);
+      upsertAuctionStore({
+        id: linkedAuctionId,
+        lotId: published.id,
+        sellerCompanyId: published.sellerCompanyId,
+        state: "PUBLISHED",
+        startsAt: published.auctionStartsAt,
+        endsAt: Number.isNaN(endsAt.getTime()) ? new Date().toISOString() : endsAt.toISOString(),
+        currentPrice: published.currentPrice ?? published.startPrice,
+        source: "mixed",
+        statusNote: "Derived from Trading read-model by lot link.",
+      });
+    }
     addActivity("Лот опубликован", published.id, session);
     return {
       data: published,
@@ -328,7 +380,7 @@ export async function publishLot(
       },
     };
   } catch (error) {
-    if (!isRecoverableApiGap(error)) {
+    if (!isRecoverableApiGap(error) || !canFallbackCommand()) {
       throw error;
     }
 

@@ -1,6 +1,6 @@
 import { ApiError, apiRequest, isRecoverableApiGap } from "@/shared/api/http-client";
 import { getProjectionByAuctionId, getDealByAuctionId } from "@/shared/api/deals-service";
-import { mixedMeta, mockMeta } from "@/shared/api/service-helpers";
+import { canFallbackCommand, mixedMeta, mockMeta } from "@/shared/api/service-helpers";
 import {
   addActivity,
   appendBidStore,
@@ -51,6 +51,27 @@ function getAuctionFallbackNote(): string {
   return "Trading query endpoints for auction list/details are not exposed in the current backend build, using local auction mirror.";
 }
 
+function deriveAuctionFromLot(lot: ReturnType<typeof listLotsStore>[number]): AuctionRecord {
+  const startsAt = lot.auctionStartsAt;
+  const startTs = new Date(startsAt).getTime();
+  const endsAt = Number.isNaN(startTs)
+    ? new Date().toISOString()
+    : new Date(startTs + lot.auctionDurationMinutes * 60_000).toISOString();
+  return {
+    id: lot.auctionId ?? makeClientId("auction"),
+    lotId: lot.id,
+    sellerCompanyId: lot.sellerCompanyId,
+    state: lot.status === "PUBLISHED" ? "PUBLISHED" : lot.status === "CLOSED" ? "WON" : "CANCELLED",
+    startsAt,
+    endsAt,
+    currentPrice: lot.currentPrice ?? lot.startPrice,
+    minBidStep: lot.minBidStep ?? 1,
+    finalPrice: lot.finalPrice,
+    source: "mixed",
+    statusNote: "Собрано из Catalog lot read-model до появления Trading query endpoint.",
+  };
+}
+
 function getMissingTradingSessionError(session: UserSession | null): ApiError | null {
   if (!session?.companyId) {
     return new ApiError("Войдите в профиль, чтобы продолжить", 400, "MISSING_COMPANY_ID");
@@ -64,6 +85,9 @@ function getMissingTradingSessionError(session: UserSession | null): ApiError | 
 }
 
 function isCreateAuctionCompatibilityGap(error: unknown, session: UserSession): boolean {
+  if (!canFallbackCommand()) {
+    return false;
+  }
   if (isRecoverableApiGap(error)) {
     return true;
   }
@@ -73,9 +97,17 @@ function isCreateAuctionCompatibilityGap(error: unknown, session: UserSession): 
 
 export async function listAuctions(): Promise<ServiceResult<AuctionRecord[]>> {
   // TODO: replace local list once GET /auctions read-model endpoint exists in Trading.
+  const existing = listAuctionsStore().filter((item) => (canFallbackCommand() ? true : item.source !== "mock"));
+  const knownIDs = new Set(existing.map((item) => item.id));
+  const derived = listLotsStore()
+    .filter((lot) => lot.status === "PUBLISHED" || lot.status === "CLOSED" || lot.status === "CANCELLED")
+    .filter((lot) => Boolean(lot.auctionId))
+    .filter((lot) => !knownIDs.has(lot.auctionId as string))
+    .map((lot) => deriveAuctionFromLot(lot));
+
   return {
-    data: listAuctionsStore(),
-    meta: mockMeta(getAuctionFallbackNote()),
+    data: [...derived, ...existing],
+    meta: canFallbackCommand() ? mockMeta(getAuctionFallbackNote()) : mixedMeta("Список строится только по данным backend."),
   };
 }
 
@@ -178,7 +210,13 @@ export async function getAuctionDetails(
   try {
     const summary = await apiRequest<{
       auction_id: string;
+      lot_id: string;
       state: AuctionRecord["state"];
+      starts_at: string;
+      ends_at: string;
+      current_price?: number | null;
+      min_bid_step?: number | null;
+      leader_company_id?: string | null;
       winner_company_id?: string | null;
       final_price?: number | null;
     }>("trading", `/auctions/${auctionId}`, { session });
@@ -186,28 +224,33 @@ export async function getAuctionDetails(
     const existing = listAuctionsStore().find((item) => item.id === summary.auction_id);
     auction = {
       id: summary.auction_id,
-      lotId: existing?.lotId ?? "unknown-lot",
+      lotId: summary.lot_id ?? existing?.lotId ?? "unknown-lot",
       sellerCompanyId: existing?.sellerCompanyId,
       state: summary.state,
-      startsAt: existing?.startsAt ?? new Date().toISOString(),
-      endsAt: existing?.endsAt ?? new Date().toISOString(),
-      currentPrice: existing?.currentPrice,
+      startsAt: summary.starts_at ?? existing?.startsAt ?? new Date().toISOString(),
+      endsAt: summary.ends_at ?? existing?.endsAt ?? new Date().toISOString(),
+      currentPrice: summary.current_price ?? existing?.currentPrice,
+      minBidStep: summary.min_bid_step ?? existing?.minBidStep ?? 1,
       finalPrice: summary.final_price ?? existing?.finalPrice,
       winnerCompanyId: summary.winner_company_id ?? existing?.winnerCompanyId ?? undefined,
-      leaderCompanyId: existing?.leaderCompanyId,
+      leaderCompanyId: summary.leader_company_id ?? existing?.leaderCompanyId,
       source: existing ? "mixed" : "api",
     };
     upsertAuctionStore(auction);
     meta = { source: existing ? "mixed" : "api" };
   } catch (error) {
-    if (!isRecoverableApiGap(error)) {
+    if (!isRecoverableApiGap(error) || !canFallbackCommand()) {
       throw error;
     }
   }
 
   const [projectionResult, dealResult] = await Promise.all([
-    getProjectionByAuctionId(auctionId, session),
-    getDealByAuctionId(auctionId, session),
+    auction?.source === "mock" && !canFallbackCommand()
+      ? Promise.resolve({ data: null, meta: { source: "mock" as const } })
+      : getProjectionByAuctionId(auctionId, session),
+    auction?.source === "mock" && !canFallbackCommand()
+      ? Promise.resolve({ data: null, meta: { source: "mock" as const } })
+      : getDealByAuctionId(auctionId, session),
   ]);
 
   if (auction && !auction.sellerCompanyId && projectionResult.data?.supplierId) {
@@ -257,8 +300,9 @@ export async function placeBid(
   if (auction) {
     const validationError = getBidValidationError(auction, input.amount, placedAt, existingBids);
     if (validationError) {
-      const status = validationError === "Ставка должна быть выше текущей цены" ? 400 : 409;
-      const code = validationError === "Ставка должна быть выше текущей цены" ? "INVALID_BID" : "AUCTION_NOT_ACTIVE";
+      const tooSmall = validationError.startsWith("Ставка слишком маленькая");
+      const status = tooSmall ? 400 : 409;
+      const code = tooSmall ? "BID_TOO_SMALL" : "AUCTION_NOT_ACTIVE";
       throw new ApiError(validationError, status, code);
     }
   }

@@ -89,7 +89,7 @@ func TestIdentityUseCasesWithPostgresRepositories(t *testing.T) {
 	user, err := registerUser.Execute(context.Background(), identityapp.RegisterUserCommand{
 		CompanyID:     company.ID,
 		Name:          "Alice",
-		Role:          identity.RoleAdmin,
+		Role:          identity.RoleSeller,
 		Login:         " Alice@Example.com ",
 		Password:      "secret",
 		AcceptedTerms: true,

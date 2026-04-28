@@ -55,6 +55,8 @@ func MapError(err error) HTTPError {
 		return HTTPError{http.StatusBadRequest, "TERMS_VERSION_REQUIRED", err.Error()}
 	case errors.Is(err, identityapp.ErrUserIDRequired):
 		return HTTPError{http.StatusBadRequest, "USER_ID_REQUIRED", err.Error()}
+	case errors.Is(err, identityapp.ErrAdminRegistrationForbidden):
+		return HTTPError{http.StatusForbidden, "ADMIN_REGISTRATION_FORBIDDEN", err.Error()}
 	case errors.Is(err, identity.ErrEmptyCompanyID):
 		return HTTPError{http.StatusBadRequest, "COMPANY_ID_REQUIRED", err.Error()}
 	case errors.Is(err, identity.ErrEmptyCompanyName):

@@ -53,6 +53,15 @@ func (r *fakeUserRepo) GetByLogin(ctx context.Context, login string) (*identity.
 	return user, nil
 }
 
+func (r *fakeUserRepo) List(ctx context.Context) ([]*identity.User, error) {
+	_ = ctx
+	users := make([]*identity.User, 0, len(r.byID))
+	for _, user := range r.byID {
+		users = append(users, user)
+	}
+	return users, nil
+}
+
 type fakeCompanyRepo struct {
 	byID  map[string]*identity.Company
 	byKey map[string]*identity.Company
@@ -151,6 +160,8 @@ func TestCommandFlowSmoke(t *testing.T) {
 	router := httpapi.NewRouter(
 		handler.NewRegisterCompanyHandler(registerCompanyUC),
 		handler.NewRegisterUserHandler(registerUserUC),
+		http.NotFoundHandler(),
+		http.NotFoundHandler(),
 		handler.NewLoginHandler(loginUC),
 		handler.NewAuthMiddleware(tokenProvider).Wrap(handler.NewGetCurrentUserHandler(getCurrentUserUC)),
 	)
@@ -170,7 +181,7 @@ func TestCommandFlowSmoke(t *testing.T) {
 	userBody, _ := json.Marshal(httpapi.RegisterUserRequest{
 		CompanyID:     "company-1",
 		Name:          "Alice",
-		Role:          identity.RoleAdmin,
+		Role:          identity.RoleSeller,
 		Login:         "alice@example.com",
 		Password:      "secret",
 		AcceptedTerms: true,

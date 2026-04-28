@@ -58,6 +58,15 @@ func (r *fakeUserRepo) GetByLogin(ctx context.Context, login string) (*identity.
 	return user, nil
 }
 
+func (r *fakeUserRepo) List(ctx context.Context) ([]*identity.User, error) {
+	_ = ctx
+	users := make([]*identity.User, 0, len(r.byID))
+	for _, user := range r.byID {
+		users = append(users, user)
+	}
+	return users, nil
+}
+
 type fakeCompanyRepo struct {
 	byID       map[string]*identity.Company
 	byKey      map[string]*identity.Company
@@ -260,7 +269,7 @@ func TestRegisterUserSuccess(t *testing.T) {
 	result, err := uc.Execute(context.Background(), RegisterUserCommand{
 		CompanyID:     "company-1",
 		Name:          "Alice",
-		Role:          identity.RoleAdmin,
+		Role:          identity.RoleSeller,
 		Login:         " Alice@Example.com ",
 		Password:      "secret",
 		AcceptedTerms: true,
@@ -332,21 +341,20 @@ func TestRegisterUserSuccessByCompanyRequisites(t *testing.T) {
 	}
 }
 
-func TestRegisterUserSuccessWithoutCompany(t *testing.T) {
+func TestRegisterUserCreatesDummyCompanyWhenCompanyNotProvided(t *testing.T) {
 	users := newFakeUserRepo()
 	companies := newFakeCompanyRepo()
 	hasher := &fakePasswordHasher{hashValue: "hashed-password"}
-	acceptedAt := time.Date(2024, time.April, 2, 10, 0, 0, 0, time.UTC)
 
-	uc, err := NewRegisterUser(users, companies, hasher, fakeIDGenerator{userID: "user-3"}, fixedClock{now: acceptedAt})
+	uc, err := NewRegisterUser(users, companies, hasher, fakeIDGenerator{companyID: "company-auto", userID: "user-auto"}, fixedClock{now: time.Date(2024, time.April, 1, 10, 0, 0, 0, time.UTC)})
 	if err != nil {
 		t.Fatalf("unexpected constructor error: %v", err)
 	}
 
 	result, err := uc.Execute(context.Background(), RegisterUserCommand{
-		Name:          "Carol",
+		Name:          "Auto User",
 		Role:          identity.RoleBuyer,
-		Login:         "carol@example.com",
+		Login:         "auto@example.com",
 		Password:      "secret",
 		AcceptedTerms: true,
 		TermsVersion:  "2026-04-24",
@@ -354,16 +362,40 @@ func TestRegisterUserSuccessWithoutCompany(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
+	if result.CompanyID != "company-auto" {
+		t.Fatalf("expected generated company id, got %q", result.CompanyID)
+	}
+	if _, err := companies.GetByID(context.Background(), "company-auto"); err != nil {
+		t.Fatalf("expected generated company to be saved, got %v", err)
+	}
+}
 
-	if result.CompanyID != "" {
-		t.Fatalf("expected empty company id, got %q", result.CompanyID)
-	}
-	stored, err := users.GetByID(context.Background(), "user-3")
+func TestRegisterUserRejectsAdminRole(t *testing.T) {
+	users := newFakeUserRepo()
+	companies := newFakeCompanyRepo()
+	company, err := identity.NewCompany("company-1", "Acme Fish", "7707083893", "1027700132195", time.Now())
 	if err != nil {
-		t.Fatalf("expected stored user, got %v", err)
+		t.Fatalf("unexpected domain error: %v", err)
 	}
-	if stored.CompanyID() != "" {
-		t.Fatalf("expected stored empty company id, got %q", stored.CompanyID())
+	companies.byID[company.ID()] = company
+	companies.byKey[company.INN()+"|"+company.OGRN()] = company
+
+	uc, err := NewRegisterUser(users, companies, &fakePasswordHasher{hashValue: "hash"}, fakeIDGenerator{userID: "user-1"}, fixedClock{now: time.Now()})
+	if err != nil {
+		t.Fatalf("unexpected constructor error: %v", err)
+	}
+
+	_, err = uc.Execute(context.Background(), RegisterUserCommand{
+		CompanyID:     "company-1",
+		Name:          "Alice",
+		Role:          identity.RoleAdmin,
+		Login:         "alice@example.com",
+		Password:      "secret",
+		AcceptedTerms: true,
+		TermsVersion:  "2026-04-24",
+	})
+	if err != ErrAdminRegistrationForbidden {
+		t.Fatalf("expected %v, got %v", ErrAdminRegistrationForbidden, err)
 	}
 }
 
@@ -380,7 +412,7 @@ func TestRegisterUserFailsWhenCompanyNotFound(t *testing.T) {
 	_, err = uc.Execute(context.Background(), RegisterUserCommand{
 		CompanyID:     "missing-company",
 		Name:          "Alice",
-		Role:          identity.RoleAdmin,
+		Role:          identity.RoleSeller,
 		Login:         "alice@example.com",
 		Password:      "secret",
 		AcceptedTerms: true,
@@ -416,7 +448,7 @@ func TestRegisterUserFailsWhenLoginAlreadyUsed(t *testing.T) {
 	_, err = uc.Execute(context.Background(), RegisterUserCommand{
 		CompanyID:     "company-1",
 		Name:          "Alice",
-		Role:          identity.RoleAdmin,
+		Role:          identity.RoleSeller,
 		Login:         "Alice@Example.com",
 		Password:      "secret",
 		AcceptedTerms: true,
@@ -440,7 +472,7 @@ func TestRegisterUserFailsWhenPasswordEmpty(t *testing.T) {
 	_, err = uc.Execute(context.Background(), RegisterUserCommand{
 		CompanyID:     "company-1",
 		Name:          "Alice",
-		Role:          identity.RoleAdmin,
+		Role:          identity.RoleSeller,
 		Login:         "alice@example.com",
 		Password:      " ",
 		AcceptedTerms: true,
@@ -464,7 +496,7 @@ func TestRegisterUserFailsWhenTermsNotAccepted(t *testing.T) {
 	_, err = uc.Execute(context.Background(), RegisterUserCommand{
 		CompanyID:     "company-1",
 		Name:          "Alice",
-		Role:          identity.RoleAdmin,
+		Role:          identity.RoleSeller,
 		Login:         "alice@example.com",
 		Password:      "secret",
 		AcceptedTerms: false,
@@ -488,7 +520,7 @@ func TestRegisterUserFailsWhenTermsVersionEmpty(t *testing.T) {
 	_, err = uc.Execute(context.Background(), RegisterUserCommand{
 		CompanyID:     "company-1",
 		Name:          "Alice",
-		Role:          identity.RoleAdmin,
+		Role:          identity.RoleSeller,
 		Login:         "alice@example.com",
 		Password:      "secret",
 		AcceptedTerms: true,
@@ -621,5 +653,27 @@ func TestGetCurrentUserFailsWhenUserNotFound(t *testing.T) {
 	_, err = uc.Execute(context.Background(), GetCurrentUserQuery{UserID: "missing"})
 	if err != ErrUserNotFound {
 		t.Fatalf("expected %v, got %v", ErrUserNotFound, err)
+	}
+}
+
+func TestPromoteUserToAdminSuccess(t *testing.T) {
+	users := newFakeUserRepo()
+	user, err := identity.NewUser("user-1", "company-1", "Alice", identity.RoleSeller, "alice@example.com", "hash")
+	if err != nil {
+		t.Fatalf("unexpected domain error: %v", err)
+	}
+	users.byID[user.ID()] = user
+	users.byLogin[user.Login()] = user
+
+	uc, err := NewPromoteUserToAdmin(users)
+	if err != nil {
+		t.Fatalf("unexpected constructor error: %v", err)
+	}
+	result, err := uc.Execute(context.Background(), PromoteUserToAdminCommand{UserID: "user-1"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Role != identity.RoleAdmin {
+		t.Fatalf("expected admin role, got %q", result.Role)
 	}
 }

@@ -10,7 +10,7 @@ import { useAuth } from "@/entities/session/model/auth-context";
 import { ApiError } from "@/shared/api/http-client";
 import { placeBid } from "@/shared/api/trading-service";
 import { isBuyerSession } from "@/shared/lib/access";
-import { getBidAccessError, getBidValidationError } from "@/shared/lib/trading-domain";
+import { getBidAccessError, getBidValidationError, getMinAllowedBid } from "@/shared/lib/trading-domain";
 import { Button } from "@/shared/ui/button";
 import { Field } from "@/shared/ui/field";
 import { Input } from "@/shared/ui/input";
@@ -29,6 +29,7 @@ export function PlaceBidForm({
   startsAt,
   endsAt,
   currentPrice = 0,
+  minBidStep = 1,
   sellerCompanyId,
   leaderCompanyId,
   bids = [],
@@ -38,6 +39,7 @@ export function PlaceBidForm({
   startsAt: string;
   endsAt: string;
   currentPrice?: number;
+  minBidStep?: number;
   sellerCompanyId?: string;
   leaderCompanyId?: string;
   bids?: BidRecord[];
@@ -58,9 +60,18 @@ export function PlaceBidForm({
   const form = useForm<Values>({
     resolver: zodResolver(schema),
     defaultValues: {
-      amount: Math.max(currentPrice + 1, 1),
+      amount: Math.max(currentPrice, 1),
     },
   });
+  const minAllowedBid = getMinAllowedBid(
+    {
+      currentPrice,
+      finalPrice: undefined,
+      minBidStep,
+      leaderCompanyId,
+    },
+    bids,
+  );
   const bidValidationError = getBidValidationError(
     {
       state: auctionState,
@@ -68,17 +79,19 @@ export function PlaceBidForm({
       endsAt,
       currentPrice,
       finalPrice: undefined,
+      minBidStep,
+      leaderCompanyId,
     },
     form.watch("amount") || 0,
     new Date(),
     bids,
   );
   const blockingError = sessionError ?? bidAccessError ?? bidValidationError;
-  const accessBlockingError = sessionError ?? roleError ?? bidAccessError ?? bidValidationError;
+  const hardBlockingError = sessionError ?? roleError ?? bidAccessError;
 
   useEffect(() => {
-    form.setValue("amount", Math.max(currentPrice + 1, 1));
-  }, [currentPrice, form]);
+    form.setValue("amount", Math.max(minAllowedBid, 1));
+  }, [form, minAllowedBid]);
 
   const mutation = useMutation({
     mutationFn: (values: Values) =>
@@ -137,17 +150,18 @@ export function PlaceBidForm({
 
   return (
     <div className="stack-md">
-      {accessBlockingError && form.formState.isSubmitted === false ? (
+      {hardBlockingError && form.formState.isSubmitted === false ? (
         <Notice tone="warning" title="Ставка недоступна">
-          {accessBlockingError}
+          {hardBlockingError}
         </Notice>
       ) : null}
 
       <form className="stack-md" onSubmit={onSubmit}>
         <Field label="Сумма ставки" error={form.formState.errors.amount?.message}>
-          <Input disabled={Boolean(accessBlockingError)} type="number" {...form.register("amount")} />
+          <Input disabled={Boolean(hardBlockingError)} type="number" {...form.register("amount")} />
         </Field>
-        <Button disabled={mutation.isPending || Boolean(accessBlockingError)} type="submit">
+        <p className="muted">Минимально допустимая ставка: {minAllowedBid}</p>
+        <Button disabled={mutation.isPending || Boolean(hardBlockingError)} type="submit">
           {mutation.isPending ? "Отправляем..." : "Сделать ставку"}
         </Button>
       </form>

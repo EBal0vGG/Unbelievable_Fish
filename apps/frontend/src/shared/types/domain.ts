@@ -81,6 +81,7 @@ export interface LotRecord {
   photo?: string;
   quantity: number;
   startPrice: number;
+  minBidStep: number;
   currentPrice?: number;
   finalPrice?: number;
   status: LotStatus;
@@ -99,6 +100,7 @@ export interface AuctionRecord {
   startsAt: string;
   endsAt: string;
   currentPrice?: number;
+  minBidStep?: number;
   finalPrice?: number;
   leaderCompanyId?: string;
   winnerCompanyId?: string;

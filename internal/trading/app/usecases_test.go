@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"reflect"
+	"sync"
 	"testing"
 	"time"
 
@@ -152,7 +153,7 @@ func TestCreateAuctionSavesAggregate(t *testing.T) {
 	startsAt := time.Now().Add(-time.Hour)
 	endsAt := startsAt.Add(time.Hour)
 	logf(t, "create auction lot_id=%s starts_at=%s ends_at=%s", "lot-1", startsAt, endsAt)
-	auctionID, err := uc.Execute(context.Background(), testMeta(), "lot-1", startsAt, endsAt)
+	auctionID, err := uc.Execute(context.Background(), testMeta(), "lot-1", startsAt, endsAt, 100, 10)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -185,7 +186,7 @@ func TestCreateAuctionIsIdempotentWhenAuctionExists(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected constructor error: %v", err)
 	}
-	auctionID, err := uc.Execute(context.Background(), testMeta(), "lot-1", startsAt, endsAt)
+	auctionID, err := uc.Execute(context.Background(), testMeta(), "lot-1", startsAt, endsAt, 100, 10)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -331,8 +332,8 @@ func TestPlaceBidRejectsLowerAmount(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	err = uc.Execute(context.Background(), testMeta(), "1", 50, placedAt)
-	if err != auction.ErrBidTooLow {
-		t.Fatalf("expected ErrBidTooLow, got %v", err)
+	if err != auction.ErrBidStepTooSmall {
+		t.Fatalf("expected ErrBidStepTooSmall, got %v", err)
 	}
 }
 
@@ -357,6 +358,56 @@ func TestPlaceBidRejectsAfterEnd(t *testing.T) {
 	err = uc.Execute(context.Background(), testMeta(), "1", 100, placedAt)
 	if err != auction.ErrAuctionAlreadyEnded {
 		t.Fatalf("expected ErrAuctionAlreadyEnded, got %v", err)
+	}
+}
+
+func TestConcurrentBidsKeepConsistentAuctionState(t *testing.T) {
+	logTest(t)
+	startsAt := time.Now().Add(-time.Hour)
+	endsAt := time.Now().Add(time.Hour)
+	a, err := auction.NewAuctionWithPricing("race-1", "lot-race", startsAt, endsAt, 100, 10)
+	if err != nil {
+		t.Fatalf("unexpected auction constructor error: %v", err)
+	}
+	_, _ = a.Publish()
+
+	repo := &raceAuctionRepo{auction: a}
+	bidRepo := &syncBidRepo{}
+	outbox := &syncOutbox{}
+	winners := &syncWinners{}
+	uow := &syncUOW{tx: &syncTx{repo: repo, bids: bidRepo, outbox: outbox, winners: winners}}
+
+	uc, err := NewPlaceBid(uow)
+	if err != nil {
+		t.Fatalf("unexpected constructor error: %v", err)
+	}
+	placedAt := endsAt.Add(-time.Minute)
+	var wg sync.WaitGroup
+	wg.Add(2)
+	errCh := make(chan error, 2)
+
+	go func() {
+		defer wg.Done()
+		errCh <- uc.Execute(context.Background(), CommandMeta{CompanyID: "buyer-a", UserID: "u-a"}, "race-1", 110, placedAt)
+	}()
+	go func() {
+		defer wg.Done()
+		errCh <- uc.Execute(context.Background(), CommandMeta{CompanyID: "buyer-b", UserID: "u-b"}, "race-1", 120, placedAt)
+	}()
+	wg.Wait()
+	close(errCh)
+
+	for err := range errCh {
+		if err != nil && err != auction.ErrBidStepTooSmall {
+			t.Fatalf("unexpected concurrent error: %v", err)
+		}
+	}
+
+	if got := repo.auction.CurrentPrice(); got != 120 {
+		t.Fatalf("expected final current price 120, got %d", got)
+	}
+	if got := repo.auction.LeaderCompanyID(); got != "buyer-b" {
+		t.Fatalf("expected final leader buyer-b, got %s", got)
 	}
 }
 
@@ -464,4 +515,76 @@ func testMeta() CommandMeta {
 		CorrelationID: "corr-1",
 		CausationID:   "cause-1",
 	}
+}
+
+type raceAuctionRepo struct {
+	mu      sync.Mutex
+	auction *auction.Auction
+}
+
+func (r *raceAuctionRepo) Load(context.Context, AuctionID) (*auction.Auction, error) {
+	if r.auction == nil {
+		return nil, ErrNotFound
+	}
+	return r.auction, nil
+}
+
+func (r *raceAuctionRepo) LoadForUpdate(context.Context, AuctionID) (*auction.Auction, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.auction == nil {
+		return nil, ErrNotFound
+	}
+	return r.auction, nil
+}
+
+func (r *raceAuctionRepo) Save(context.Context, *auction.Auction) error {
+	return nil
+}
+
+type syncBidRepo struct {
+	mu   sync.Mutex
+	bids []auction.Bid
+}
+
+func (r *syncBidRepo) Save(_ context.Context, _ AuctionID, bid auction.Bid) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.bids = append(r.bids, bid)
+	return nil
+}
+
+func (r *syncBidRepo) TopBids(context.Context, AuctionID) ([]auction.Bid, error) {
+	return nil, nil
+}
+
+type syncOutbox struct{}
+
+func (syncOutbox) Add(context.Context, []auction.Event) error { return nil }
+
+type syncWinners struct{}
+
+func (syncWinners) Save(context.Context, AuctionID, []WinnerRecord) error { return nil }
+
+type syncTx struct {
+	repo    *raceAuctionRepo
+	bids    *syncBidRepo
+	outbox  *syncOutbox
+	winners *syncWinners
+}
+
+func (s *syncTx) Auctions() AuctionRepository             { return s.repo }
+func (s *syncTx) Bids() BidRepository                     { return s.bids }
+func (s *syncTx) Outbox() OutboxRepository                { return s.outbox }
+func (s *syncTx) Winners() AuctionWinnersRepository       { return s.winners }
+
+type syncUOW struct {
+	mu sync.Mutex
+	tx *syncTx
+}
+
+func (s *syncUOW) Do(ctx context.Context, fn func(Tx) error) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return fn(s.tx)
 }

@@ -42,6 +42,9 @@ func (h *PlaceBidHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	placedAt := time.Now().UTC()
+	if !req.PlacedAt.IsZero() {
+		placedAt = req.PlacedAt.UTC()
+	}
 	if err := h.uc.Execute(r.Context(), meta, auctionID, req.Amount, placedAt); err != nil {
 		handleCommandError(w, err, meta)
 		return

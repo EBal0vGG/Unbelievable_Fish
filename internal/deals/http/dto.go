@@ -76,19 +76,21 @@ type ContractInfoDTO struct {
 }
 
 type DealResponse struct {
-	ID              string             `json:"id"`
-	CustomerID      string             `json:"customer_id"`
-	SupplierID      string             `json:"supplier_id"`
-	AuctionID       string             `json:"auction_id"`
-	Quantity        int64              `json:"quantity"`
-	UnitPrice       int64              `json:"unit_price"`
-	TotalAmount     int64              `json:"total_amount"`
-	Status          string             `json:"status"`
-	Type            string             `json:"type"`
-	CreatedAt       time.Time          `json:"created_at"`
-	ConfirmedAt     *time.Time         `json:"confirmed_at,omitempty"`
-	Contract        *ContractInfoDTO   `json:"contract,omitempty"`
-	ProductSnapshot ProductSnapshotDTO `json:"product_snapshot"`
+	ID                   string             `json:"id"`
+	CustomerID           string             `json:"customer_id"`
+	SupplierID           string             `json:"supplier_id"`
+	AuctionID            string             `json:"auction_id"`
+	Quantity             int64              `json:"quantity"`
+	UnitPrice            int64              `json:"unit_price"`
+	TotalAmount          int64              `json:"total_amount"`
+	Status               string             `json:"status"`
+	Type                 string             `json:"type"`
+	CreatedAt            time.Time          `json:"created_at"`
+	ConfirmedAt          *time.Time         `json:"confirmed_at,omitempty"`
+	ContractSignDeadline *time.Time         `json:"contract_sign_deadline,omitempty"`
+	PaymentDeadline      *time.Time         `json:"payment_deadline,omitempty"`
+	Contract             *ContractInfoDTO   `json:"contract,omitempty"`
+	ProductSnapshot      ProductSnapshotDTO `json:"product_snapshot"`
 }
 
 type ProjectionResponse struct {
@@ -124,18 +126,20 @@ func (d ProductSnapshotDTO) ToDomain() deal.ProductSnapshot {
 
 func NewDealResponse(item *deal.Deal) DealResponse {
 	response := DealResponse{
-		ID:              item.ID(),
-		CustomerID:      item.CustomerID(),
-		SupplierID:      item.SupplierID(),
-		AuctionID:       item.AuctionID(),
-		Quantity:        item.Quantity(),
-		UnitPrice:       item.UnitPrice(),
-		TotalAmount:     item.CalculateTotal(),
-		Status:          string(item.Status()),
-		Type:            string(item.Type()),
-		CreatedAt:       item.CreatedAt(),
-		ConfirmedAt:     item.ConfirmedAt(),
-		ProductSnapshot: NewProductSnapshotDTO(item.ProductSnapshot()),
+		ID:                   item.ID(),
+		CustomerID:           item.CustomerID(),
+		SupplierID:           item.SupplierID(),
+		AuctionID:            item.AuctionID(),
+		Quantity:             item.Quantity(),
+		UnitPrice:            item.UnitPrice(),
+		TotalAmount:          item.CalculateTotal(),
+		Status:               string(item.Status()),
+		Type:                 string(item.Type()),
+		CreatedAt:            item.CreatedAt(),
+		ConfirmedAt:          item.ConfirmedAt(),
+		ContractSignDeadline: item.ContractSignDeadline(),
+		PaymentDeadline:      item.PaymentDeadline(),
+		ProductSnapshot:      NewProductSnapshotDTO(item.ProductSnapshot()),
 	}
 	if item.Contract() != nil {
 		response.Contract = &ContractInfoDTO{

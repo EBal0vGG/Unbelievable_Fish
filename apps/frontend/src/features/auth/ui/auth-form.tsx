@@ -32,7 +32,7 @@ const companySchema = z.object({
 
 const registerUserSchema = z.object({
   name: z.string().min(2, "Укажите имя пользователя"),
-  role: z.enum(["admin", "seller", "buyer"]),
+  role: z.enum(["seller", "buyer"]),
   login: z.string().min(2, "Укажите логин или email"),
   password: z.string().min(1, "Укажите пароль"),
   acceptedTerms: z.boolean().refine((value) => value, "Нужно согласиться с условиями пользования"),
@@ -108,7 +108,6 @@ export function AuthForm({
     setCreatedCompany(null);
     setCompanyMessage("Регистрация продолжится без компании.");
   };
-
   const submitUser = registerUserForm.handleSubmit(async (values) => {
     setAuthError(null);
     try {
@@ -226,8 +225,8 @@ export function AuthForm({
           </form>
 
           <form className="stack-md" onSubmit={submitUser}>
-            <Field label="Company ID">
-              <Input disabled value={createdCompany?.id ?? "Компания не выбрана"} />
+            <Field label="Company ID (опционально)">
+              <Input disabled value={createdCompany?.id ?? "Будет создана служебная компания"} />
             </Field>
 
             <Field label="Имя пользователя" error={registerUserForm.formState.errors.name?.message}>
@@ -238,7 +237,6 @@ export function AuthForm({
               <Select {...registerUserForm.register("role")}>
                 <option value="seller">Продавец</option>
                 <option value="buyer">Покупатель</option>
-                <option value="admin">Администратор</option>
               </Select>
             </Field>
 

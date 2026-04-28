@@ -34,6 +34,7 @@ const lotSchema = z.object({
   photo: z.union([z.literal(""), z.string().trim().url("Укажите корректный URL")]).optional(),
   quantity: z.coerce.number().positive("Введите объем"),
   startPrice: z.coerce.number().int().positive("Введите стартовую цену"),
+  minBidStep: z.coerce.number().int().positive("Введите минимальный шаг ставки"),
   auctionStartsAt: z.string().min(1, "Укажите старт торгов"),
   auctionDurationMinutes: z.coerce.number().int().positive("Введите длительность"),
   publishLot: z.boolean().default(true),
@@ -74,6 +75,7 @@ export function CreateLotForm() {
       photo: "",
       quantity: 12,
       startPrice: 540000,
+      minBidStep: 1000,
       auctionStartsAt: toDateTimeLocalValue(new Date(Date.now() + 60 * 60 * 1000)),
       auctionDurationMinutes: 180,
       publishLot: true,
@@ -153,6 +155,7 @@ export function CreateLotForm() {
           photo: values.photo,
           quantity: values.quantity,
           startPrice: values.startPrice,
+          minBidStep: values.minBidStep,
           auctionStartsAt: new Date(values.auctionStartsAt).toISOString(),
           auctionDurationMinutes: values.auctionDurationMinutes,
         },
@@ -348,6 +351,9 @@ export function CreateLotForm() {
               </Field>
               <Field label="Стартовая цена" error={lotForm.formState.errors.startPrice?.message}>
                 <Input type="number" {...lotForm.register("startPrice")} />
+              </Field>
+              <Field label="Мин. шаг ставки" error={lotForm.formState.errors.minBidStep?.message}>
+                <Input type="number" {...lotForm.register("minBidStep")} />
               </Field>
               <Field label="Старт торгов" error={lotForm.formState.errors.auctionStartsAt?.message}>
                 <Input type="datetime-local" {...lotForm.register("auctionStartsAt")} />

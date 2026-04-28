@@ -120,6 +120,8 @@ func TestCommandFlowSmoke(t *testing.T) {
 		handler.NewPlaceBidHandler(placeBidUC),
 		http.NotFoundHandler(),
 		http.NotFoundHandler(),
+		http.NotFoundHandler(),
+		http.NotFoundHandler(),
 	)
 
 	body, _ := json.Marshal(httpapi.PlaceBidRequest{

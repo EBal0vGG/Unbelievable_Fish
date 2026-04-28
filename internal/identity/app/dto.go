@@ -33,6 +33,10 @@ type GetCurrentUserQuery struct {
 	UserID string
 }
 
+type PromoteUserToAdminCommand struct {
+	UserID string
+}
+
 type CompanyDTO struct {
 	ID        string
 	Name      string

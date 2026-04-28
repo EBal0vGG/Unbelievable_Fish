@@ -68,7 +68,7 @@ interface ProjectionDTO {
 
 export type DealActionInput =
   | { type: "confirm" }
-  | { type: "prepareContract"; contractNumber: string; documentUrl?: string }
+  | { type: "prepareContract"; contractNumber?: string; documentUrl?: string }
   | { type: "signContract"; signatureRef: string }
   | { type: "requestPayment"; invoiceNumber: string; dueDate?: string }
   | { type: "markPaid"; paymentId: string; paymentType: string }
@@ -319,7 +319,7 @@ function actionToRequest(input: DealActionInput): { pathSuffix: string; body?: u
       return {
         pathSuffix: "contract/prepare",
         body: {
-          contract_number: input.contractNumber,
+          contract_number: input.contractNumber ?? "",
           document_url: input.documentUrl ?? "",
         },
       };
@@ -391,7 +391,7 @@ function applyLocalDealAction(
         status: "contract_prepared",
         contract: {
           ...deal.contract,
-          number: input.contractNumber,
+          number: input.contractNumber ?? deal.contract?.number,
           documentUrl: input.documentUrl,
           preparedAt: now,
         },
