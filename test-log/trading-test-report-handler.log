@@ -2146,3 +2146,69 @@
 {"time":"2026-04-28T20:21:19.667626433+03:00","package":"handler","test":"TestProtectedPlaceBidEndpointForbiddenForWrongRole","message":"START"}
 {"time":"2026-04-28T20:21:19.667661176+03:00","package":"handler","test":"TestProtectedPlaceBidEndpointForbiddenForWrongRole","message":"END"}
 ========== END TestProtectedPlaceBidEndpointForbiddenForWrongRole (handler) ==========
+========== START TestCreateAuctionHandlerSuccess (handler) ==========
+{"time":"2026-04-28T20:38:31.039892575+03:00","package":"handler","test":"TestCreateAuctionHandlerSuccess","message":"START"}
+{"time":"2026-04-28T20:38:31.040027436+03:00","package":"handler","test":"TestCreateAuctionHandlerSuccess","message":"request lot_id=lot-1 starts_at=2026-04-28 16:38:31.03999876 +0000 UTC ends_at=2026-04-28 17:38:31.03999876 +0000 UTC"}
+{"time":"2026-04-28T20:38:31.040217697+03:00","package":"handler","test":"TestCreateAuctionHandlerSuccess","message":"status=202 save_count=1"}
+{"time":"2026-04-28T20:38:31.040255591+03:00","package":"handler","test":"TestCreateAuctionHandlerSuccess","message":"END"}
+========== END TestCreateAuctionHandlerSuccess (handler) ==========
+========== START TestPublishAuctionHandlerMissingCompanyID (handler) ==========
+{"time":"2026-04-28T20:38:31.040386757+03:00","package":"handler","test":"TestPublishAuctionHandlerMissingCompanyID","message":"START"}
+{"time":"2026-04-28T20:38:31.040475497+03:00","package":"handler","test":"TestPublishAuctionHandlerMissingCompanyID","message":"status=400 body={\"code\":\"MISSING_COMPANY_ID\",\"message\":\"missing X-Company-ID header\"}\n"}
+{"time":"2026-04-28T20:38:31.040523785+03:00","package":"handler","test":"TestPublishAuctionHandlerMissingCompanyID","message":"END"}
+========== END TestPublishAuctionHandlerMissingCompanyID (handler) ==========
+========== START TestPlaceBidHandlerInvalidJSON (handler) ==========
+{"time":"2026-04-28T20:38:31.040610797+03:00","package":"handler","test":"TestPlaceBidHandlerInvalidJSON","message":"START"}
+{"time":"2026-04-28T20:38:31.040651755+03:00","package":"handler","test":"TestPlaceBidHandlerInvalidJSON","message":"status=400 body={\"code\":\"INVALID_BODY\",\"message\":\"invalid request body\"}\n"}
+{"time":"2026-04-28T20:38:31.040707491+03:00","package":"handler","test":"TestPlaceBidHandlerInvalidJSON","message":"END"}
+========== END TestPlaceBidHandlerInvalidJSON (handler) ==========
+========== START TestPublishAuctionHandlerInvalidPath (handler) ==========
+{"time":"2026-04-28T20:38:31.040791663+03:00","package":"handler","test":"TestPublishAuctionHandlerInvalidPath","message":"START"}
+{"time":"2026-04-28T20:38:31.040838763+03:00","package":"handler","test":"TestPublishAuctionHandlerInvalidPath","message":"status=400 body={\"code\":\"INVALID_PATH\",\"message\":\"invalid path\"}\n"}
+{"time":"2026-04-28T20:38:31.040875174+03:00","package":"handler","test":"TestPublishAuctionHandlerInvalidPath","message":"END"}
+========== END TestPublishAuctionHandlerInvalidPath (handler) ==========
+========== START TestPlaceBidHandlerUsesIdentityFromContext (handler) ==========
+{"time":"2026-04-28T20:38:31.040967645+03:00","package":"handler","test":"TestPlaceBidHandlerUsesIdentityFromContext","message":"START"}
+{"time":"2026-04-28T20:38:31.041052191+03:00","package":"handler","test":"TestPlaceBidHandlerUsesIdentityFromContext","message":"END"}
+========== END TestPlaceBidHandlerUsesIdentityFromContext (handler) ==========
+========== START TestProtectedPlaceBidEndpointWithValidToken (handler) ==========
+{"time":"2026-04-28T20:38:31.041149468+03:00","package":"handler","test":"TestProtectedPlaceBidEndpointWithValidToken","message":"START"}
+{"time":"2026-04-28T20:38:31.041282755+03:00","package":"handler","test":"TestProtectedPlaceBidEndpointWithValidToken","message":"END"}
+========== END TestProtectedPlaceBidEndpointWithValidToken (handler) ==========
+========== START TestProtectedPlaceBidEndpointForbiddenForWrongRole (handler) ==========
+{"time":"2026-04-28T20:38:31.041364802+03:00","package":"handler","test":"TestProtectedPlaceBidEndpointForbiddenForWrongRole","message":"START"}
+{"time":"2026-04-28T20:38:31.04142517+03:00","package":"handler","test":"TestProtectedPlaceBidEndpointForbiddenForWrongRole","message":"END"}
+========== END TestProtectedPlaceBidEndpointForbiddenForWrongRole (handler) ==========
+========== START TestCreateAuctionHandlerSuccess (handler) ==========
+{"time":"2026-04-28T20:39:14.764509814+03:00","package":"handler","test":"TestCreateAuctionHandlerSuccess","message":"START"}
+{"time":"2026-04-28T20:39:14.764645828+03:00","package":"handler","test":"TestCreateAuctionHandlerSuccess","message":"request lot_id=lot-1 starts_at=2026-04-28 16:39:14.76460995 +0000 UTC ends_at=2026-04-28 17:39:14.76460995 +0000 UTC"}
+{"time":"2026-04-28T20:39:14.764856647+03:00","package":"handler","test":"TestCreateAuctionHandlerSuccess","message":"status=202 save_count=1"}
+{"time":"2026-04-28T20:39:14.764910741+03:00","package":"handler","test":"TestCreateAuctionHandlerSuccess","message":"END"}
+========== END TestCreateAuctionHandlerSuccess (handler) ==========
+========== START TestPublishAuctionHandlerMissingCompanyID (handler) ==========
+{"time":"2026-04-28T20:39:14.7650613+03:00","package":"handler","test":"TestPublishAuctionHandlerMissingCompanyID","message":"START"}
+{"time":"2026-04-28T20:39:14.765288445+03:00","package":"handler","test":"TestPublishAuctionHandlerMissingCompanyID","message":"status=400 body={\"code\":\"MISSING_COMPANY_ID\",\"message\":\"missing X-Company-ID header\"}\n"}
+{"time":"2026-04-28T20:39:14.765420982+03:00","package":"handler","test":"TestPublishAuctionHandlerMissingCompanyID","message":"END"}
+========== END TestPublishAuctionHandlerMissingCompanyID (handler) ==========
+========== START TestPlaceBidHandlerInvalidJSON (handler) ==========
+{"time":"2026-04-28T20:39:14.765551092+03:00","package":"handler","test":"TestPlaceBidHandlerInvalidJSON","message":"START"}
+{"time":"2026-04-28T20:39:14.765608065+03:00","package":"handler","test":"TestPlaceBidHandlerInvalidJSON","message":"status=400 body={\"code\":\"INVALID_BODY\",\"message\":\"invalid request body\"}\n"}
+{"time":"2026-04-28T20:39:14.765665677+03:00","package":"handler","test":"TestPlaceBidHandlerInvalidJSON","message":"END"}
+========== END TestPlaceBidHandlerInvalidJSON (handler) ==========
+========== START TestPublishAuctionHandlerInvalidPath (handler) ==========
+{"time":"2026-04-28T20:39:14.765767581+03:00","package":"handler","test":"TestPublishAuctionHandlerInvalidPath","message":"START"}
+{"time":"2026-04-28T20:39:14.765834017+03:00","package":"handler","test":"TestPublishAuctionHandlerInvalidPath","message":"status=400 body={\"code\":\"INVALID_PATH\",\"message\":\"invalid path\"}\n"}
+{"time":"2026-04-28T20:39:14.765874993+03:00","package":"handler","test":"TestPublishAuctionHandlerInvalidPath","message":"END"}
+========== END TestPublishAuctionHandlerInvalidPath (handler) ==========
+========== START TestPlaceBidHandlerUsesIdentityFromContext (handler) ==========
+{"time":"2026-04-28T20:39:14.765994578+03:00","package":"handler","test":"TestPlaceBidHandlerUsesIdentityFromContext","message":"START"}
+{"time":"2026-04-28T20:39:14.766083241+03:00","package":"handler","test":"TestPlaceBidHandlerUsesIdentityFromContext","message":"END"}
+========== END TestPlaceBidHandlerUsesIdentityFromContext (handler) ==========
+========== START TestProtectedPlaceBidEndpointWithValidToken (handler) ==========
+{"time":"2026-04-28T20:39:14.766222038+03:00","package":"handler","test":"TestProtectedPlaceBidEndpointWithValidToken","message":"START"}
+{"time":"2026-04-28T20:39:14.766391345+03:00","package":"handler","test":"TestProtectedPlaceBidEndpointWithValidToken","message":"END"}
+========== END TestProtectedPlaceBidEndpointWithValidToken (handler) ==========
+========== START TestProtectedPlaceBidEndpointForbiddenForWrongRole (handler) ==========
+{"time":"2026-04-28T20:39:14.766492747+03:00","package":"handler","test":"TestProtectedPlaceBidEndpointForbiddenForWrongRole","message":"START"}
+{"time":"2026-04-28T20:39:14.766558281+03:00","package":"handler","test":"TestProtectedPlaceBidEndpointForbiddenForWrongRole","message":"END"}
+========== END TestProtectedPlaceBidEndpointForbiddenForWrongRole (handler) ==========

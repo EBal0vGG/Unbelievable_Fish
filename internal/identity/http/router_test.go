@@ -243,6 +243,8 @@ func TestCommandFlowSmokeWithoutCompany(t *testing.T) {
 	router := httpapi.NewRouter(
 		handler.NewRegisterCompanyHandler(registerCompanyUC),
 		handler.NewRegisterUserHandler(registerUserUC),
+		http.NotFoundHandler(),
+		http.NotFoundHandler(),
 		handler.NewLoginHandler(loginUC),
 		handler.NewAuthMiddleware(tokenProvider).Wrap(handler.NewGetCurrentUserHandler(getCurrentUserUC)),
 	)
