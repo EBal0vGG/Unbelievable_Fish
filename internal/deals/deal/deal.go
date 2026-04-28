@@ -31,18 +31,20 @@ type ContractInfo struct {
 // Deal - основная сущность сделки
 // Создается только при выигрыше аукциона
 type Deal struct {
-	id              string
-	customerID      string
-	supplierID      string
-	auctionID       string // обязателен для аукционных сделок
-	quantity        int64
-	unitPrice       int64 // финальная цена
-	status          DealStatus
-	typeName        DealType
-	createdAt       time.Time
-	confirmedAt     *time.Time
-	contract        *ContractInfo
-	productSnapshot ProductSnapshot
+	id                   string
+	customerID           string
+	supplierID           string
+	auctionID            string // обязателен для аукционных сделок
+	quantity             int64
+	unitPrice            int64 // финальная цена
+	status               DealStatus
+	typeName             DealType
+	createdAt            time.Time
+	confirmedAt          *time.Time
+	contractSignDeadline *time.Time
+	paymentDeadline      *time.Time
+	contract             *ContractInfo
+	productSnapshot      ProductSnapshot
 }
 
 // Getter методы
@@ -88,6 +90,14 @@ func (d *Deal) ConfirmedAt() *time.Time {
 
 func (d *Deal) Contract() *ContractInfo {
 	return d.contract
+}
+
+func (d *Deal) ContractSignDeadline() *time.Time {
+	return d.contractSignDeadline
+}
+
+func (d *Deal) PaymentDeadline() *time.Time {
+	return d.paymentDeadline
 }
 
 func (d *Deal) ContractNumber() string {
@@ -161,7 +171,7 @@ func (d *Deal) Confirm() ([]Event, error) {
 
 // PrepareContract - подготавливает контракт для сделки
 func (d *Deal) PrepareContract(contractNumber, documentURL string) ([]Event, error) {
-	if d.status != DealStatusConfirmed {
+	if d.status != DealStatusConfirmed && d.status != DealStatusPending {
 		return nil, ErrCannotPrepareContract
 	}
 
@@ -213,6 +223,8 @@ func (d *Deal) SignContract(signedBy, signatureRef string) ([]Event, error) {
 	d.contract.SignedAt = &now
 	d.contract.SignedBy = signedBy
 	d.contract.SignatureRef = signatureRef
+	defaultPaymentDeadline := now.Add(24 * time.Hour)
+	d.paymentDeadline = &defaultPaymentDeadline
 	d.status = DealStatusContractSigned
 
 	events := []Event{

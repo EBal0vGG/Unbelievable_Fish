@@ -103,7 +103,7 @@ export function DealActionPanel({ deal }: { deal: DealRecord }) {
         </Button>
       ) : null}
 
-      {deal.status === "confirmed" ? (
+      {deal.status === "pending" || deal.status === "confirmed" ? (
         <form
           className="stack-md"
           onSubmit={(event) => {
@@ -117,7 +117,7 @@ export function DealActionPanel({ deal }: { deal: DealRecord }) {
           <Field label="Документ URL">
             <Input value={documentUrl} onChange={(event) => setDocumentUrl(event.target.value)} placeholder="https://..." />
           </Field>
-          <Button disabled={mutation.isPending || !session || !contractNumber} type="submit">
+          <Button disabled={mutation.isPending || !session} type="submit">
             Подготовить контракт
           </Button>
         </form>

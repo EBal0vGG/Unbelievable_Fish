@@ -65,7 +65,7 @@ func TestUseCaseChainHappyPathAndWinnerFallback(t *testing.T) {
 			if !ok {
 				return errors.New("unexpected payload for LotPublished")
 			}
-			if _, err := ucCreateAuction.Execute(ctx, tradingMeta(), evt.LotID, startsAt, endsAt); err != nil {
+			if _, err := ucCreateAuction.Execute(ctx, tradingMeta(), evt.LotID, startsAt, endsAt, evt.StartPrice, evt.MinBidStep); err != nil {
 				return err
 			}
 			if err := ucPublish.Execute(ctx, tradingMeta(), tradingapp.AuctionID(evt.AuctionID)); err != nil {
@@ -224,6 +224,7 @@ func setupCatalog(ctx context.Context, t *testing.T, startsAt time.Time) (*catal
 		Photo:                  "photo",
 		Quantity:               10,
 		StartPrice:             100,
+		MinBidStep:             10,
 		AuctionStartsAt:        startsAt,
 		AuctionDurationMinutes: 60,
 	})
@@ -334,6 +335,15 @@ func newMemoryFishRepo() *memoryFishRepo {
 func (r *memoryFishRepo) Get(ctx context.Context, fishID string) (*catalog.Fish, error) {
 	_ = ctx
 	return r.data[fishID], nil
+}
+
+func (r *memoryFishRepo) List(ctx context.Context) ([]*catalog.Fish, error) {
+	_ = ctx
+	out := make([]*catalog.Fish, 0, len(r.data))
+	for _, fish := range r.data {
+		out = append(out, fish)
+	}
+	return out, nil
 }
 
 func (r *memoryFishRepo) Exists(ctx context.Context, fishID string) (bool, error) {

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"log"
 	"net/http"
 	"strings"
 
@@ -97,5 +98,6 @@ func requirePost(w http.ResponseWriter, r *http.Request, meta app.CommandMeta) b
 
 func handleCommandError(w http.ResponseWriter, err error, meta app.CommandMeta) {
 	httpErr := httpapi.MapError(err)
+	log.Printf("trading_http_mapped status=%d code=%s message=%q correlation_id=%s causation_id=%s", httpErr.Status, httpErr.Code, httpErr.Message, meta.CorrelationID, meta.CausationID)
 	writeError(w, httpErr.Status, httpErr.Code, httpErr.Message, meta)
 }

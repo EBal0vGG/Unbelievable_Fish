@@ -76,6 +76,7 @@ func TestPostgresOutboxBusChains_RealPG(t *testing.T) {
 		"photo",
 		10,
 		100,
+		10,
 		catalog.NewAuctionScheduleAt(startsAt, time.Hour),
 	)
 	if err != nil {
@@ -118,7 +119,7 @@ func TestPostgresOutboxBusChains_RealPG(t *testing.T) {
 
 	bus.Subscribe("catalog.LotPublished", func(ctx context.Context, envelope events.Envelope) error {
 		evt := envelope.Payload.(catalog.LotPublished)
-		if _, err := createAuctionUC.Execute(ctx, tradingMeta(), evt.LotID, startsAt, endsAt); err != nil {
+		if _, err := createAuctionUC.Execute(ctx, tradingMeta(), evt.LotID, startsAt, endsAt, evt.StartPrice, evt.MinBidStep); err != nil {
 			return err
 		}
 		if err := publishAuctionUC.Execute(ctx, tradingMeta(), tradingapp.AuctionID(evt.AuctionID)); err != nil {

@@ -22,7 +22,7 @@ var _ app.LotRepository = (*LotRepository)(nil)
 
 func (r *LotRepository) Get(ctx context.Context, lotID string) (*catalog.Lot, error) {
 	const query = `
-SELECT lot_id, product_id, auction_id, seller_company_id, photo, quantity, start_price, cur_price, final_price, status, auction_starts_at, auction_duration_minutes
+SELECT lot_id, product_id, auction_id, seller_company_id, photo, quantity, start_price, min_bid_step, cur_price, final_price, status, auction_starts_at, auction_duration_minutes
 FROM catalog_lots
 WHERE lot_id = $1
 `
@@ -32,7 +32,7 @@ WHERE lot_id = $1
 
 func (r *LotRepository) GetByAuctionID(ctx context.Context, auctionID string) (*catalog.Lot, error) {
 	const query = `
-SELECT lot_id, product_id, auction_id, seller_company_id, photo, quantity, start_price, cur_price, final_price, status, auction_starts_at, auction_duration_minutes
+SELECT lot_id, product_id, auction_id, seller_company_id, photo, quantity, start_price, min_bid_step, cur_price, final_price, status, auction_starts_at, auction_duration_minutes
 FROM catalog_lots
 WHERE auction_id = $1
 `
@@ -50,12 +50,13 @@ INSERT INTO catalog_lots (
     photo,
     quantity,
     start_price,
+    min_bid_step,
     cur_price,
     final_price,
     status,
     auction_starts_at,
     auction_duration_minutes
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 ON CONFLICT (lot_id) DO UPDATE SET
     product_id = EXCLUDED.product_id,
     auction_id = EXCLUDED.auction_id,
@@ -63,6 +64,7 @@ ON CONFLICT (lot_id) DO UPDATE SET
     photo = EXCLUDED.photo,
     quantity = EXCLUDED.quantity,
     start_price = EXCLUDED.start_price,
+    min_bid_step = EXCLUDED.min_bid_step,
     cur_price = EXCLUDED.cur_price,
     final_price = EXCLUDED.final_price,
     status = EXCLUDED.status,
@@ -81,6 +83,7 @@ ON CONFLICT (lot_id) DO UPDATE SET
 		nullIfBlank(lot.Photo()),
 		lot.Quantity(),
 		lot.StartPrice(),
+		lot.MinBidStep(),
 		lot.CurPrice(),
 		lot.FinalPrice(),
 		string(lot.Status()),
@@ -102,6 +105,7 @@ func (r *LotRepository) getOne(ctx context.Context, query string, arg string) (*
 		&row.Photo,
 		&row.Quantity,
 		&row.StartPrice,
+		&row.MinBidStep,
 		&row.CurPrice,
 		&row.FinalPrice,
 		&row.Status,
@@ -126,6 +130,7 @@ type lotRow struct {
 	Photo           sql.NullString
 	Quantity        float64
 	StartPrice      int64
+	MinBidStep      int64
 	CurPrice        int64
 	FinalPrice      int64
 	Status          string
@@ -145,6 +150,7 @@ func (r lotRow) toAggregate() (*catalog.Lot, error) {
 		r.Photo.String,
 		r.Quantity,
 		r.StartPrice,
+		r.MinBidStep,
 		catalog.NewAuctionScheduleAt(r.AuctionStartsAt.Time, time.Duration(r.AuctionDurationMinutes)*time.Minute),
 	)
 	if err != nil {

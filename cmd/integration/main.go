@@ -37,6 +37,7 @@ func main() {
 	tradingUOW := tradingpg.NewUnitOfWork(db)
 	dealsUOW := dealspg.NewUnitOfWork(db)
 	projectionRepo := dealspg.NewProjectionRepository(db)
+	dealLister := dealspg.NewDealDeadlineLister(db)
 	auctionLister := tradingpg.NewAuctionLister(db)
 
 	runtime, err := integration.New(db, integration.Dependencies{
@@ -45,6 +46,7 @@ func main() {
 		DealsUOW:       dealsUOW,
 		ProjectionRepo: projectionRepo,
 		AuctionLister:  auctionLister,
+		DealLister:     dealLister,
 	})
 	if err != nil {
 		log.Fatalf("init integration runtime: %v", err)
@@ -53,12 +55,23 @@ func main() {
 	ctx := context.Background()
 	closeInterval := envDurationSeconds("AUCTION_CLOSE_INTERVAL_SEC", 10)
 	closeLimit := envInt("AUCTION_CLOSE_BATCH", 100)
+	dealDeadlineInterval := envDurationSeconds("DEAL_DEADLINE_INTERVAL_SEC", 10)
+	dealDeadlineLimit := envInt("DEAL_DEADLINE_BATCH", 100)
 	go func() {
 		ticker := time.NewTicker(closeInterval)
 		defer ticker.Stop()
 		for range ticker.C {
 			if err := runtime.RunCloseExpired(ctx, time.Now().UTC(), closeLimit); err != nil {
 				log.Printf("close expired auctions error: %v", err)
+			}
+		}
+	}()
+	go func() {
+		ticker := time.NewTicker(dealDeadlineInterval)
+		defer ticker.Stop()
+		for range ticker.C {
+			if err := runtime.RunCancelExpiredDeals(ctx, time.Now().UTC(), dealDeadlineLimit); err != nil {
+				log.Printf("cancel expired deals error: %v", err)
 			}
 		}
 	}()

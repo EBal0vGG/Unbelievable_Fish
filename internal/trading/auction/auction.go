@@ -38,6 +38,7 @@ type Auction struct {
 	endsAt   time.Time
 
 	currentPrice int64
+	minBidStep   int64
 
 	leaderCompanyID string
 
@@ -48,9 +49,14 @@ type Auction struct {
 const (
 	defaultExtensionWindow   = 5 * time.Minute
 	defaultExtensionDuration = 5 * time.Minute
+	defaultMinBidStep        = int64(1)
 )
 
 func NewAuction(id, lotID string, startsAt, endsAt time.Time) (*Auction, error) {
+	return NewAuctionWithPricing(id, lotID, startsAt, endsAt, 0, defaultMinBidStep)
+}
+
+func NewAuctionWithPricing(id, lotID string, startsAt, endsAt time.Time, startPrice, minBidStep int64) (*Auction, error) {
 	if id == "" {
 		return nil, ErrAuctionIDEmpty
 	}
@@ -60,12 +66,20 @@ func NewAuction(id, lotID string, startsAt, endsAt time.Time) (*Auction, error) 
 	if startsAt.IsZero() || endsAt.IsZero() || !startsAt.Before(endsAt) {
 		return nil, ErrInvalidSchedule
 	}
+	if startPrice < 0 {
+		return nil, ErrInvalidStartPrice
+	}
+	if minBidStep <= 0 {
+		return nil, ErrInvalidMinBidStep
+	}
 	return &Auction{
 		ID:                id,
 		LotID:             lotID,
 		state:             StateDraft,
 		startsAt:          startsAt,
 		endsAt:            endsAt,
+		currentPrice:      startPrice,
+		minBidStep:        minBidStep,
 		extensionWindow:   defaultExtensionWindow,
 		extensionDuration: defaultExtensionDuration,
 	}, nil
@@ -93,14 +107,18 @@ func (a *Auction) PlaceBid(b Bid) ([]Event, error) {
 	if b.PlacedAt().After(a.endsAt) {
 		return nil, ErrAuctionAlreadyEnded
 	}
-	if b.Amount() <= a.currentPrice {
-		return nil, ErrBidTooLow
+	minAllowed := a.currentPrice
+	if a.leaderCompanyID != "" {
+		minAllowed = a.currentPrice + a.minBidStep
+	}
+	if b.Amount() < minAllowed {
+		return nil, ErrBidStepTooSmall
 	}
 	a.currentPrice = b.Amount()
 	a.leaderCompanyID = b.BidderCompanyID()
 	newEndAt := a.endsAt
 	if a.endsAt.Sub(b.PlacedAt()) <= a.extensionWindow {
-		newEndAt = a.endsAt.Add(a.extensionDuration)
+		newEndAt = b.PlacedAt().Add(a.extensionDuration)
 		a.endsAt = newEndAt
 	}
 	return []Event{
@@ -175,6 +193,10 @@ func (a *Auction) EndsAt() time.Time {
 
 func (a *Auction) CurrentPrice() int64 {
 	return a.currentPrice
+}
+
+func (a *Auction) MinBidStep() int64 {
+	return a.minBidStep
 }
 
 func (a *Auction) LeaderCompanyID() string {

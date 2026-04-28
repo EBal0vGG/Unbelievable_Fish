@@ -21,7 +21,7 @@ func newProductSnapshot() ProductSnapshot {
 }
 
 func TestLotPublishRequiresProductPublished(t *testing.T) {
-	lot, _, err := NewLot("lot-1", "prod-1", "seller-1", "", 10.0, int64(100), newSchedule())
+	lot, _, err := NewLot("lot-1", "prod-1", "seller-1", "", 10.0, int64(100), int64(10), newSchedule())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -41,7 +41,7 @@ func TestLotPublishRequiresProductPublished(t *testing.T) {
 }
 
 func TestLotPublishAllowsMissingAuctionID(t *testing.T) {
-	lot, _, err := NewLot("lot-0", "prod-0", "seller-0", "", 10.0, int64(100), newSchedule())
+	lot, _, err := NewLot("lot-0", "prod-0", "seller-0", "", 10.0, int64(100), int64(10), newSchedule())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -56,14 +56,14 @@ func TestLotPublishAllowsMissingAuctionID(t *testing.T) {
 }
 
 func TestLotStartPriceValidation(t *testing.T) {
-	_, _, err := NewLot("lot-2", "prod-2", "seller-2", "", 10.0, int64(0), newSchedule())
+	_, _, err := NewLot("lot-2", "prod-2", "seller-2", "", 10.0, int64(0), int64(10), newSchedule())
 	if err != ErrInvalidPrice {
 		t.Fatalf("expected ErrInvalidPrice, got %v", err)
 	}
 }
 
 func TestAssignAuctionIDCannotReassign(t *testing.T) {
-	lot, _, err := NewLot("lot-4", "prod-4", "seller-4", "", 10.0, int64(100), newSchedule())
+	lot, _, err := NewLot("lot-4", "prod-4", "seller-4", "", 10.0, int64(100), int64(10), newSchedule())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -80,7 +80,7 @@ func TestAssignAuctionIDCannotReassign(t *testing.T) {
 }
 
 func TestUnpublishFromPublished(t *testing.T) {
-	lot, _, err := NewLot("lot-5", "prod-5", "seller-5", "", 10.0, int64(100), newSchedule())
+	lot, _, err := NewLot("lot-5", "prod-5", "seller-5", "", 10.0, int64(100), int64(10), newSchedule())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -105,7 +105,7 @@ func TestUnpublishFromPublished(t *testing.T) {
 }
 
 func TestLotCloseFromPublished(t *testing.T) {
-	lot, _, err := NewLot("lot-6", "prod-6", "seller-6", "", 10.0, int64(100), newSchedule())
+	lot, _, err := NewLot("lot-6", "prod-6", "seller-6", "", 10.0, int64(100), int64(10), newSchedule())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -149,7 +149,7 @@ func TestLotCloseFromPublished(t *testing.T) {
 }
 
 func TestLotCloseInvalidPrice(t *testing.T) {
-	lot, _, err := NewLot("lot-7", "prod-7", "seller-7", "", 10.0, int64(100), newSchedule())
+	lot, _, err := NewLot("lot-7", "prod-7", "seller-7", "", 10.0, int64(100), int64(10), newSchedule())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -177,7 +177,7 @@ func TestLotCloseInvalidPrice(t *testing.T) {
 }
 
 func TestLotQuantityAllowsFraction(t *testing.T) {
-	lot, _, err := NewLot("lot-8", "prod-8", "seller-8", "", 123.5, int64(100), newSchedule())
+	lot, _, err := NewLot("lot-8", "prod-8", "seller-8", "", 123.5, int64(100), int64(10), newSchedule())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -187,7 +187,7 @@ func TestLotQuantityAllowsFraction(t *testing.T) {
 }
 
 func TestLotPhotoStored(t *testing.T) {
-	lot, _, err := NewLot("lot-9", "prod-9", "seller-9", "  https://img  ", 10.0, int64(100), newSchedule())
+	lot, _, err := NewLot("lot-9", "prod-9", "seller-9", "  https://img  ", 10.0, int64(100), int64(10), newSchedule())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -197,14 +197,14 @@ func TestLotPhotoStored(t *testing.T) {
 }
 
 func TestLotStartPriceInt64(t *testing.T) {
-	_, _, err := NewLot("lot-10", "prod-10", "seller-10", "", 10.0, int64(123), newSchedule())
+	_, _, err := NewLot("lot-10", "prod-10", "seller-10", "", 10.0, int64(123), int64(10), newSchedule())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 }
 
 func TestLotUpdateCurrentPriceEmitsEvent(t *testing.T) {
-	lot, _, err := NewLot("lot-11", "prod-11", "seller-11", "", 10.0, int64(100), newSchedule())
+	lot, _, err := NewLot("lot-11", "prod-11", "seller-11", "", 10.0, int64(100), int64(10), newSchedule())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

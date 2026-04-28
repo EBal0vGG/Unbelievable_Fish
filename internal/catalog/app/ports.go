@@ -9,6 +9,7 @@ import (
 
 type FishRepository interface {
 	Get(ctx context.Context, fishID string) (*catalog.Fish, error)
+	List(ctx context.Context) ([]*catalog.Fish, error)
 	Exists(ctx context.Context, fishID string) (bool, error)
 	Save(ctx context.Context, fish *catalog.Fish) error
 }
@@ -73,6 +74,7 @@ type CreateLotCommand struct {
 	Photo           string
 	Quantity        float64
 	StartPrice      int64
+	MinBidStep      int64
 	AuctionStartsAt time.Time
 	AuctionDurationMinutes int64
 }

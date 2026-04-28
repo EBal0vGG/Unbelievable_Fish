@@ -66,6 +66,10 @@ func (s *CatalogService) CreateFish(ctx context.Context, cmd CreateFishCommand) 
 	return fishID, err
 }
 
+func (s *CatalogService) ListFish(ctx context.Context) ([]*catalog.Fish, error) {
+	return s.fishRepo.List(ctx)
+}
+
 func (s *CatalogService) UpdateFish(ctx context.Context, cmd UpdateFishCommand) error {
 	return s.tx.WithinTx(ctx, func(ctx context.Context) error {
 		fish, err := s.getFish(ctx, cmd.FishID)
@@ -195,6 +199,10 @@ func (s *CatalogService) CreateLot(ctx context.Context, cmd CreateLotCommand) (s
 		if cmd.AuctionDurationMinutes > 0 {
 			duration = time.Duration(cmd.AuctionDurationMinutes) * time.Minute
 		}
+		minBidStep := cmd.MinBidStep
+		if minBidStep <= 0 {
+			minBidStep = 1
+		}
 		schedule := catalog.NewAuctionScheduleAt(cmd.AuctionStartsAt, duration)
 		lotID = s.idGenerator.NewLotID()
 		lot, evs, err := catalog.NewLot(
@@ -204,6 +212,7 @@ func (s *CatalogService) CreateLot(ctx context.Context, cmd CreateLotCommand) (s
 			cmd.Photo,
 			cmd.Quantity,
 			cmd.StartPrice,
+			minBidStep,
 			schedule,
 		)
 		if err != nil {

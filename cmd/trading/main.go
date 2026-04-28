@@ -46,6 +46,14 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	getAuctionByLotUC, err := tradingapp.NewGetAuctionByLot(tradingpg.NewAuctionReadRepository(db))
+	if err != nil {
+		log.Fatal(err)
+	}
+	getAuctionByIDUC, err := tradingapp.NewGetAuctionByID(tradingpg.NewAuctionReadRepository(db))
+	if err != nil {
+		log.Fatal(err)
+	}
 	tokenProvider := identityauth.NewTokenProvider(
 		envOrDefault("IDENTITY_TOKEN_SECRET", "dev-secret"),
 		envDurationMinutes("IDENTITY_TOKEN_TTL_MINUTES", 24*60),
@@ -66,6 +74,8 @@ func main() {
 		authMiddleware.RequireRole(identity.RoleBuyer, handler.NewPlaceBidHandler(placeBidUC)),
 		authMiddleware.RequireRole(identity.RoleSeller, handler.NewCloseAuctionHandler(closeAuctionUC)),
 		authMiddleware.RequireRole(identity.RoleSeller, handler.NewCancelAuctionHandler(cancelAuctionUC)),
+		authMiddleware.Wrap(handler.NewGetAuctionByIDHandler(getAuctionByIDUC)),
+		authMiddleware.Wrap(handler.NewGetAuctionByLotHandler(getAuctionByLotUC)),
 	)
 
 	port := envOrDefault("TRADING_PORT", "8082")

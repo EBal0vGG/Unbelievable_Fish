@@ -59,6 +59,7 @@ type LotPublished struct {
 	ProductID       string
 	Product         ProductSnapshot
 	StartPrice      int64
+	MinBidStep      int64
 	AuctionStartsAt time.Time
 	AuctionEndsAt   time.Time
 	Status          LotStatus

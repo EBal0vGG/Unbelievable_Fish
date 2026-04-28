@@ -26,7 +26,17 @@ func NewCreateAuction(uow UnitOfWork, factory AuctionIDFactory) (*CreateAuction,
 	}, nil
 }
 
-func (uc *CreateAuction) Execute(ctx context.Context, meta CommandMeta, lotID string, startsAt, endsAt time.Time) (AuctionID, error) {
+func (uc *CreateAuction) Execute(
+	ctx context.Context,
+	meta CommandMeta,
+	lotID string,
+	startsAt, endsAt time.Time,
+	startPrice int64,
+	minBidStep int64,
+) (AuctionID, error) {
+	if minBidStep <= 0 {
+		minBidStep = 1
+	}
 	id, err := uc.factory.NewID()
 	if err != nil {
 		return "", err
@@ -37,7 +47,7 @@ func (uc *CreateAuction) Execute(ctx context.Context, meta CommandMeta, lotID st
 		} else if !errors.Is(err, ErrNotFound) {
 			return err
 		}
-		a, err := auction.NewAuction(string(id), lotID, startsAt, endsAt)
+		a, err := auction.NewAuctionWithPricing(string(id), lotID, startsAt, endsAt, startPrice, minBidStep)
 		if err != nil {
 			return err
 		}

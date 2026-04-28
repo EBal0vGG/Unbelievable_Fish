@@ -59,8 +59,13 @@ func MapError(err error) HTTPError {
 		errors.Is(err, auction.ErrBidPlacedAtZero),
 		errors.Is(err, auction.ErrBidTooLow):
 		return HTTPError{http.StatusBadRequest, "INVALID_BID", "invalid bid"}
+	case errors.Is(err, auction.ErrBidStepTooSmall):
+		return HTTPError{http.StatusBadRequest, "BID_TOO_SMALL", "bid is below minimum allowed"}
 	case errors.Is(err, auction.ErrInvalidSchedule):
 		return HTTPError{http.StatusBadRequest, "INVALID_SCHEDULE", "invalid auction schedule"}
+	case errors.Is(err, auction.ErrInvalidStartPrice),
+		errors.Is(err, auction.ErrInvalidMinBidStep):
+		return HTTPError{http.StatusBadRequest, "INVALID_BODY", "invalid request body"}
 	case errors.Is(err, app.ErrNotFound):
 		return HTTPError{http.StatusNotFound, "AUCTION_NOT_FOUND", "auction not found"}
 	default:

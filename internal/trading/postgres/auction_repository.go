@@ -27,14 +27,16 @@ INSERT INTO trading_auctions (
     starts_at,
     ends_at,
     current_price,
+    min_bid_step,
     leader_company_id
-) VALUES ($1, $2, $3, $4, $5, $6, $7)
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 ON CONFLICT (auction_id) DO UPDATE SET
     lot_id = EXCLUDED.lot_id,
     state = EXCLUDED.state,
     starts_at = EXCLUDED.starts_at,
     ends_at = EXCLUDED.ends_at,
     current_price = EXCLUDED.current_price,
+    min_bid_step = EXCLUDED.min_bid_step,
     leader_company_id = EXCLUDED.leader_company_id
 `
 
@@ -48,6 +50,7 @@ ON CONFLICT (auction_id) DO UPDATE SET
 		a.StartsAt(),
 		a.EndsAt(),
 		a.CurrentPrice(),
+		a.MinBidStep(),
 		a.LeaderCompanyID(),
 	)
 	return err
@@ -63,7 +66,7 @@ func (r *AuctionRepository) LoadForUpdate(ctx context.Context, id app.AuctionID)
 
 func (r *AuctionRepository) load(ctx context.Context, id app.AuctionID, forUpdate bool) (*auction.Auction, error) {
 	query := `
-SELECT auction_id, lot_id, state, starts_at, ends_at, current_price, leader_company_id
+SELECT auction_id, lot_id, state, starts_at, ends_at, current_price, min_bid_step, leader_company_id
 FROM trading_auctions
 WHERE auction_id = $1
 `
@@ -81,9 +84,10 @@ WHERE auction_id = $1
 		startsAt       sql.NullTime
 		endsAt         sql.NullTime
 		currentPrice   int64
+		minBidStep     int64
 		leaderCompany  string
 	)
-	if err := row.Scan(&auctionID, &lotID, &state, &startsAt, &endsAt, &currentPrice, &leaderCompany); err != nil {
+	if err := row.Scan(&auctionID, &lotID, &state, &startsAt, &endsAt, &currentPrice, &minBidStep, &leaderCompany); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, app.ErrNotFound
 		}
@@ -99,6 +103,7 @@ WHERE auction_id = $1
 		startsAt.Time,
 		endsAt.Time,
 		currentPrice,
+		minBidStep,
 		leaderCompany,
 	)
 }

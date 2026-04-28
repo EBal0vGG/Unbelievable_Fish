@@ -52,6 +52,15 @@ func (r *fakeUserRepo) GetByLogin(ctx context.Context, login string) (*identity.
 	return user, nil
 }
 
+func (r *fakeUserRepo) List(ctx context.Context) ([]*identity.User, error) {
+	_ = ctx
+	users := make([]*identity.User, 0, len(r.byID))
+	for _, user := range r.byID {
+		users = append(users, user)
+	}
+	return users, nil
+}
+
 type fakeCompanyRepo struct {
 	byID  map[string]*identity.Company
 	byKey map[string]*identity.Company
@@ -173,7 +182,7 @@ func TestRegisterUserHandlerSuccess(t *testing.T) {
 	body, _ := json.Marshal(httpapi.RegisterUserRequest{
 		CompanyID:     "company-1",
 		Name:          "Alice",
-		Role:          identity.RoleAdmin,
+		Role:          identity.RoleSeller,
 		Login:         "alice@example.com",
 		Password:      "secret",
 		AcceptedTerms: true,
@@ -248,7 +257,7 @@ func TestRegisterUserHandlerRequiresTermsAcceptance(t *testing.T) {
 	body, _ := json.Marshal(httpapi.RegisterUserRequest{
 		CompanyID:     "company-1",
 		Name:          "Alice",
-		Role:          identity.RoleAdmin,
+		Role:          identity.RoleSeller,
 		Login:         "alice@example.com",
 		Password:      "secret",
 		AcceptedTerms: false,

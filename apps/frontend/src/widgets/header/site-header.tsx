@@ -18,7 +18,6 @@ const navItems = [
   { href: "/auctions", label: "Торги" },
   { href: "/deals", label: "Ваши сделки" },
   { href: "/create/lot", label: "Новый лот" },
-  { href: "/create/auction", label: "Новый аукцион" },
   { href: "/me", label: "Профиль" },
 ];
 
@@ -31,7 +30,7 @@ export function SiteHeader() {
     if (item.href === "/deals" && !session?.companyId) {
       return false;
     }
-    if ((item.href === "/create/lot" || item.href === "/create/auction") && !canCreateSupply) {
+    if (item.href === "/create/lot" && !canCreateSupply) {
       return false;
     }
     return true;

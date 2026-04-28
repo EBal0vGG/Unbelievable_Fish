@@ -25,24 +25,31 @@ type Dependencies struct {
 	DealsUOW       dealsapp.UnitOfWork
 	ProjectionRepo dealsapp.ProjectionRepository
 	AuctionLister  ExpiredAuctionLister
+	DealLister     ExpiredDealLister
 }
 
 type Runtime struct {
 	Bus           *inmemory.Bus
 	Relay         *outbox.Relay
 	closeAuction  *tradingapp.CloseAuction
+	cancelDeal    *dealsapp.CancelDeal
 	auctionLister ExpiredAuctionLister
+	dealLister    ExpiredDealLister
 }
 
 type ExpiredAuctionLister interface {
 	ListExpired(ctx context.Context, now time.Time, limit int) ([]tradingapp.AuctionID, error)
 }
 
+type ExpiredDealLister interface {
+	ListExpiredForFallback(ctx context.Context, now time.Time, limit int) ([]string, error)
+}
+
 func New(db *sql.DB, deps Dependencies) (*Runtime, error) {
 	if db == nil {
 		return nil, errors.New("db is required")
 	}
-	if deps.Catalog == nil || deps.TradingUOW == nil || deps.DealsUOW == nil || deps.ProjectionRepo == nil || deps.AuctionLister == nil {
+	if deps.Catalog == nil || deps.TradingUOW == nil || deps.DealsUOW == nil || deps.ProjectionRepo == nil || deps.AuctionLister == nil || deps.DealLister == nil {
 		return nil, errors.New("runtime dependencies are incomplete")
 	}
 
@@ -58,18 +65,28 @@ func New(db *sql.DB, deps Dependencies) (*Runtime, error) {
 	if err != nil {
 		return nil, err
 	}
+	handleDealDeclinedUC, err := dealsapp.NewHandleDealDeclined(deps.DealsUOW)
+	if err != nil {
+		return nil, err
+	}
 	closeAuctionUC, err := tradingapp.NewCloseAuction(deps.TradingUOW)
 	if err != nil {
 		return nil, err
 	}
+	cancelDealUC, err := dealsapp.NewCancelDeal(deps.DealsUOW)
+	if err != nil {
+		return nil, err
+	}
 
-	subscribeHandlers(bus, deps, publishAuctionUC, createProjectionUC, createSelectionUC)
+	subscribeHandlers(bus, deps, publishAuctionUC, createProjectionUC, createSelectionUC, handleDealDeclinedUC)
 
 	return &Runtime{
 		Bus:           bus,
 		Relay:         relay,
 		closeAuction:  closeAuctionUC,
+		cancelDeal:    cancelDealUC,
 		auctionLister: deps.AuctionLister,
+		dealLister:    deps.DealLister,
 	}, nil
 }
 
@@ -99,12 +116,35 @@ func (r *Runtime) RunCloseExpired(ctx context.Context, now time.Time, limit int)
 	return nil
 }
 
+func (r *Runtime) RunCancelExpiredDeals(ctx context.Context, now time.Time, limit int) error {
+	ids, err := r.dealLister.ListExpiredForFallback(ctx, now, limit)
+	if err != nil {
+		return err
+	}
+	for _, id := range ids {
+		log.Printf("scheduler_cancel_deal_attempt deal_id=%s", id)
+		meta := dealsapp.CommandMeta{
+			CompanyID:     "system",
+			UserID:        "system",
+			CorrelationID: "scheduler-deal-deadline",
+			CausationID:   "scheduler-deal-deadline",
+		}
+		if err := r.cancelDeal.Execute(ctx, meta, id, "deadline exceeded"); err != nil {
+			log.Printf("scheduler_cancel_deal_error deal_id=%s error=%q", id, err.Error())
+			continue
+		}
+		log.Printf("scheduler_cancel_deal_success deal_id=%s", id)
+	}
+	return nil
+}
+
 func subscribeHandlers(
 	bus *inmemory.Bus,
 	deps Dependencies,
 	publishAuction *tradingapp.PublishAuction,
 	createProjection *dealsapp.CreateProjection,
 	createSelection *dealsapp.CreateDealSelectionFromAuctionWon,
+	handleDealDeclined *dealsapp.HandleDealDeclined,
 ) {
 	bus.Subscribe("catalog.LotPublished", func(ctx context.Context, envelope events.Envelope) error {
 		evt, ok := envelope.Payload.(catalog.LotPublished)
@@ -114,6 +154,10 @@ func subscribeHandlers(
 
 		startsAt := evt.AuctionStartsAt
 		endsAt := evt.AuctionEndsAt
+		minBidStep := evt.MinBidStep
+		if minBidStep <= 0 {
+			minBidStep = 1
+		}
 		if startsAt.IsZero() || endsAt.IsZero() {
 			return errors.New("missing auction schedule in LotPublished")
 		}
@@ -147,7 +191,7 @@ func subscribeHandlers(
 			auctionID,
 			tradingMeta.CorrelationID,
 		)
-		if _, err := createAuction.Execute(ctx, tradingMeta, evt.LotID, startsAt, endsAt); err != nil {
+		if _, err := createAuction.Execute(ctx, tradingMeta, evt.LotID, startsAt, endsAt, evt.StartPrice, minBidStep); err != nil {
 			return err
 		}
 		if err := publishAuction.Execute(ctx, tradingMeta, auctionID); err != nil {
@@ -224,6 +268,23 @@ func subscribeHandlers(
 			FinalPrice:      evt.FinalPrice,
 			WinnerCompanyID: evt.WinnerCompanyID[0],
 		})
+	})
+
+	bus.Subscribe("deals.DealCancelled", func(ctx context.Context, envelope events.Envelope) error {
+		evt, ok := envelope.Payload.(deal.DealCancelled)
+		if !ok {
+			return errors.New("unexpected payload for DealCancelled")
+		}
+		dealsMeta := dealsMetaFromEnvelope(envelope)
+		err := handleDealDeclined.Execute(ctx, dealsMeta, valueOrEmpty(envelope.Meta, "auction_id"), evt.DealID)
+		if err != nil {
+			if errors.Is(err, dealsapp.ErrNoAvailableWinner) {
+				log.Printf("integration_deal_cancelled_no_next_winner deal_id=%s", evt.DealID)
+				return nil
+			}
+			return err
+		}
+		return nil
 	})
 }
 

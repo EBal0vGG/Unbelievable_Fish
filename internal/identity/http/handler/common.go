@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"log"
 	"net/http"
 
 	httpapi "github.com/EBal0vGG/Unbelievable_Fish/internal/identity/http"
@@ -44,6 +45,14 @@ func writeJSON(w http.ResponseWriter, status int, payload any) {
 
 func writeError(w http.ResponseWriter, err error, meta requestMeta) {
 	httpErr := httpapi.MapError(err)
+	log.Printf(
+		"identity_http_error status=%d code=%s message=%q correlation_id=%s causation_id=%s",
+		httpErr.Status,
+		httpErr.Code,
+		httpErr.Message,
+		meta.CorrelationID,
+		meta.CausationID,
+	)
 	writeJSON(w, httpErr.Status, httpapi.ErrorResponse{
 		Code:          httpErr.Code,
 		Message:       httpErr.Message,

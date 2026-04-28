@@ -145,6 +145,7 @@ export default function AuctionDetailsPage() {
               startsAt={auction.startsAt}
               endsAt={auction.endsAt}
               currentPrice={currentPrice}
+              minBidStep={auction.minBidStep}
               sellerCompanyId={sellerCompanyId}
               leaderCompanyId={auction.leaderCompanyId}
               bids={bids}

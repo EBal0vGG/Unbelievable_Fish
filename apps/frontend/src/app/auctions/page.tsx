@@ -128,9 +128,9 @@ export default function AuctionsPage() {
       ) : (
         <EmptyState
           title="Аукционы не найдены"
-          description="Создайте аукцион или снимите фильтры."
-          actionHref={canCreateAuction ? "/create/auction" : undefined}
-          actionLabel={canCreateAuction ? "Создать аукцион" : undefined}
+          description="Опубликуйте лот в Catalog или снимите фильтры."
+          actionHref={canCreateAuction ? "/create/lot" : undefined}
+          actionLabel={canCreateAuction ? "Создать лот" : undefined}
         />
       )}
     </div>

@@ -20,6 +20,7 @@ type Lot struct {
 
 	product    ProductSnapshot
 	startPrice int64
+	minBidStep int64
 	finalPrice int64
 	curPrice   int64
 
@@ -30,6 +31,7 @@ func NewLot(
 	lotID, productID, sellerCompanyID, photo string,
 	quantity float64,
 	startPrice int64,
+	minBidStep int64,
 	auctionSchedule *AuctionSchedule,
 ) (*Lot, []Event, error) {
 
@@ -40,6 +42,9 @@ func NewLot(
 		return nil, nil, ErrInvalidQuantity
 	}
 	if startPrice <= 0 {
+		return nil, nil, ErrInvalidPrice
+	}
+	if minBidStep <= 0 {
 		return nil, nil, ErrInvalidPrice
 	}
 	if auctionSchedule == nil || !auctionSchedule.IsValid() {
@@ -53,6 +58,7 @@ func NewLot(
 		photo:           strings.TrimSpace(photo),
 		quantity:        quantity,
 		startPrice:      startPrice,
+		minBidStep:      minBidStep,
 		curPrice:        startPrice,
 		finalPrice:      startPrice,
 		status:          LotStatusDraft,
@@ -80,6 +86,7 @@ func (l *Lot) Photo() string           { return l.photo }
 func (l *Lot) Quantity() float64       { return l.quantity }
 func (l *Lot) Status() LotStatus       { return l.status }
 func (l *Lot) StartPrice() int64       { return l.startPrice }
+func (l *Lot) MinBidStep() int64       { return l.minBidStep }
 func (l *Lot) FinalPrice() int64       { return l.finalPrice }
 func (l *Lot) CurPrice() int64         { return l.curPrice }
 func (l *Lot) Product() ProductSnapshot { return l.product }
@@ -123,6 +130,7 @@ func (l *Lot) Publish(productIsPublished bool, snapshot ProductSnapshot) ([]Even
 		ProductID:       l.productID,
 		Product:         l.product,
 		StartPrice:      l.startPrice,
+		MinBidStep:      l.minBidStep,
 		AuctionStartsAt: l.auctionSchedule.StartsAt(),
 		AuctionEndsAt:   l.auctionSchedule.EndsAt(),
 		Status:          l.status,

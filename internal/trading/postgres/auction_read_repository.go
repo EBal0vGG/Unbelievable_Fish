@@ -1,0 +1,57 @@
+package postgres
+
+import (
+	"context"
+	"database/sql"
+
+	"github.com/EBal0vGG/Unbelievable_Fish/internal/trading/app"
+)
+
+type AuctionReadRepository struct {
+	db *sql.DB
+}
+
+func NewAuctionReadRepository(db *sql.DB) *AuctionReadRepository {
+	return &AuctionReadRepository{db: db}
+}
+
+var _ app.AuctionReadRepository = (*AuctionReadRepository)(nil)
+
+func (r *AuctionReadRepository) GetByLotID(ctx context.Context, lotID string) (*app.AuctionSummary, error) {
+	const query = `
+SELECT auction_id, lot_id, state, starts_at, ends_at, current_price, min_bid_step, leader_company_id
+FROM trading_auctions
+WHERE lot_id = $1
+ORDER BY starts_at DESC
+LIMIT 1
+`
+	dbtx := DBTXFromContext(ctx, r.db)
+	row := dbtx.QueryRowContext(ctx, query, lotID)
+	var out app.AuctionSummary
+	if err := row.Scan(&out.AuctionID, &out.LotID, &out.State, &out.StartsAt, &out.EndsAt, &out.CurrentPrice, &out.MinBidStep, &out.LeaderCompanyID); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, app.ErrNotFound
+		}
+		return nil, err
+	}
+	return &out, nil
+}
+
+func (r *AuctionReadRepository) GetByID(ctx context.Context, id app.AuctionID) (*app.AuctionSummary, error) {
+	const query = `
+SELECT auction_id, lot_id, state, starts_at, ends_at, current_price, min_bid_step, leader_company_id
+FROM trading_auctions
+WHERE auction_id = $1
+LIMIT 1
+`
+	dbtx := DBTXFromContext(ctx, r.db)
+	row := dbtx.QueryRowContext(ctx, query, id)
+	var out app.AuctionSummary
+	if err := row.Scan(&out.AuctionID, &out.LotID, &out.State, &out.StartsAt, &out.EndsAt, &out.CurrentPrice, &out.MinBidStep, &out.LeaderCompanyID); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, app.ErrNotFound
+		}
+		return nil, err
+	}
+	return &out, nil
+}

@@ -11,6 +11,8 @@ type Router struct {
 	placeBid       http.Handler
 	closeAuction   http.Handler
 	cancelAuction  http.Handler
+	getByID        http.Handler
+	getByLot       http.Handler
 }
 
 func NewRouter(
@@ -19,6 +21,8 @@ func NewRouter(
 	placeBid http.Handler,
 	closeAuction http.Handler,
 	cancelAuction http.Handler,
+	getByID http.Handler,
+	getByLot http.Handler,
 ) *Router {
 	return &Router{
 		createAuction:  createAuction,
@@ -26,6 +30,8 @@ func NewRouter(
 		placeBid:       placeBid,
 		closeAuction:   closeAuction,
 		cancelAuction:  cancelAuction,
+		getByID:        getByID,
+		getByLot:       getByLot,
 	}
 }
 
@@ -48,6 +54,14 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 	if req.Method == http.MethodPost && strings.HasPrefix(req.URL.Path, "/auctions/") && strings.HasSuffix(req.URL.Path, "/cancel") {
 		r.cancelAuction.ServeHTTP(w, req)
+		return
+	}
+	if req.Method == http.MethodGet && strings.HasPrefix(req.URL.Path, "/auctions/by-lot/") {
+		r.getByLot.ServeHTTP(w, req)
+		return
+	}
+	if req.Method == http.MethodGet && strings.HasPrefix(req.URL.Path, "/auctions/") {
+		r.getByID.ServeHTTP(w, req)
 		return
 	}
 	http.NotFound(w, req)

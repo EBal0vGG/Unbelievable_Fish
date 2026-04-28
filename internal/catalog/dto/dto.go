@@ -81,6 +81,7 @@ type CreateLotDTO struct {
 	Photo           string    `json:"photo,omitempty"`
 	Quantity        float64   `json:"quantity"`
 	StartPrice      int64     `json:"start_price"`
+	MinBidStep      int64     `json:"min_bid_step,omitempty"`
 	AuctionStartsAt time.Time `json:"auction_starts_at"`
 }
 
@@ -142,6 +143,7 @@ type LotDTO struct {
 	Photo           string       `json:"photo,omitempty"`
 	Quantity        float64      `json:"quantity"`
 	StartPrice      int64        `json:"start_price"`
+	MinBidStep      int64        `json:"min_bid_step"`
 	CurrentPrice    *int64       `json:"current_price,omitempty"`
 	FinalPrice      *int64       `json:"final_price,omitempty"`
 	Status          LotStatusDTO `json:"status"`
@@ -195,6 +197,7 @@ type LotCreatedDTO struct {
 	Photo           string           `json:"photo,omitempty"`
 	Quantity        float64          `json:"quantity"`
 	StartPrice      int64            `json:"start_price"`
+	MinBidStep      int64            `json:"min_bid_step"`
 	AuctionStartsAt time.Time        `json:"auction_starts_at"`
 	Status          LotStatusDTO     `json:"status"`
 }
@@ -208,6 +211,7 @@ type LotPublishedDTO struct {
 	ProductID       string             `json:"product_id"`
 	Product         ProductSnapshotDTO `json:"product"`
 	StartPrice      int64              `json:"start_price"`
+	MinBidStep      int64              `json:"min_bid_step"`
 	Status          LotStatusDTO       `json:"status"`
 }
 

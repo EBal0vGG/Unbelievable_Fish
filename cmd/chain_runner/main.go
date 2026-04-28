@@ -97,6 +97,7 @@ func runChains(db *sql.DB) error {
 		Photo:                  "photo",
 		Quantity:               10,
 		StartPrice:             100,
+		MinBidStep:             10,
 		AuctionStartsAt:        startsAt,
 		AuctionDurationMinutes: int64(endsAt.Sub(startsAt).Minutes()),
 	})
@@ -117,6 +118,7 @@ func runChains(db *sql.DB) error {
 		DealsUOW:       dealsUOW,
 		ProjectionRepo: dealProjectionRepo,
 		AuctionLister:  auctionLister,
+		DealLister:     dealspg.NewDealDeadlineLister(db),
 	})
 	if err != nil {
 		return err
@@ -281,6 +283,15 @@ func (r *memoryFishRepo) Get(ctx context.Context, fishID string) (*catalog.Fish,
 		return nil, catalogapp.ErrNotFound
 	}
 	return item, nil
+}
+
+func (r *memoryFishRepo) List(ctx context.Context) ([]*catalog.Fish, error) {
+	_ = ctx
+	out := make([]*catalog.Fish, 0, len(r.items))
+	for _, fish := range r.items {
+		out = append(out, fish)
+	}
+	return out, nil
 }
 
 func (r *memoryFishRepo) Exists(ctx context.Context, fishID string) (bool, error) {

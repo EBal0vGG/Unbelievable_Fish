@@ -99,10 +99,42 @@ func (r *UserRepository) ExistsByLogin(ctx context.Context, login string) (bool,
 	return true, nil
 }
 
+func (r *UserRepository) List(ctx context.Context) ([]*identity.User, error) {
+	const query = `
+SELECT user_id, company_id, name, role, login, password_hash, terms_accepted_at, terms_version
+FROM identity_users
+ORDER BY user_id
+`
+	dbtx := DBTXFromContext(ctx, r.db)
+	rows, err := dbtx.QueryContext(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	users := make([]*identity.User, 0)
+	for rows.Next() {
+		user, err := scanUser(rows)
+		if err != nil {
+			return nil, err
+		}
+		users = append(users, user)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return users, nil
+}
+
 func (r *UserRepository) getOne(ctx context.Context, query string, arg string) (*identity.User, error) {
 	dbtx := DBTXFromContext(ctx, r.db)
 	row := dbtx.QueryRowContext(ctx, query, arg)
+	return scanUser(row)
+}
 
+func scanUser(scanner interface {
+	Scan(dest ...any) error
+}) (*identity.User, error) {
 	var (
 		id              string
 		companyID       sql.NullString
@@ -113,7 +145,7 @@ func (r *UserRepository) getOne(ctx context.Context, query string, arg string) (
 		termsAcceptedAt sql.NullTime
 		termsVersion    sql.NullString
 	)
-	if err := row.Scan(&id, &companyID, &name, &role, &login, &passwordHash, &termsAcceptedAt, &termsVersion); err != nil {
+	if err := scanner.Scan(&id, &companyID, &name, &role, &login, &passwordHash, &termsAcceptedAt, &termsVersion); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, app.ErrUserNotFound
 		}
