@@ -262,3 +262,72 @@ func TestRegisterUserWithoutCompany(t *testing.T) {
 		t.Fatalf("expected empty company id in login result, got %q", loginResult.User.CompanyID)
 	}
 }
+
+func TestRegisterUserWithBuyerSellerRole(t *testing.T) {
+	db := openIntegrationDB(t, "identity-buyer-seller-role")
+	companyRepo := NewCompanyRepository(db)
+	userRepo := NewUserRepository(db)
+
+	registerCompany, err := identityapp.NewRegisterCompany(
+		companyRepo,
+		fixedIDGenerator{companyID: "company-10"},
+		fixedClock{now: time.Date(2024, time.April, 1, 9, 0, 0, 0, time.UTC)},
+	)
+	if err != nil {
+		t.Fatalf("unexpected constructor error: %v", err)
+	}
+	company, err := registerCompany.Execute(context.Background(), identityapp.RegisterCompanyCommand{
+		Name: "Dual Trade LLC",
+		INN:  "7707083893",
+		OGRN: "1027700132195",
+	})
+	if err != nil {
+		t.Fatalf("register company error: %v", err)
+	}
+
+	registerUser, err := identityapp.NewRegisterUser(
+		userRepo,
+		companyRepo,
+		fakePasswordHasher{hashValue: "hashed:"},
+		fixedIDGenerator{userID: "user-10"},
+		fixedClock{now: time.Date(2024, time.April, 1, 9, 5, 0, 0, time.UTC)},
+	)
+	if err != nil {
+		t.Fatalf("unexpected constructor error: %v", err)
+	}
+
+	user, err := registerUser.Execute(context.Background(), identityapp.RegisterUserCommand{
+		CompanyID:     company.ID,
+		Name:          "Dual User",
+		Role:          identity.RoleBuyerSeller,
+		Login:         "dual@example.com",
+		Password:      "secret",
+		AcceptedTerms: true,
+		TermsVersion:  "2026-04-24",
+	})
+	if err != nil {
+		t.Fatalf("register user error: %v", err)
+	}
+	if user.Role != identity.RoleBuyerSeller {
+		t.Fatalf("expected role %q, got %q", identity.RoleBuyerSeller, user.Role)
+	}
+
+	login, err := identityapp.NewLogin(
+		userRepo,
+		fakePasswordHasher{hashValue: "hashed:"},
+		fakeTokenProvider{token: "token-10"},
+	)
+	if err != nil {
+		t.Fatalf("unexpected constructor error: %v", err)
+	}
+	loginResult, err := login.Execute(context.Background(), identityapp.LoginCommand{
+		Login:    "dual@example.com",
+		Password: "secret",
+	})
+	if err != nil {
+		t.Fatalf("login error: %v", err)
+	}
+	if loginResult.User.Role != identity.RoleBuyerSeller {
+		t.Fatalf("expected login role %q, got %q", identity.RoleBuyerSeller, loginResult.User.Role)
+	}
+}

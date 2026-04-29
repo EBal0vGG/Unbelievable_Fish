@@ -303,6 +303,39 @@ func TestRegisterUserSuccess(t *testing.T) {
 	}
 }
 
+func TestRegisterUserSuccessWithBuyerSellerRole(t *testing.T) {
+	companies := newFakeCompanyRepo()
+	company, err := identity.NewCompany("company-1", "Acme Fish", "7707083893", "1027700132195", time.Now())
+	if err != nil {
+		t.Fatalf("unexpected domain error: %v", err)
+	}
+	companies.byID[company.ID()] = company
+	companies.byKey[company.INN()+"|"+company.OGRN()] = company
+	users := newFakeUserRepo()
+	hasher := &fakePasswordHasher{hashValue: "hashed-password"}
+
+	uc, err := NewRegisterUser(users, companies, hasher, fakeIDGenerator{userID: "user-1b"}, fixedClock{now: time.Date(2024, time.April, 1, 11, 35, 0, 0, time.UTC)})
+	if err != nil {
+		t.Fatalf("unexpected constructor error: %v", err)
+	}
+
+	result, err := uc.Execute(context.Background(), RegisterUserCommand{
+		CompanyID:     "company-1",
+		Name:          "Alice",
+		Role:          identity.RoleBuyerSeller,
+		Login:         "alice-both@example.com",
+		Password:      "secret",
+		AcceptedTerms: true,
+		TermsVersion:  "2026-04-24",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if result.Role != identity.RoleBuyerSeller {
+		t.Fatalf("expected role %q, got %q", identity.RoleBuyerSeller, result.Role)
+	}
+}
+
 func TestRegisterUserSuccessByCompanyRequisites(t *testing.T) {
 	companies := newFakeCompanyRepo()
 	company, err := identity.NewCompany("company-1", "Acme Fish", "7707083893", "1027700132195", time.Now())

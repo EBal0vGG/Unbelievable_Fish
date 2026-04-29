@@ -1,6 +1,7 @@
 import { ApiError, apiRequest, isRecoverableApiGap } from "@/shared/api/http-client";
 import { getProjectionByAuctionId, getDealByAuctionId } from "@/shared/api/deals-service";
 import { canFallbackCommand, mixedMeta, mockMeta } from "@/shared/api/service-helpers";
+import { isSellerSession } from "@/shared/lib/access";
 import {
   addActivity,
   appendBidStore,
@@ -92,7 +93,7 @@ function isCreateAuctionCompatibilityGap(error: unknown, session: UserSession): 
     return true;
   }
 
-  return session.role === "seller" && error instanceof ApiError && error.status === 403 && error.code === "FORBIDDEN";
+  return isSellerSession(session) && error instanceof ApiError && error.status === 403 && error.code === "FORBIDDEN";
 }
 
 export async function listAuctions(): Promise<ServiceResult<AuctionRecord[]>> {

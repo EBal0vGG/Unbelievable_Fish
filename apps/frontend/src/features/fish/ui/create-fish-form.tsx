@@ -7,7 +7,7 @@ import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 
 import { useAuth } from "@/entities/session/model/auth-context";
-import { isAdminSession } from "@/shared/lib/access";
+import { hasRequiredRole } from "@/shared/lib/access";
 import { ApiError } from "@/shared/api/http-client";
 import { createFish } from "@/shared/api/catalog-service";
 import { Button } from "@/shared/ui/button";
@@ -28,7 +28,7 @@ export function CreateFishForm() {
   const { session } = useAuth();
   const queryClient = useQueryClient();
   const [error, setError] = useState<string | null>(null);
-  const canManageFish = isAdminSession(session);
+  const canManageFish = hasRequiredRole(session, ["admin", "buyer_seller"]);
 
   const form = useForm<Values>({
     resolver: zodResolver(schema),
@@ -63,7 +63,7 @@ export function CreateFishForm() {
 
         {!canManageFish ? (
           <Notice tone="warning" title="Доступ ограничен">
-            Создание рыбы доступно только администраторам.
+            Создание рыбы доступно только администраторам и роли покупатель-продавец.
           </Notice>
         ) : null}
 

@@ -1,5 +1,5 @@
 export type DataSource = "api" | "mock" | "mixed";
-export type UserRole = "admin" | "seller" | "buyer";
+export type UserRole = "admin" | "seller" | "buyer" | "buyer_seller";
 
 export interface UserSession {
   accessToken: string;

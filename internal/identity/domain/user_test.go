@@ -31,6 +31,16 @@ func TestNewUser_Success(t *testing.T) {
 	}
 }
 
+func TestNewUser_WithBuyerSellerRole(t *testing.T) {
+	user, err := NewUser("user-2", "company-1", "Bob", RoleBuyerSeller, "bob@example.com", "hash")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if user.Role() != RoleBuyerSeller {
+		t.Fatalf("expected role %q, got %q", RoleBuyerSeller, user.Role())
+	}
+}
+
 func TestNewUser_Validation(t *testing.T) {
 	tests := []struct {
 		name         string

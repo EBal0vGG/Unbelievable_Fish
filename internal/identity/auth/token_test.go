@@ -72,7 +72,7 @@ func TestContextHelpers(t *testing.T) {
 	ctx := WithIdentity(context.Background(), Identity{
 		UserID:    "user-1",
 		CompanyID: "company-1",
-		Role:      identity.RoleSeller,
+		Role:      identity.RoleBuyerSeller,
 	})
 
 	userID, ok := UserIDFromContext(ctx)
@@ -84,10 +84,16 @@ func TestContextHelpers(t *testing.T) {
 		t.Fatalf("expected company id company-1, got %q %v", companyID, ok)
 	}
 	role, ok := RoleFromContext(ctx)
-	if !ok || role != identity.RoleSeller {
-		t.Fatalf("expected role seller, got %q %v", role, ok)
+	if !ok || role != identity.RoleBuyerSeller {
+		t.Fatalf("expected role buyer_seller, got %q %v", role, ok)
 	}
 	if !HasRole(ctx, identity.RoleSeller) {
-		t.Fatal("expected seller role to match")
+		t.Fatal("expected seller role to match for buyer_seller")
+	}
+	if !HasRole(ctx, identity.RoleBuyer) {
+		t.Fatal("expected buyer role to match for buyer_seller")
+	}
+	if HasRole(ctx, identity.RoleAdmin) {
+		t.Fatal("did not expect admin role to match for buyer_seller")
 	}
 }
