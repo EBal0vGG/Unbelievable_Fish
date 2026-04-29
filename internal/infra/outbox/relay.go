@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"log"
+	"log/slog"
 	"time"
 
 	"github.com/EBal0vGG/Unbelievable_Fish/internal/shared/events"
@@ -63,6 +63,7 @@ func (r *Relay) RunOnce(ctx context.Context, bus Bus, limit int) error {
 	if len(msgs) == 0 {
 		return nil
 	}
+	slog.DebugContext(ctx, "outbox_relay_batch_loaded", "component", "outbox.relay", "message_count", len(msgs), "limit", limit)
 	var published []string
 	var firstErr error
 	for _, msg := range msgs {
@@ -93,6 +94,17 @@ func (r *Relay) RunOnce(ctx context.Context, bus Bus, limit int) error {
 			OccurredAt: time.Unix(0, msg.OccurredAt),
 			Meta:       metaFromMessage(msg),
 		}
+		slog.InfoContext(
+			ctx,
+			"outbox_relay_publish_attempt",
+			"component", "outbox.relay",
+			"message_id", msg.ID,
+			"event_type", msg.EventType,
+			"source_context", msg.SourceContext,
+			"attempts", msg.Attempts,
+			"correlation_id", msg.CorrelationID,
+			"causation_id", msg.CausationID,
+		)
 		if err := bus.Publish(ctx, envelope); err != nil {
 			if err := r.recordFailure(ctx, msg, err); err != nil {
 				return err
@@ -102,11 +114,22 @@ func (r *Relay) RunOnce(ctx context.Context, bus Bus, limit int) error {
 			}
 			continue
 		}
+		slog.InfoContext(
+			ctx,
+			"outbox_relay_publish_success",
+			"component", "outbox.relay",
+			"message_id", msg.ID,
+			"event_type", msg.EventType,
+			"source_context", msg.SourceContext,
+			"correlation_id", msg.CorrelationID,
+			"causation_id", msg.CausationID,
+		)
 		published = append(published, msg.ID)
 	}
 	if err := r.repo.MarkPublished(ctx, published); err != nil {
 		return err
 	}
+	slog.DebugContext(ctx, "outbox_relay_marked_published", "component", "outbox.relay", "message_count", len(published))
 	return firstErr
 }
 
@@ -120,15 +143,17 @@ func (r *Relay) recordFailure(ctx context.Context, msg Message, err error) error
 		now := time.Now().UTC()
 		failedAt = &now
 	}
-	log.Printf(
-		"outbox_relay_failure message_id=%s event_type=%s attempts=%d failed=%t error=%q correlation_id=%s causation_id=%s",
-		msg.ID,
-		msg.EventType,
-		attempts,
-		failedAt != nil,
-		err.Error(),
-		msg.CorrelationID,
-		msg.CausationID,
+	slog.WarnContext(
+		ctx,
+		"outbox_relay_failure",
+		"component", "outbox.relay",
+		"message_id", msg.ID,
+		"event_type", msg.EventType,
+		"attempts", attempts,
+		"failed", failedAt != nil,
+		"correlation_id", msg.CorrelationID,
+		"causation_id", msg.CausationID,
+		"error", err,
 	)
 	return r.repo.RecordFailure(ctx, msg.ID, attempts, err.Error(), failedAt)
 }

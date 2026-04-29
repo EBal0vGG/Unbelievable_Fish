@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"database/sql"
-	"log"
 	"os"
 	"strconv"
 	"time"
@@ -11,15 +10,17 @@ import (
 	catalogapp "github.com/EBal0vGG/Unbelievable_Fish/internal/catalog/app"
 	catalogpg "github.com/EBal0vGG/Unbelievable_Fish/internal/catalog/postgres"
 	dealspg "github.com/EBal0vGG/Unbelievable_Fish/internal/deals/postgres"
+	"github.com/EBal0vGG/Unbelievable_Fish/internal/infra/logging"
 	integration "github.com/EBal0vGG/Unbelievable_Fish/internal/integration/runtime"
 	tradingpg "github.com/EBal0vGG/Unbelievable_Fish/internal/trading/postgres"
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
 func main() {
+	logger := logging.New("integration")
 	db, ok := openDB()
 	if !ok {
-		log.Fatal("PGHOST/PGUSER/PGDATABASE are required")
+		logging.Fatal(logger, "database_config_missing", "required", "PGHOST,PGUSER,PGDATABASE")
 	}
 	defer db.Close()
 
@@ -49,7 +50,7 @@ func main() {
 		DealLister:     dealLister,
 	})
 	if err != nil {
-		log.Fatalf("init integration runtime: %v", err)
+		logging.Fatal(logger, "integration_runtime_init_failed", "error", err)
 	}
 
 	ctx := context.Background()
@@ -62,7 +63,7 @@ func main() {
 		defer ticker.Stop()
 		for range ticker.C {
 			if err := runtime.RunCloseExpired(ctx, time.Now().UTC(), closeLimit); err != nil {
-				log.Printf("close expired auctions error: %v", err)
+				logger.Error("close_expired_auctions_failed", "component", "scheduler", "error", err)
 			}
 		}
 	}()
@@ -71,13 +72,13 @@ func main() {
 		defer ticker.Stop()
 		for range ticker.C {
 			if err := runtime.RunCancelExpiredDeals(ctx, time.Now().UTC(), dealDeadlineLimit); err != nil {
-				log.Printf("cancel expired deals error: %v", err)
+				logger.Error("cancel_expired_deals_failed", "component", "scheduler", "error", err)
 			}
 		}
 	}()
 	for {
 		if err := runtime.Relay.RunOnce(ctx, runtime.Bus, 100); err != nil {
-			log.Printf("relay error: %v", err)
+			logger.Error("outbox_relay_run_failed", "component", "outbox.relay", "error", err)
 		}
 		time.Sleep(100 * time.Millisecond)
 	}

@@ -4,17 +4,18 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"log"
 	"os"
 
 	dealsapp "github.com/EBal0vGG/Unbelievable_Fish/internal/deals/app"
 	dealspg "github.com/EBal0vGG/Unbelievable_Fish/internal/deals/postgres"
+	"github.com/EBal0vGG/Unbelievable_Fish/internal/infra/logging"
 	tradingapp "github.com/EBal0vGG/Unbelievable_Fish/internal/trading/app"
 	tradingpg "github.com/EBal0vGG/Unbelievable_Fish/internal/trading/postgres"
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
 func main() {
+	logger := logging.New("admin")
 	if len(os.Args) < 2 {
 		usage()
 		os.Exit(2)
@@ -23,28 +24,28 @@ func main() {
 	command := os.Args[1]
 	auctionID := os.Getenv("AUCTION_ID")
 	if auctionID == "" {
-		log.Fatal("AUCTION_ID is required")
+		logging.Fatal(logger, "auction_id_missing", "required", "AUCTION_ID")
 	}
 
 	db, ok := openDB()
 	if !ok {
-		log.Fatal("PGHOST/PGUSER/PGDATABASE are required")
+		logging.Fatal(logger, "database_config_missing", "required", "PGHOST,PGUSER,PGDATABASE")
 	}
 	defer db.Close()
 
 	switch command {
 	case "close-auction":
-		log.Printf("admin_command command=%s auction_id=%s correlation_id=%s", command, auctionID, os.Getenv("CORRELATION_ID"))
+		logger.Info("admin_command_started", "command", command, "auction_id", auctionID, "correlation_id", os.Getenv("CORRELATION_ID"))
 		if err := closeAuction(db, auctionID); err != nil {
-			log.Fatalf("close auction: %v", err)
+			logging.Fatal(logger, "admin_command_failed", "command", command, "auction_id", auctionID, "error", err)
 		}
-		log.Printf("auction closed: %s", auctionID)
+		logger.Info("admin_command_completed", "command", command, "auction_id", auctionID)
 	case "decline-deal":
-		log.Printf("admin_command command=%s auction_id=%s correlation_id=%s", command, auctionID, os.Getenv("CORRELATION_ID"))
+		logger.Info("admin_command_started", "command", command, "auction_id", auctionID, "correlation_id", os.Getenv("CORRELATION_ID"))
 		if err := declineDeal(db, auctionID); err != nil {
-			log.Fatalf("deal decline: %v", err)
+			logging.Fatal(logger, "admin_command_failed", "command", command, "auction_id", auctionID, "deal_id", os.Getenv("DEAL_ID"), "error", err)
 		}
-		log.Printf("deal declined handled for auction: %s", auctionID)
+		logger.Info("admin_command_completed", "command", command, "auction_id", auctionID, "deal_id", os.Getenv("DEAL_ID"))
 	default:
 		usage()
 		os.Exit(2)

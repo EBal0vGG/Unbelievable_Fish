@@ -14,8 +14,10 @@ func NewRouter(
 	cancelAuction http.Handler,
 	getByID http.Handler,
 	getByLot http.Handler,
+	middlewares ...func(http.Handler) http.Handler,
 ) chi.Router {
 	r := chi.NewRouter()
+	r.Use(middlewares...)
 	r.Method(http.MethodPost, "/auctions", createAuction)
 	r.Method(http.MethodPost, "/auctions/{auctionID}/publish", publishAuction)
 	r.Method(http.MethodPost, "/auctions/{auctionID}/bids", placeBid)

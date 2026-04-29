@@ -3,7 +3,7 @@ package main
 import (
 	"database/sql"
 	"encoding/json"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"strconv"
@@ -14,13 +14,16 @@ import (
 	"github.com/EBal0vGG/Unbelievable_Fish/internal/deals/http/handler"
 	dealspg "github.com/EBal0vGG/Unbelievable_Fish/internal/deals/postgres"
 	identityauth "github.com/EBal0vGG/Unbelievable_Fish/internal/identity/auth"
+	"github.com/EBal0vGG/Unbelievable_Fish/internal/infra/httplog"
+	"github.com/EBal0vGG/Unbelievable_Fish/internal/infra/logging"
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
 func main() {
+	logger := logging.New("deals")
 	db, ok := openDB()
 	if !ok {
-		log.Fatal("PGHOST/PGUSER/PGDATABASE are required")
+		logging.Fatal(logger, "database_config_missing", "required", "PGHOST,PGUSER,PGDATABASE")
 	}
 	defer db.Close()
 
@@ -29,49 +32,69 @@ func main() {
 	projectionRepo := dealspg.NewProjectionRepository(db)
 	confirmUC, err := dealsapp.NewConfirmDeal(uow)
 	if err != nil {
-		log.Fatal(err)
+		logging.Fatal(logger, "confirm_deal_usecase_init_failed", "error", err)
 	}
 	prepareUC, err := dealsapp.NewPrepareContract(uow)
 	if err != nil {
-		log.Fatal(err)
+		logging.Fatal(logger, "prepare_contract_usecase_init_failed", "error", err)
 	}
 	signUC, err := dealsapp.NewSignContract(uow)
 	if err != nil {
-		log.Fatal(err)
+		logging.Fatal(logger, "sign_contract_usecase_init_failed", "error", err)
 	}
 	requestPaymentUC, err := dealsapp.NewRequestPayment(uow)
 	if err != nil {
-		log.Fatal(err)
+		logging.Fatal(logger, "request_payment_usecase_init_failed", "error", err)
 	}
 	markPaidUC, err := dealsapp.NewMarkDealPaid(uow)
 	if err != nil {
-		log.Fatal(err)
+		logging.Fatal(logger, "mark_deal_paid_usecase_init_failed", "error", err)
 	}
 	requestShipmentUC, err := dealsapp.NewRequestShipment(uow)
 	if err != nil {
-		log.Fatal(err)
+		logging.Fatal(logger, "request_shipment_usecase_init_failed", "error", err)
 	}
 	markShippedUC, err := dealsapp.NewMarkDealShipped(uow)
 	if err != nil {
-		log.Fatal(err)
+		logging.Fatal(logger, "mark_deal_shipped_usecase_init_failed", "error", err)
 	}
 	completeUC, err := dealsapp.NewCompleteDeal(uow)
 	if err != nil {
-		log.Fatal(err)
+		logging.Fatal(logger, "complete_deal_usecase_init_failed", "error", err)
 	}
 	cancelUC, err := dealsapp.NewCancelDeal(uow)
 	if err != nil {
-		log.Fatal(err)
+		logging.Fatal(logger, "cancel_deal_usecase_init_failed", "error", err)
 	}
 	updatePriceUC, err := dealsapp.NewUpdateDealPrice(uow)
 	if err != nil {
-		log.Fatal(err)
+		logging.Fatal(logger, "update_deal_price_usecase_init_failed", "error", err)
 	}
 	tokenProvider := identityauth.NewTokenProvider(
 		envOrDefault("IDENTITY_TOKEN_SECRET", "dev-secret"),
 		envDurationMinutes("IDENTITY_TOKEN_TTL_MINUTES", 24*60),
 	)
 
+	authMiddleware := identityauth.NewMiddleware(tokenProvider, func(w http.ResponseWriter, r *http.Request, err error) {
+		httpErr := httpapi.MapError(err)
+		slog.WarnContext(
+			r.Context(),
+			"deals_auth_error",
+			"component", "auth.middleware",
+			"status", httpErr.Status,
+			"code", httpErr.Code,
+			"message", httpErr.Message,
+			"correlation_id", r.Header.Get("X-Correlation-ID"),
+			"causation_id", r.Header.Get("X-Causation-ID"),
+			"error", err,
+		)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(httpErr.Status)
+		_ = json.NewEncoder(w).Encode(httpapi.ErrorResponse{
+			Code:    httpErr.Code,
+			Message: httpErr.Message,
+		})
+	})
 	router := httpapi.NewRouter(
 		handler.NewGetProjectionByAuctionIDHandler(dealsapp.NewGetProjectionByAuctionID(projectionRepo)),
 		handler.NewGetDealByIDHandler(dealsapp.NewGetDealByID(dealRepo)),
@@ -86,20 +109,15 @@ func main() {
 		handler.NewCompleteDealHandler(completeUC),
 		handler.NewCancelDealHandler(cancelUC),
 		handler.NewUpdateDealPriceHandler(updatePriceUC),
+		httplog.Middleware(logger),
+		authMiddleware.Wrap,
 	)
-	protected := identityauth.NewMiddleware(tokenProvider, func(w http.ResponseWriter, r *http.Request, err error) {
-		httpErr := httpapi.MapError(err)
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(httpErr.Status)
-		_ = json.NewEncoder(w).Encode(httpapi.ErrorResponse{
-			Code:    httpErr.Code,
-			Message: httpErr.Message,
-		})
-	}).Wrap(router)
 
 	port := envOrDefault("DEALS_PORT", "8083")
-	log.Printf("deals http listening on :%s", port)
-	log.Fatal(http.ListenAndServe(":"+port, protected))
+	logger.Info("http_server_starting", "component", "http.server", "addr", ":"+port)
+	if err := http.ListenAndServe(":"+port, router); err != nil {
+		logging.Fatal(logger, "http_server_stopped", "component", "http.server", "error", err)
+	}
 }
 
 func openDB() (*sql.DB, bool) {

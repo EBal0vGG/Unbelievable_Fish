@@ -13,8 +13,10 @@ func NewRouter(
 	promoteUserAdmin http.Handler,
 	login http.Handler,
 	getCurrentUser http.Handler,
+	middlewares ...func(http.Handler) http.Handler,
 ) chi.Router {
 	r := chi.NewRouter()
+	r.Use(middlewares...)
 	r.Method(http.MethodPost, "/companies", registerCompany)
 	r.Method(http.MethodPost, "/users", registerUser)
 	r.Method(http.MethodGet, "/users", listUsers)

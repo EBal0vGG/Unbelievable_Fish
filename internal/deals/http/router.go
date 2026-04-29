@@ -20,8 +20,10 @@ func NewRouter(
 	completeDeal http.Handler,
 	cancelDeal http.Handler,
 	updateDealPrice http.Handler,
+	middlewares ...func(http.Handler) http.Handler,
 ) chi.Router {
 	r := chi.NewRouter()
+	r.Use(middlewares...)
 	r.Method(http.MethodGet, "/deal-projections/{auctionID}", getProjection)
 	r.Method(http.MethodGet, "/deals/by-auction/{auctionID}", getDealByAuction)
 	r.Method(http.MethodGet, "/deals/{dealID}", getDeal)

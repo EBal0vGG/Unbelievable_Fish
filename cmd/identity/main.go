@@ -4,7 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"strconv"
@@ -16,13 +16,16 @@ import (
 	httpapi "github.com/EBal0vGG/Unbelievable_Fish/internal/identity/http"
 	"github.com/EBal0vGG/Unbelievable_Fish/internal/identity/http/handler"
 	identitypg "github.com/EBal0vGG/Unbelievable_Fish/internal/identity/postgres"
+	"github.com/EBal0vGG/Unbelievable_Fish/internal/infra/httplog"
+	"github.com/EBal0vGG/Unbelievable_Fish/internal/infra/logging"
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
 func main() {
+	logger := logging.New("identity")
 	db, ok := openDB()
 	if !ok {
-		log.Fatal("PGHOST/PGUSER/PGDATABASE are required")
+		logging.Fatal(logger, "database_config_missing", "required", "PGHOST,PGUSER,PGDATABASE")
 	}
 	defer db.Close()
 
@@ -36,27 +39,27 @@ func main() {
 
 	registerCompanyUC, err := identityapp.NewRegisterCompany(companyRepo, identityapp.NewRandomIDGenerator(), nil)
 	if err != nil {
-		log.Fatal(err)
+		logging.Fatal(logger, "register_company_usecase_init_failed", "error", err)
 	}
 	registerUserUC, err := identityapp.NewRegisterUser(userRepo, companyRepo, passwordHasher, identityapp.NewRandomIDGenerator(), nil)
 	if err != nil {
-		log.Fatal(err)
+		logging.Fatal(logger, "register_user_usecase_init_failed", "error", err)
 	}
 	loginUC, err := identityapp.NewLogin(userRepo, passwordHasher, tokenProvider)
 	if err != nil {
-		log.Fatal(err)
+		logging.Fatal(logger, "login_usecase_init_failed", "error", err)
 	}
 	getCurrentUserUC, err := identityapp.NewGetCurrentUser(userRepo)
 	if err != nil {
-		log.Fatal(err)
+		logging.Fatal(logger, "get_current_user_usecase_init_failed", "error", err)
 	}
 	listUsersUC, err := identityapp.NewListUsers(userRepo)
 	if err != nil {
-		log.Fatal(err)
+		logging.Fatal(logger, "list_users_usecase_init_failed", "error", err)
 	}
 	promoteUserAdminUC, err := identityapp.NewPromoteUserToAdmin(userRepo)
 	if err != nil {
-		log.Fatal(err)
+		logging.Fatal(logger, "promote_user_admin_usecase_init_failed", "error", err)
 	}
 	authMiddleware := handler.NewAuthMiddleware(tokenProvider)
 
@@ -67,15 +70,18 @@ func main() {
 		authMiddleware.RequireRole(identity.RoleAdmin, handler.NewPromoteUserAdminHandler(promoteUserAdminUC)),
 		handler.NewLoginHandler(loginUC),
 		authMiddleware.Wrap(handler.NewGetCurrentUserHandler(getCurrentUserUC)),
+		httplog.Middleware(logger),
 	)
 
 	if err := ensureBootstrapAdmin(context.Background(), companyRepo, userRepo, passwordHasher); err != nil {
-		log.Fatalf("bootstrap admin: %v", err)
+		logging.Fatal(logger, "bootstrap_admin_failed", "component", "bootstrap", "error", err)
 	}
 
 	port := envOrDefault("IDENTITY_PORT", "8084")
-	log.Printf("identity http listening on :%s", port)
-	log.Fatal(http.ListenAndServe(":"+port, router))
+	logger.Info("http_server_starting", "component", "http.server", "addr", ":"+port)
+	if err := http.ListenAndServe(":"+port, router); err != nil {
+		logging.Fatal(logger, "http_server_stopped", "component", "http.server", "error", err)
+	}
 }
 
 func openDB() (*sql.DB, bool) {
@@ -153,7 +159,7 @@ func ensureBootstrapAdmin(
 		return err
 	}
 	if exists {
-		log.Printf("bootstrap_admin_exists login=%s", login)
+		slog.Info("bootstrap_admin_exists", "component", "bootstrap", "login", login)
 		return nil
 	}
 
@@ -185,6 +191,6 @@ func ensureBootstrapAdmin(
 	if err := userRepo.Save(ctx, user); err != nil {
 		return err
 	}
-	log.Printf("bootstrap_admin_created login=%s company_id=%s", login, company.ID())
+	slog.Info("bootstrap_admin_created", "component", "bootstrap", "login", login, "company_id", company.ID())
 	return nil
 }

@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
-	"log"
+	"log/slog"
 	"net/http"
 
 	identityauth "github.com/EBal0vGG/Unbelievable_Fish/internal/identity/auth"
@@ -93,6 +93,26 @@ func writeAcceptedJSON(w http.ResponseWriter, payload any) {
 
 func handleCommandError(w http.ResponseWriter, err error, meta app.CommandMeta) {
 	httpErr := httpapi.MapError(err)
-	log.Printf("trading_http_mapped status=%d code=%s message=%q correlation_id=%s causation_id=%s", httpErr.Status, httpErr.Code, httpErr.Message, meta.CorrelationID, meta.CausationID)
+	logHTTPError("trading_http_error", err, httpErr.Status, httpErr.Code, httpErr.Message, meta)
 	writeError(w, httpErr.Status, httpErr.Code, httpErr.Message, meta)
+}
+
+func logHTTPError(message string, err error, status int, code, responseMessage string, meta app.CommandMeta) {
+	args := []any{
+		"component", "http.handler",
+		"bounded_context", "trading",
+		"status", status,
+		"code", code,
+		"message", responseMessage,
+		"company_id", meta.CompanyID,
+		"user_id", meta.UserID,
+		"correlation_id", meta.CorrelationID,
+		"causation_id", meta.CausationID,
+		"error", err,
+	}
+	if status >= http.StatusInternalServerError {
+		slog.Error(message, args...)
+		return
+	}
+	slog.Warn(message, args...)
 }

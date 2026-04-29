@@ -2,27 +2,28 @@ package main
 
 import (
 	"database/sql"
-	"log"
 	"os"
 	"path/filepath"
 	"runtime"
 	"sort"
 	"strings"
 
+	"github.com/EBal0vGG/Unbelievable_Fish/internal/infra/logging"
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
 func main() {
+	logger := logging.New("migrate")
 	db, ok := openDB()
 	if !ok {
-		log.Fatal("PGHOST/PGUSER/PGDATABASE are required")
+		logging.Fatal(logger, "database_config_missing", "required", "PGHOST,PGUSER,PGDATABASE")
 	}
 	defer db.Close()
 
 	if err := applyMigrations(db); err != nil {
-		log.Fatalf("apply migrations: %v", err)
+		logging.Fatal(logger, "migrations_apply_failed", "error", err)
 	}
-	log.Println("migrations applied")
+	logger.Info("migrations_applied")
 }
 
 func openDB() (*sql.DB, bool) {

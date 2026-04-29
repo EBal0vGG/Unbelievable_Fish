@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"time"
 
 	"github.com/EBal0vGG/Unbelievable_Fish/internal/trading/app"
@@ -61,11 +62,13 @@ INSERT INTO outbox_messages (
 		}
 		aggregateID := auctionIDFor(event)
 
+		messageID := newOutboxID()
+		eventID := newOutboxID()
 		if _, err := dbtx.ExecContext(
 			ctx,
 			query,
-			newOutboxID(),
-			newOutboxID(),
+			messageID,
+			eventID,
 			eventType,
 			aggregateID,
 			payload,
@@ -80,6 +83,20 @@ INSERT INTO outbox_messages (
 		); err != nil {
 			return err
 		}
+		slog.InfoContext(
+			ctx,
+			"outbox_message_enqueued",
+			"component", "outbox.repository",
+			"source_context", "trading",
+			"message_id", messageID,
+			"event_id", eventID,
+			"event_type", eventType,
+			"aggregate_id", aggregateID,
+			"company_id", meta.CompanyID,
+			"user_id", meta.UserID,
+			"correlation_id", meta.CorrelationID,
+			"causation_id", meta.CausationID,
+		)
 	}
 
 	return nil
