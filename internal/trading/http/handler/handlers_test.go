@@ -355,6 +355,50 @@ func TestProtectedPlaceBidEndpointForbiddenForWrongRole(t *testing.T) {
 	}
 }
 
+func TestProtectedPlaceBidEndpointAllowsBuyerSellerRole(t *testing.T) {
+	logTest(t)
+	startsAt := time.Now().Add(-time.Hour)
+	endsAt := time.Now().Add(time.Hour)
+	a, _ := auction.NewAuction("a-2", "lot-2", startsAt, endsAt)
+	_, _ = a.Publish()
+
+	repo := &spyRepo{auction: a}
+	bidRepo := &spyBidRepo{}
+	outbox := &spyOutbox{}
+	winners := &spyWinners{}
+	uow := &spyUOW{tx: &spyTx{repo: repo, bids: bidRepo, outbox: outbox, winners: winners}}
+	uc, err := app.NewPlaceBid(uow)
+	if err != nil {
+		t.Fatalf("unexpected constructor error: %v", err)
+	}
+
+	tokenProvider := identityauth.NewTokenProvider("secret", time.Hour)
+	user, err := identity.NewUser("user-2", "company-2", "Bob", identity.RoleBuyerSeller, "bob@example.com", "hash")
+	if err != nil {
+		t.Fatalf("unexpected user error: %v", err)
+	}
+	token, err := tokenProvider.Generate(user)
+	if err != nil {
+		t.Fatalf("generate token: %v", err)
+	}
+
+	protected := identityauth.NewMiddleware(tokenProvider, func(w http.ResponseWriter, r *http.Request, err error) {
+		httpErr := httpapi.MapError(err)
+		w.WriteHeader(httpErr.Status)
+	}).RequireRole(identity.RoleBuyer, NewPlaceBidHandler(uc))
+
+	body, _ := json.Marshal(httpapi.PlaceBidRequest{Amount: 100})
+	req := httptest.NewRequest(http.MethodPost, "/auctions/a-2/bids", bytes.NewReader(body))
+	req.Header.Set("Authorization", "Bearer "+token)
+	rec := httptest.NewRecorder()
+
+	protected.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusAccepted {
+		t.Fatalf("expected status %d, got %d", http.StatusAccepted, rec.Code)
+	}
+}
+
 func assertErrorCode(t *testing.T, rec *httptest.ResponseRecorder, want string) {
 	t.Helper()
 	var resp httpapi.ErrorResponse

@@ -55,5 +55,5 @@ func HasRole(ctx context.Context, role identity.Role) bool {
 	if !ok {
 		return false
 	}
-	return current == role
+	return identity.IncludesRole(current, role)
 }

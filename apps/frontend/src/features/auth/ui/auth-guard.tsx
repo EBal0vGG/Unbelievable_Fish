@@ -4,6 +4,7 @@ import { useEffect, type ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
 
 import { useAuth } from "@/entities/session/model/auth-context";
+import { hasRequiredRole } from "@/shared/lib/access";
 import type { UserRole } from "@/shared/types/domain";
 
 export function AuthGuard({
@@ -27,7 +28,7 @@ export function AuthGuard({
       return;
     }
 
-    if (roles && !roles.includes(session.role)) {
+    if (roles && !hasRequiredRole(session, roles)) {
       router.replace("/");
     }
   }, [isReady, pathname, roles, router, session]);
@@ -36,7 +37,7 @@ export function AuthGuard({
     return null;
   }
 
-  if (roles && !roles.includes(session.role)) {
+  if (roles && !hasRequiredRole(session, roles)) {
     return null;
   }
 

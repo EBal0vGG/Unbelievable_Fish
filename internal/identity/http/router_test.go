@@ -282,3 +282,83 @@ func TestCommandFlowSmokeWithoutCompany(t *testing.T) {
 		t.Fatalf("expected empty company id, got %q", loginResp.User.CompanyID)
 	}
 }
+
+func TestCommandFlowSmokeBuyerSellerRole(t *testing.T) {
+	companies := newFakeCompanyRepo()
+	users := newFakeUserRepo()
+
+	registerCompanyUC, err := identityapp.NewRegisterCompany(companies, fixedIDGenerator{companyID: "company-1"}, fixedClock{now: time.Date(2024, time.April, 1, 10, 0, 0, 0, time.UTC)})
+	if err != nil {
+		t.Fatalf("unexpected constructor error: %v", err)
+	}
+	registerUserUC, err := identityapp.NewRegisterUser(users, companies, fakePasswordHasher{hashValue: "hashed:"}, fixedIDGenerator{userID: "user-3"}, fixedClock{now: time.Date(2024, time.April, 1, 10, 5, 0, 0, time.UTC)})
+	if err != nil {
+		t.Fatalf("unexpected constructor error: %v", err)
+	}
+	tokenProvider := identityauth.NewTokenProvider("secret", time.Hour)
+	loginUC, err := identityapp.NewLogin(users, fakePasswordHasher{hashValue: "hashed:", compareOK: true}, tokenProvider)
+	if err != nil {
+		t.Fatalf("unexpected constructor error: %v", err)
+	}
+	getCurrentUserUC, err := identityapp.NewGetCurrentUser(users)
+	if err != nil {
+		t.Fatalf("unexpected constructor error: %v", err)
+	}
+
+	router := httpapi.NewRouter(
+		handler.NewRegisterCompanyHandler(registerCompanyUC),
+		handler.NewRegisterUserHandler(registerUserUC),
+		http.NotFoundHandler(),
+		http.NotFoundHandler(),
+		handler.NewLoginHandler(loginUC),
+		handler.NewAuthMiddleware(tokenProvider).Wrap(handler.NewGetCurrentUserHandler(getCurrentUserUC)),
+	)
+
+	userBody, _ := json.Marshal(httpapi.RegisterUserRequest{
+		Name:          "Dana",
+		Role:          identity.RoleBuyerSeller,
+		Login:         "dana@example.com",
+		Password:      "secret",
+		AcceptedTerms: true,
+		TermsVersion:  "2026-04-24",
+	})
+	userReq := httptest.NewRequest(http.MethodPost, "/users", bytes.NewReader(userBody))
+	userRec := httptest.NewRecorder()
+	router.ServeHTTP(userRec, userReq)
+	if userRec.Code != http.StatusAccepted {
+		t.Fatalf("expected register user status %d, got %d", http.StatusAccepted, userRec.Code)
+	}
+
+	loginBody, _ := json.Marshal(httpapi.LoginRequest{
+		Login:    "dana@example.com",
+		Password: "secret",
+	})
+	loginReq := httptest.NewRequest(http.MethodPost, "/auth/login", bytes.NewReader(loginBody))
+	loginRec := httptest.NewRecorder()
+	router.ServeHTTP(loginRec, loginReq)
+	if loginRec.Code != http.StatusOK {
+		t.Fatalf("expected login status %d, got %d", http.StatusOK, loginRec.Code)
+	}
+	var loginResp httpapi.LoginResponse
+	if err := json.NewDecoder(loginRec.Body).Decode(&loginResp); err != nil {
+		t.Fatalf("decode login response: %v", err)
+	}
+	if loginResp.User.Role != identity.RoleBuyerSeller {
+		t.Fatalf("expected login role %q, got %q", identity.RoleBuyerSeller, loginResp.User.Role)
+	}
+
+	meReq := httptest.NewRequest(http.MethodGet, "/users/me", nil)
+	meReq.Header.Set("Authorization", "Bearer "+loginResp.Token)
+	meRec := httptest.NewRecorder()
+	router.ServeHTTP(meRec, meReq)
+	if meRec.Code != http.StatusOK {
+		t.Fatalf("expected current user status %d, got %d", http.StatusOK, meRec.Code)
+	}
+	var meResp httpapi.UserResponse
+	if err := json.NewDecoder(meRec.Body).Decode(&meResp); err != nil {
+		t.Fatalf("decode me response: %v", err)
+	}
+	if meResp.Role != identity.RoleBuyerSeller {
+		t.Fatalf("expected me role %q, got %q", identity.RoleBuyerSeller, meResp.Role)
+	}
+}

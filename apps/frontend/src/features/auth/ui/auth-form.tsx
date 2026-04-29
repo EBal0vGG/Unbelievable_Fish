@@ -32,7 +32,7 @@ const companySchema = z.object({
 
 const registerUserSchema = z.object({
   name: z.string().min(2, "Укажите имя пользователя"),
-  role: z.enum(["seller", "buyer"]),
+  role: z.enum(["seller", "buyer", "buyer_seller"]),
   login: z.string().min(2, "Укажите логин или email"),
   password: z.string().min(1, "Укажите пароль"),
   acceptedTerms: z.boolean().refine((value) => value, "Нужно согласиться с условиями пользования"),
@@ -237,6 +237,7 @@ export function AuthForm({
               <Select {...registerUserForm.register("role")}>
                 <option value="seller">Продавец</option>
                 <option value="buyer">Покупатель</option>
+                <option value="buyer_seller">Покупатель-продавец</option>
               </Select>
             </Field>
 

@@ -132,3 +132,36 @@ func TestUserRepositorySaveAndLoadWithoutCompany(t *testing.T) {
 		t.Fatalf("expected terms version 2026-04-24, got %q", loaded.TermsVersion())
 	}
 }
+
+func TestUserRepositorySaveAndLoadBuyerSellerRole(t *testing.T) {
+	db := openIntegrationDB(t, "user-repo-buyer-seller")
+	companyRepo := NewCompanyRepository(db)
+	userRepo := NewUserRepository(db)
+
+	company, err := identity.NewCompany("company-2", "North Sea", "7707083893", "1027700132195", time.Now())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if err := companyRepo.Save(context.Background(), company); err != nil {
+		t.Fatalf("save company error: %v", err)
+	}
+
+	user, err := identity.NewUser("user-both-1", company.ID(), "Eve", identity.RoleBuyerSeller, "eve@example.com", "hash")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if err := user.AcceptTerms("2026-04-24", time.Date(2024, time.April, 3, 10, 0, 0, 0, time.UTC)); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if err := userRepo.Save(context.Background(), user); err != nil {
+		t.Fatalf("save user error: %v", err)
+	}
+
+	loaded, err := userRepo.GetByLogin(context.Background(), user.Login())
+	if err != nil {
+		t.Fatalf("load user error: %v", err)
+	}
+	if loaded.Role() != identity.RoleBuyerSeller {
+		t.Fatalf("expected role %q, got %q", identity.RoleBuyerSeller, loaded.Role())
+	}
+}

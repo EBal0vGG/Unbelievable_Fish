@@ -3,7 +3,7 @@ import { CreateFishForm } from "@/features/fish/ui/create-fish-form";
 
 export default function CreateFishPage() {
   return (
-    <AuthGuard roles={["admin"]}>
+    <AuthGuard roles={["admin", "buyer_seller"]}>
       <CreateFishForm />
     </AuthGuard>
   );
