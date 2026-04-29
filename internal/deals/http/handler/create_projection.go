@@ -16,10 +16,6 @@ func NewCreateProjectionHandler(uc *app.CreateProjection) *CreateProjectionHandl
 }
 
 func (h *CreateProjectionHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
-	}
 	meta, err := readCommandMeta(r)
 	if err != nil {
 		writeError(w, err, meta)

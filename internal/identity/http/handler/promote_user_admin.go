@@ -2,10 +2,10 @@ package handler
 
 import (
 	"net/http"
-	"strings"
 
 	identityapp "github.com/EBal0vGG/Unbelievable_Fish/internal/identity/app"
 	httpapi "github.com/EBal0vGG/Unbelievable_Fish/internal/identity/http"
+	"github.com/go-chi/chi/v5"
 )
 
 type PromoteUserAdminHandler struct {
@@ -17,12 +17,8 @@ func NewPromoteUserAdminHandler(uc *identityapp.PromoteUserToAdmin) *PromoteUser
 }
 
 func (h *PromoteUserAdminHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
-	}
 	meta := readMeta(r)
-	userID, err := userIDFromPromotePath(r.URL.Path)
+	userID, err := userIDFromPromoteRequest(r)
 	if err != nil {
 		writeError(w, err, meta)
 		return
@@ -35,10 +31,9 @@ func (h *PromoteUserAdminHandler) ServeHTTP(w http.ResponseWriter, r *http.Reque
 	writeJSON(w, http.StatusAccepted, httpapi.NewUserResponse(user))
 }
 
-func userIDFromPromotePath(path string) (string, error) {
-	parts := strings.Split(strings.Trim(path, "/"), "/")
-	if len(parts) != 3 || parts[0] != "users" || parts[2] != "promote-admin" || parts[1] == "" {
-		return "", httpapi.ErrInvalidPath
+func userIDFromPromoteRequest(r *http.Request) (string, error) {
+	if userID := chi.URLParam(r, "userID"); userID != "" {
+		return userID, nil
 	}
-	return parts[1], nil
+	return "", httpapi.ErrInvalidPath
 }

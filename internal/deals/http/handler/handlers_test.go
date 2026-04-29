@@ -117,7 +117,7 @@ func TestConfirmDealHandlerMissingCompanyID(t *testing.T) {
 	}
 	h := NewConfirmDealHandler(uc)
 
-	req := httptest.NewRequest(http.MethodPost, "/deals/"+repo.deal.ID()+"/confirm", nil)
+	req := withURLParam(httptest.NewRequest(http.MethodPost, "/deals/"+repo.deal.ID()+"/confirm", nil), "dealID", repo.deal.ID())
 	req.Header.Set("X-User-ID", "user-1")
 	rec := httptest.NewRecorder()
 

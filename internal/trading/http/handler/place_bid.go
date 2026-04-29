@@ -17,15 +17,12 @@ func NewPlaceBidHandler(uc *app.PlaceBid) *PlaceBidHandler {
 }
 
 func (h *PlaceBidHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if !requirePost(w, r, app.CommandMeta{}) {
-		return
-	}
 	meta, err := readCommandMeta(r)
 	if err != nil {
 		handleCommandError(w, err, meta)
 		return
 	}
-	auctionID, err := readAuctionIDFromPath(r.URL.Path, "bids")
+	auctionID, err := readAuctionIDFromRequest(r)
 	if err != nil {
 		handleCommandError(w, err, meta)
 		return

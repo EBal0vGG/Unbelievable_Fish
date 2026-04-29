@@ -16,11 +16,6 @@ func NewRegisterCompanyHandler(uc *identityapp.RegisterCompany) *RegisterCompany
 }
 
 func (h *RegisterCompanyHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
-	}
-
 	meta := readMeta(r)
 	var req httpapi.RegisterCompanyRequest
 	if err := decodeJSON(w, r, &req); err != nil {

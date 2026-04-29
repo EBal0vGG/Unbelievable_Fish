@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"os"
 	"strconv"
-	"strings"
 	"time"
 
 	catalogapp "github.com/EBal0vGG/Unbelievable_Fish/internal/catalog/app"
@@ -15,6 +14,7 @@ import (
 	catalogpg "github.com/EBal0vGG/Unbelievable_Fish/internal/catalog/postgres"
 	identityauth "github.com/EBal0vGG/Unbelievable_Fish/internal/identity/auth"
 	identity "github.com/EBal0vGG/Unbelievable_Fish/internal/identity/domain"
+	"github.com/go-chi/chi/v5"
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
@@ -41,52 +41,51 @@ func main() {
 	)
 	authMiddleware := identityauth.NewMiddleware(tokenProvider, writeCatalogAuthError)
 
-	mux := http.NewServeMux()
-	mux.HandleFunc("/fish", createFishHandler(service))
-	mux.HandleFunc("/products", createProductHandler(service))
-	mux.HandleFunc("/products/", publishProductHandler(service))
-	mux.Handle("/lots", authMiddleware.RequireRole(identity.RoleSeller, createLotHandler(service)))
-	mux.Handle("/lots/", authMiddleware.RequireRole(identity.RoleSeller, lotCommandsHandler(service)))
-	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+	router := chi.NewRouter()
+	router.MethodFunc(http.MethodGet, "/fish", listFishHandler(service))
+	router.MethodFunc(http.MethodPost, "/fish", createFishHandler(service))
+	router.MethodFunc(http.MethodPost, "/products", createProductHandler(service))
+	router.MethodFunc(http.MethodPost, "/products/{productID}/publish", publishProductHandler(service))
+	router.Method(http.MethodPost, "/lots", authMiddleware.RequireRole(identity.RoleSeller, createLotHandler(service)))
+	router.Method(http.MethodPost, "/lots/{lotID}/publish", authMiddleware.RequireRole(identity.RoleSeller, lotCommandsHandler(service)))
+	router.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
 
 	port := envOrDefault("CATALOG_PORT", "8081")
 	log.Printf("catalog http listening on :%s", port)
-	log.Fatal(http.ListenAndServe(":"+port, mux))
+	log.Fatal(http.ListenAndServe(":"+port, router))
+}
+
+func listFishHandler(service *catalogapp.CatalogService) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		list, err := service.ListFish(r.Context())
+		if err != nil {
+			log.Printf("catalog_list_fish_error err=%v", err)
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		type fishItem struct {
+			ID          string `json:"id"`
+			FishID      string `json:"fish_id"`
+			Name        string `json:"name"`
+			Description string `json:"description"`
+		}
+		out := make([]fishItem, 0, len(list))
+		for _, fish := range list {
+			out = append(out, fishItem{
+				ID:          fish.ID(),
+				FishID:      fish.ID(),
+				Name:        fish.Name(),
+				Description: fish.Description(),
+			})
+		}
+		writeJSON(w, http.StatusOK, out)
+	}
 }
 
 func createFishHandler(service *catalogapp.CatalogService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == http.MethodGet {
-			list, err := service.ListFish(r.Context())
-			if err != nil {
-				log.Printf("catalog_list_fish_error err=%v", err)
-				http.Error(w, err.Error(), http.StatusBadRequest)
-				return
-			}
-			type fishItem struct {
-				ID          string `json:"id"`
-				FishID      string `json:"fish_id"`
-				Name        string `json:"name"`
-				Description string `json:"description"`
-			}
-			out := make([]fishItem, 0, len(list))
-			for _, fish := range list {
-				out = append(out, fishItem{
-					ID:          fish.ID(),
-					FishID:      fish.ID(),
-					Name:        fish.Name(),
-					Description: fish.Description(),
-				})
-			}
-			writeJSON(w, http.StatusOK, out)
-			return
-		}
-		if r.Method != http.MethodPost {
-			w.WriteHeader(http.StatusMethodNotAllowed)
-			return
-		}
 		var req struct {
 			Name        string `json:"name"`
 			Description string `json:"description"`
@@ -111,10 +110,6 @@ func createFishHandler(service *catalogapp.CatalogService) http.HandlerFunc {
 
 func createProductHandler(service *catalogapp.CatalogService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			w.WriteHeader(http.StatusMethodNotAllowed)
-			return
-		}
 		var req struct {
 			FishID         string  `json:"fish_id"`
 			Weight         float64 `json:"weight"`
@@ -145,16 +140,11 @@ func createProductHandler(service *catalogapp.CatalogService) http.HandlerFunc {
 
 func publishProductHandler(service *catalogapp.CatalogService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost || !strings.HasSuffix(r.URL.Path, "/publish") {
-			w.WriteHeader(http.StatusMethodNotAllowed)
-			return
-		}
-		parts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
-		if len(parts) != 3 {
+		productID, err := productIDFromRequest(r)
+		if err != nil {
 			http.Error(w, "invalid path", http.StatusBadRequest)
 			return
 		}
-		productID := parts[1]
 		if err := service.PublishProduct(r.Context(), productID); err != nil {
 			log.Printf("catalog_publish_product_error product_id=%s err=%v", productID, err)
 			http.Error(w, err.Error(), http.StatusBadRequest)
@@ -166,10 +156,6 @@ func publishProductHandler(service *catalogapp.CatalogService) http.HandlerFunc 
 
 func createLotHandler(service *catalogapp.CatalogService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			w.WriteHeader(http.StatusMethodNotAllowed)
-			return
-		}
 		var req struct {
 			ProductID              string    `json:"product_id"`
 			Photo                  string    `json:"photo"`
@@ -210,23 +196,32 @@ func createLotHandler(service *catalogapp.CatalogService) http.HandlerFunc {
 
 func lotCommandsHandler(service *catalogapp.CatalogService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		parts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
-		if len(parts) < 2 {
+		lotID, err := lotIDFromRequest(r)
+		if err != nil {
 			http.Error(w, "invalid path", http.StatusBadRequest)
 			return
 		}
-		lotID := parts[1]
-		if len(parts) == 3 && parts[2] == "publish" && r.Method == http.MethodPost {
-			if err := service.PublishLot(r.Context(), lotID); err != nil {
-				log.Printf("catalog_publish_lot_error lot_id=%s err=%v", lotID, err)
-				http.Error(w, err.Error(), http.StatusBadRequest)
-				return
-			}
-			w.WriteHeader(http.StatusAccepted)
+		if err := service.PublishLot(r.Context(), lotID); err != nil {
+			log.Printf("catalog_publish_lot_error lot_id=%s err=%v", lotID, err)
+			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		http.Error(w, "invalid path", http.StatusBadRequest)
+		w.WriteHeader(http.StatusAccepted)
 	}
+}
+
+func productIDFromRequest(r *http.Request) (string, error) {
+	if productID := chi.URLParam(r, "productID"); productID != "" {
+		return productID, nil
+	}
+	return "", catalog.ErrInvalidIdentifier
+}
+
+func lotIDFromRequest(r *http.Request) (string, error) {
+	if lotID := chi.URLParam(r, "lotID"); lotID != "" {
+		return lotID, nil
+	}
+	return "", catalog.ErrInvalidIdentifier
 }
 
 func writeJSON(w http.ResponseWriter, status int, payload any) {

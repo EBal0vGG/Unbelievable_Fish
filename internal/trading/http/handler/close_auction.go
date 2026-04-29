@@ -15,15 +15,12 @@ func NewCloseAuctionHandler(uc *app.CloseAuction) *CloseAuctionHandler {
 }
 
 func (h *CloseAuctionHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if !requirePost(w, r, app.CommandMeta{}) {
-		return
-	}
 	meta, err := readCommandMeta(r)
 	if err != nil {
 		handleCommandError(w, err, meta)
 		return
 	}
-	auctionID, err := readAuctionIDFromPath(r.URL.Path, "close")
+	auctionID, err := readAuctionIDFromRequest(r)
 	if err != nil {
 		handleCommandError(w, err, meta)
 		return

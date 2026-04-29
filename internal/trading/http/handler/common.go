@@ -6,11 +6,11 @@ import (
 	"io"
 	"log"
 	"net/http"
-	"strings"
 
 	identityauth "github.com/EBal0vGG/Unbelievable_Fish/internal/identity/auth"
 	"github.com/EBal0vGG/Unbelievable_Fish/internal/trading/app"
 	httpapi "github.com/EBal0vGG/Unbelievable_Fish/internal/trading/http"
+	"github.com/go-chi/chi/v5"
 )
 
 const maxBodyBytes = 1 << 20
@@ -40,16 +40,20 @@ func readCommandMeta(r *http.Request) (app.CommandMeta, error) {
 	}, nil
 }
 
-func readAuctionIDFromPath(path, suffix string) (app.AuctionID, error) {
-	trimmed := strings.Trim(path, "/")
-	parts := strings.Split(trimmed, "/")
-	if len(parts) != 3 {
-		return "", httpapi.ErrInvalidPath
+func readAuctionIDFromRequest(r *http.Request) (app.AuctionID, error) {
+	auctionID := chi.URLParam(r, "auctionID")
+	if auctionID != "" {
+		return app.AuctionID(auctionID), nil
 	}
-	if parts[0] != "auctions" || parts[2] != suffix || parts[1] == "" {
-		return "", httpapi.ErrInvalidPath
+	return "", httpapi.ErrInvalidPath
+}
+
+func readLotIDFromRequest(r *http.Request) (string, error) {
+	lotID := chi.URLParam(r, "lotID")
+	if lotID != "" {
+		return lotID, nil
 	}
-	return app.AuctionID(parts[1]), nil
+	return "", httpapi.ErrInvalidPath
 }
 
 func decodeJSON(w http.ResponseWriter, r *http.Request, dst any) error {
@@ -85,15 +89,6 @@ func writeAcceptedJSON(w http.ResponseWriter, payload any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusAccepted)
 	_ = json.NewEncoder(w).Encode(payload)
-}
-
-func requirePost(w http.ResponseWriter, r *http.Request, meta app.CommandMeta) bool {
-	if r.Method == http.MethodPost {
-		return true
-	}
-	httpErr := httpapi.MethodNotAllowed("METHOD_NOT_ALLOWED", "method not allowed")
-	writeError(w, httpErr.Status, httpErr.Code, httpErr.Message, meta)
-	return false
 }
 
 func handleCommandError(w http.ResponseWriter, err error, meta app.CommandMeta) {

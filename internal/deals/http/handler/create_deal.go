@@ -16,10 +16,6 @@ func NewCreateDealFromAuctionWonHandler(uc *app.CreateDealSelectionFromAuctionWo
 }
 
 func (h *CreateDealFromAuctionWonHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
-	}
 	meta, err := readCommandMeta(r)
 	if err != nil {
 		writeError(w, err, meta)

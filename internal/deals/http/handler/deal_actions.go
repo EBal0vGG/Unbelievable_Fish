@@ -19,7 +19,7 @@ func (h *ConfirmDealHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		writeError(w, err, meta)
 		return
 	}
-	dealID, err := readDealIDFromPath(r.URL.Path, "confirm")
+	dealID, err := readDealIDFromRequest(r)
 	if err != nil {
 		writeError(w, err, meta)
 		return
@@ -43,7 +43,7 @@ func (h *PrepareContractHandler) ServeHTTP(w http.ResponseWriter, r *http.Reques
 		writeError(w, err, meta)
 		return
 	}
-	dealID, err := readDealIDFromPath(r.URL.Path, "contract/prepare")
+	dealID, err := readDealIDFromRequest(r)
 	if err != nil {
 		writeError(w, err, meta)
 		return
@@ -72,7 +72,7 @@ func (h *SignContractHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 		writeError(w, err, meta)
 		return
 	}
-	dealID, err := readDealIDFromPath(r.URL.Path, "contract/sign")
+	dealID, err := readDealIDFromRequest(r)
 	if err != nil {
 		writeError(w, err, meta)
 		return
@@ -101,7 +101,7 @@ func (h *RequestPaymentHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 		writeError(w, err, meta)
 		return
 	}
-	dealID, err := readDealIDFromPath(r.URL.Path, "payment/request")
+	dealID, err := readDealIDFromRequest(r)
 	if err != nil {
 		writeError(w, err, meta)
 		return
@@ -130,7 +130,7 @@ func (h *MarkDealPaidHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 		writeError(w, err, meta)
 		return
 	}
-	dealID, err := readDealIDFromPath(r.URL.Path, "payment/mark-paid")
+	dealID, err := readDealIDFromRequest(r)
 	if err != nil {
 		writeError(w, err, meta)
 		return
@@ -159,7 +159,7 @@ func (h *RequestShipmentHandler) ServeHTTP(w http.ResponseWriter, r *http.Reques
 		writeError(w, err, meta)
 		return
 	}
-	dealID, err := readDealIDFromPath(r.URL.Path, "shipment/request")
+	dealID, err := readDealIDFromRequest(r)
 	if err != nil {
 		writeError(w, err, meta)
 		return
@@ -183,7 +183,7 @@ func (h *MarkDealShippedHandler) ServeHTTP(w http.ResponseWriter, r *http.Reques
 		writeError(w, err, meta)
 		return
 	}
-	dealID, err := readDealIDFromPath(r.URL.Path, "shipment/mark-shipped")
+	dealID, err := readDealIDFromRequest(r)
 	if err != nil {
 		writeError(w, err, meta)
 		return
@@ -212,7 +212,7 @@ func (h *CompleteDealHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 		writeError(w, err, meta)
 		return
 	}
-	dealID, err := readDealIDFromPath(r.URL.Path, "complete")
+	dealID, err := readDealIDFromRequest(r)
 	if err != nil {
 		writeError(w, err, meta)
 		return
@@ -234,7 +234,7 @@ func (h *CancelDealHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		writeError(w, err, meta)
 		return
 	}
-	dealID, err := readDealIDFromPath(r.URL.Path, "cancel")
+	dealID, err := readDealIDFromRequest(r)
 	if err != nil {
 		writeError(w, err, meta)
 		return
@@ -263,7 +263,7 @@ func (h *UpdateDealPriceHandler) ServeHTTP(w http.ResponseWriter, r *http.Reques
 		writeError(w, err, meta)
 		return
 	}
-	dealID, err := readDealIDFromPath(r.URL.Path, "price")
+	dealID, err := readDealIDFromRequest(r)
 	if err != nil {
 		writeError(w, err, meta)
 		return

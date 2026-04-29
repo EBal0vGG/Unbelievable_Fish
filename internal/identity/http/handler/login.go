@@ -16,11 +16,6 @@ func NewLoginHandler(uc *identityapp.Login) *LoginHandler {
 }
 
 func (h *LoginHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
-	}
-
 	meta := readMeta(r)
 	var req httpapi.LoginRequest
 	if err := decodeJSON(w, r, &req); err != nil {

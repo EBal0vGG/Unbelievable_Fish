@@ -162,7 +162,7 @@ func TestPublishAuctionHandlerMissingCompanyID(t *testing.T) {
 	}
 	handler := NewPublishAuctionHandler(uc)
 
-	req := httptest.NewRequest(http.MethodPost, "/auctions/a-1/publish", nil)
+	req := withURLParam(httptest.NewRequest(http.MethodPost, "/auctions/a-1/publish", nil), "auctionID", "a-1")
 	req.Header.Set("X-User-ID", "user-1")
 	rec := httptest.NewRecorder()
 
@@ -191,7 +191,7 @@ func TestPlaceBidHandlerInvalidJSON(t *testing.T) {
 	}
 	handler := NewPlaceBidHandler(uc)
 
-	req := httptest.NewRequest(http.MethodPost, "/auctions/a-1/bids", bytes.NewBufferString("{"))
+	req := withURLParam(httptest.NewRequest(http.MethodPost, "/auctions/a-1/bids", bytes.NewBufferString("{")), "auctionID", "a-1")
 	req.Header.Set("X-Company-ID", "company-1")
 	req.Header.Set("X-User-ID", "user-1")
 	rec := httptest.NewRecorder()
@@ -254,7 +254,7 @@ func TestPlaceBidHandlerUsesIdentityFromContext(t *testing.T) {
 	handler := NewPlaceBidHandler(uc)
 
 	body, _ := json.Marshal(httpapi.PlaceBidRequest{Amount: 100})
-	req := httptest.NewRequest(http.MethodPost, "/auctions/a-1/bids", bytes.NewReader(body))
+	req := withURLParam(httptest.NewRequest(http.MethodPost, "/auctions/a-1/bids", bytes.NewReader(body)), "auctionID", "a-1")
 	req = req.WithContext(identityauth.WithIdentity(req.Context(), identityauth.Identity{
 		UserID:    "user-1",
 		CompanyID: "company-1",
@@ -305,7 +305,7 @@ func TestProtectedPlaceBidEndpointWithValidToken(t *testing.T) {
 	}).RequireRole(identity.RoleBuyer, NewPlaceBidHandler(uc))
 
 	body, _ := json.Marshal(httpapi.PlaceBidRequest{Amount: 100})
-	req := httptest.NewRequest(http.MethodPost, "/auctions/a-1/bids", bytes.NewReader(body))
+	req := withURLParam(httptest.NewRequest(http.MethodPost, "/auctions/a-1/bids", bytes.NewReader(body)), "auctionID", "a-1")
 	req.Header.Set("Authorization", "Bearer "+token)
 	rec := httptest.NewRecorder()
 
@@ -344,7 +344,7 @@ func TestProtectedPlaceBidEndpointForbiddenForWrongRole(t *testing.T) {
 	}).RequireRole(identity.RoleBuyer, NewPlaceBidHandler(uc))
 
 	body, _ := json.Marshal(httpapi.PlaceBidRequest{Amount: 100})
-	req := httptest.NewRequest(http.MethodPost, "/auctions/a-1/bids", bytes.NewReader(body))
+	req := withURLParam(httptest.NewRequest(http.MethodPost, "/auctions/a-1/bids", bytes.NewReader(body)), "auctionID", "a-1")
 	req.Header.Set("Authorization", "Bearer "+token)
 	rec := httptest.NewRecorder()
 

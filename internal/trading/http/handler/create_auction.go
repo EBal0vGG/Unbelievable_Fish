@@ -16,9 +16,6 @@ func NewCreateAuctionHandler(uc *app.CreateAuction) *CreateAuctionHandler {
 }
 
 func (h *CreateAuctionHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if !requirePost(w, r, app.CommandMeta{}) {
-		return
-	}
 	meta, err := readCommandMeta(r)
 	if err != nil {
 		handleCommandError(w, err, meta)

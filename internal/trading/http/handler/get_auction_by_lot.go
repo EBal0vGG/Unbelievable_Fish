@@ -3,10 +3,8 @@ package handler
 import (
 	"encoding/json"
 	"net/http"
-	"strings"
 
 	"github.com/EBal0vGG/Unbelievable_Fish/internal/trading/app"
-	httpapi "github.com/EBal0vGG/Unbelievable_Fish/internal/trading/http"
 )
 
 type GetAuctionByLotHandler struct {
@@ -18,12 +16,7 @@ func NewGetAuctionByLotHandler(uc *app.GetAuctionByLot) *GetAuctionByLotHandler 
 }
 
 func (h *GetAuctionByLotHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		httpErr := httpapi.MethodNotAllowed("METHOD_NOT_ALLOWED", "method not allowed")
-		writeError(w, httpErr.Status, httpErr.Code, httpErr.Message, app.CommandMeta{})
-		return
-	}
-	lotID, err := readLotIDFromPath(r.URL.Path)
+	lotID, err := readLotIDFromRequest(r)
 	if err != nil {
 		handleCommandError(w, err, app.CommandMeta{})
 		return
@@ -42,13 +35,4 @@ func (h *GetAuctionByLotHandler) ServeHTTP(w http.ResponseWriter, r *http.Reques
 		"current_price":     result.CurrentPrice,
 		"leader_company_id": result.LeaderCompanyID,
 	})
-}
-
-func readLotIDFromPath(path string) (string, error) {
-	trimmed := strings.Trim(path, "/")
-	parts := strings.Split(trimmed, "/")
-	if len(parts) != 3 || parts[0] != "auctions" || parts[1] != "by-lot" || parts[2] == "" {
-		return "", httpapi.ErrInvalidPath
-	}
-	return parts[2], nil
 }

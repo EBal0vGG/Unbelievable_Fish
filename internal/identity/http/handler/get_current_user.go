@@ -17,11 +17,6 @@ func NewGetCurrentUserHandler(uc *identityapp.GetCurrentUser) *GetCurrentUserHan
 }
 
 func (h *GetCurrentUserHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
-	}
-
 	meta := readMeta(r)
 	userID, ok := identityauth.UserIDFromContext(r.Context())
 	if !ok {
