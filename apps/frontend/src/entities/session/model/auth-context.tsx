@@ -5,7 +5,12 @@ import { createContext, type ReactNode, useContext, useEffect, useState } from "
 
 import { getCurrentUser, login as loginRequest, toUserSession } from "@/shared/api/identity-service";
 import { normalizeRole } from "@/shared/lib/access";
-import { readLocalStorage, writeLocalStorage } from "@/shared/lib/storage";
+import {
+  readSessionStorage,
+  removeLocalStorage,
+  removeSessionStorage,
+  writeSessionStorage,
+} from "@/shared/lib/storage";
 import type { UserSession } from "@/shared/types/domain";
 
 const SESSION_KEY = "uf:session-context";
@@ -38,12 +43,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const hydrate = async () => {
-      const stored = readLocalStorage<UserSession | null>(SESSION_KEY, null);
+      const stored = readSessionStorage<UserSession | null>(SESSION_KEY, null);
       if (!stored?.accessToken) {
         setSession(null);
         setStatus("guest");
         setIsReady(true);
-        writeLocalStorage<UserSession | null>(SESSION_KEY, null);
+        removeSessionStorage(SESSION_KEY);
+        removeLocalStorage(SESSION_KEY)
         return;
       }
 
@@ -55,11 +61,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         );
         setSession(nextSession);
         setStatus("authenticated");
-        writeLocalStorage(SESSION_KEY, nextSession);
+        writeSessionStorage(SESSION_KEY, nextSession);
+        removeLocalStorage(SESSION_KEY);
       } catch {
         setSession(null);
         setStatus("guest");
-        writeLocalStorage<UserSession | null>(SESSION_KEY, null);
+        removeSessionStorage(SESSION_KEY);
+        removeLocalStorage(SESSION_KEY);
       } finally {
         setIsReady(true);
       }
@@ -77,7 +85,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const nextSession = normalizeSession(toUserSession(session.accessToken, currentUser, session.mode));
     setSession(nextSession);
     setStatus("authenticated");
-    writeLocalStorage(SESSION_KEY, nextSession);
+    writeSessionStorage(SESSION_KEY, nextSession);
+    removeLocalStorage(SESSION_KEY);
     return nextSession;
   };
 
@@ -86,7 +95,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const nextSession = normalizeSession(toUserSession(result.token, result.user, "login"));
     setSession(nextSession);
     setStatus("authenticated");
-    writeLocalStorage(SESSION_KEY, nextSession);
+    writeSessionStorage(SESSION_KEY, nextSession);
+    removeLocalStorage(SESSION_KEY);
     queryClient.clear();
     return nextSession;
   };
@@ -94,7 +104,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = () => {
     setSession(null);
     setStatus("guest");
-    writeLocalStorage<UserSession | null>(SESSION_KEY, null);
+    removeSessionStorage(SESSION_KEY);
+    removeLocalStorage(SESSION_KEY);
     queryClient.clear();
   };
 

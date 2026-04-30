@@ -26,8 +26,17 @@ func main() {
 
 	uow := dealspg.NewUnitOfWork(db)
 	dealRepo := dealspg.NewDealRepository(db)
+	confirmationRepo := dealspg.NewDealConfirmationRepository(db)
 	projectionRepo := dealspg.NewProjectionRepository(db)
-	confirmUC, err := dealsapp.NewConfirmDeal(uow)
+	requestConfirmationUC, err := dealsapp.NewRequestDealConfirmation(uow, dealsapp.NoopConfirmationNotifier{})
+	if err != nil {
+		log.Fatal(err)
+	}
+	approveConfirmationUC, err := dealsapp.NewApproveDealConfirmation(uow)
+	if err != nil {
+		log.Fatal(err)
+	}
+	rejectConfirmationUC, err := dealsapp.NewRejectDealConfirmation(uow)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -43,23 +52,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	markPaidUC, err := dealsapp.NewMarkDealPaid(uow)
-	if err != nil {
-		log.Fatal(err)
-	}
 	requestShipmentUC, err := dealsapp.NewRequestShipment(uow)
-	if err != nil {
-		log.Fatal(err)
-	}
-	markShippedUC, err := dealsapp.NewMarkDealShipped(uow)
-	if err != nil {
-		log.Fatal(err)
-	}
-	completeUC, err := dealsapp.NewCompleteDeal(uow)
-	if err != nil {
-		log.Fatal(err)
-	}
-	cancelUC, err := dealsapp.NewCancelDeal(uow)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -76,15 +69,14 @@ func main() {
 		handler.NewGetProjectionByAuctionIDHandler(dealsapp.NewGetProjectionByAuctionID(projectionRepo)),
 		handler.NewGetDealByIDHandler(dealsapp.NewGetDealByID(dealRepo)),
 		handler.NewGetDealByAuctionIDHandler(dealsapp.NewGetDealByAuctionID(dealRepo)),
-		handler.NewConfirmDealHandler(confirmUC),
+		handler.NewGetDealConfirmationsHandler(dealsapp.NewGetDealConfirmations(dealRepo, confirmationRepo)),
+		handler.NewRequestDealConfirmationHandler(requestConfirmationUC),
+		handler.NewApproveDealConfirmationHandler(approveConfirmationUC),
+		handler.NewRejectDealConfirmationHandler(rejectConfirmationUC),
 		handler.NewPrepareContractHandler(prepareUC),
 		handler.NewSignContractHandler(signUC),
 		handler.NewRequestPaymentHandler(requestPaymentUC),
-		handler.NewMarkDealPaidHandler(markPaidUC),
 		handler.NewRequestShipmentHandler(requestShipmentUC),
-		handler.NewMarkDealShippedHandler(markShippedUC),
-		handler.NewCompleteDealHandler(completeUC),
-		handler.NewCancelDealHandler(cancelUC),
 		handler.NewUpdateDealPriceHandler(updatePriceUC),
 	)
 	protected := identityauth.NewMiddleware(tokenProvider, func(w http.ResponseWriter, r *http.Request, err error) {

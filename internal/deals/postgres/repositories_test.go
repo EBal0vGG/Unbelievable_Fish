@@ -62,6 +62,37 @@ func TestProjectionRepositorySaveAndLoad(t *testing.T) {
 	}
 }
 
+func TestDealConfirmationRepositorySaveAndLoad(t *testing.T) {
+	db := openIntegrationDB(t, "confirmation-repo")
+	repo := NewDealConfirmationRepository(db)
+
+	item, err := deal.NewDealConfirmation(deal.DealConfirmationParams{
+		DealID:                "deal-1",
+		Stage:                 deal.DealConfirmationStageConfirmed,
+		RequestedByUserID:     "user-1",
+		RequestedByCompanyID:  "seller-1",
+		CounterpartyCompanyID: "buyer-1",
+		VerificationMethod:    deal.VerificationMethodManual,
+		RequestedAt:           time.Now().UTC(),
+		Comment:               "ready",
+	})
+	if err != nil {
+		t.Fatalf("new confirmation error: %v", err)
+	}
+
+	if err := repo.Save(context.Background(), item); err != nil {
+		t.Fatalf("save error: %v", err)
+	}
+
+	loaded, err := repo.GetByID(context.Background(), item.ID())
+	if err != nil {
+		t.Fatalf("load error: %v", err)
+	}
+	if loaded.ID() != item.ID() || loaded.DealID() != "deal-1" || loaded.Stage() != deal.DealConfirmationStageConfirmed {
+		t.Fatalf("unexpected confirmation loaded: %+v", loaded)
+	}
+}
+
 func TestSelectionRepositorySaveAndLoad(t *testing.T) {
 	db := openIntegrationDB(t, "selection-repo")
 	repo := NewSelectionRepository(db)

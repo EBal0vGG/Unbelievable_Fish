@@ -1,0 +1,243 @@
+openapi: 3.1.0
+info:
+  title: Deals API
+  version: 1.0.0
+  description: >
+    Deal status transitions that represent completion of a stage now require
+    counterparty approval through deal confirmations. Arbitrary status patching
+    and direct stage-completion endpoints are not exposed.
+paths:
+  /deals/{deal_id}/confirmations:
+    get:
+      summary: List confirmations for a deal
+      parameters:
+        - in: path
+          name: deal_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Confirmation history for the deal
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DealConfirmation'
+        '404':
+          description: Deal not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      summary: Request a deal stage confirmation
+      description: Creates a pending confirmation. Deal status does not change until the counterparty approves it.
+      parameters:
+        - in: path
+          name: deal_id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RequestDealConfirmation'
+      responses:
+        '201':
+          description: Pending confirmation created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DealConfirmation'
+        '403':
+          description: Counterparty or participant violation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                counterparty_required:
+                  value: { code: COUNTERPARTY_REQUIRED, message: counterparty approval is required }
+                not_deal_participant:
+                  value: { code: NOT_DEAL_PARTICIPANT, message: company is not a deal participant }
+        '404':
+          description: Deal not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                deal_not_found:
+                  value: { code: DEAL_NOT_FOUND, message: deal not found }
+        '409':
+          description: Invalid state or duplicate pending confirmation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                already_pending:
+                  value: { code: CONFIRMATION_ALREADY_PENDING, message: confirmation already pending }
+                invalid_transition:
+                  value: { code: INVALID_STAGE_TRANSITION, message: invalid stage transition }
+  /deals/{deal_id}/confirmations/{confirmation_id}/approve:
+    post:
+      summary: Approve a pending confirmation
+      description: Approving by the counterparty transitions the deal to the target status.
+      parameters:
+        - in: path
+          name: deal_id
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: confirmation_id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Confirmation approved and deal status updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DealConfirmation'
+        '403':
+          description: Counterparty approval required or actor is not a participant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Deal or confirmation not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Invalid stage transition or confirmation not pending
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  /deals/{deal_id}/confirmations/{confirmation_id}/reject:
+    post:
+      summary: Reject a pending confirmation
+      parameters:
+        - in: path
+          name: deal_id
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: confirmation_id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+      responses:
+        '200':
+          description: Confirmation rejected; deal status is unchanged
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DealConfirmation'
+        '403':
+          description: Counterparty approval required or actor is not a participant
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Deal or confirmation not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Invalid stage transition or confirmation not pending
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+components:
+  schemas:
+    RequestDealConfirmation:
+      type: object
+      required: [stage, verification_method]
+      properties:
+        stage:
+          type: string
+          enum: [confirmed, paid, shipped, completed, cancelled]
+        verification_method:
+          type: string
+          enum: [manual, email, signature]
+        verification_token_hash:
+          type: string
+        signature_ref:
+          type: string
+        comment:
+          type: string
+        expires_at:
+          type: string
+          format: date-time
+    DealConfirmation:
+      type: object
+      properties:
+        id:
+          type: string
+        deal_id:
+          type: string
+        stage:
+          type: string
+        requested_by_user_id:
+          type: string
+        requested_by_company_id:
+          type: string
+        counterparty_company_id:
+          type: string
+        status:
+          type: string
+          enum: [pending, approved, rejected, expired]
+        verification_method:
+          type: string
+          enum: [manual, email, signature]
+        verification_token_hash:
+          type: string
+        signature_ref:
+          type: string
+        requested_at:
+          type: string
+          format: date-time
+        approved_at:
+          type: string
+          format: date-time
+        rejected_at:
+          type: string
+          format: date-time
+        expires_at:
+          type: string
+          format: date-time
+        comment:
+          type: string
+        reason:
+          type: string
+    ErrorResponse:
+      type: object
+      properties:
+        code:
+          type: string
+        message:
+          type: string

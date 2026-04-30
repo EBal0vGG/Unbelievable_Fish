@@ -34,6 +34,7 @@ var (
 	ErrCannotCompleteDeal       = errors.New("deal: cannot complete deal in current status")
 	ErrCannotCancelDeal         = errors.New("deal: cannot cancel deal in current status")
 	ErrCannotUpdatePrice        = errors.New("deal: cannot update price in current status")
+	ErrInvalidStageTransition   = errors.New("deal: invalid stage transition")
 
 	// Ошибки контракта
 	ErrContractNotPrepared = errors.New("deal: contract not prepared")
@@ -43,6 +44,25 @@ var (
 	ErrProjectionNotActive = errors.New("deal: projection is not active")
 	ErrProjectionNotFound  = errors.New("deal: projection not found")
 	ErrSelectionNotFound   = errors.New("deal: winner selection not found")
+
+	ErrConfirmationRequired        = errors.New("deal: confirmation is required")
+	ErrConfirmationIDRequired      = errors.New("deal: confirmation ID is required")
+	ErrConfirmationDealIDRequired  = errors.New("deal: confirmation deal ID is required")
+	ErrConfirmationStageRequired   = errors.New("deal: confirmation stage is required")
+	ErrConfirmationStatusRequired  = errors.New("deal: confirmation status is required")
+	ErrVerificationMethodRequired  = errors.New("deal: verification method is required")
+	ErrRequestedAtRequired         = errors.New("deal: requested at is required")
+	ErrRequestedByUserRequired     = errors.New("deal: requested by user ID is required")
+	ErrRequestedByCompanyRequired  = errors.New("deal: requested by company ID is required")
+	ErrCounterpartyCompanyRequired = errors.New("deal: counterparty company ID is required")
+	ErrConfirmationNotFound        = errors.New("deal: confirmation not found")
+	ErrConfirmationAlreadyPending  = errors.New("deal: confirmation already pending")
+	ErrConfirmationNotPending      = errors.New("deal: confirmation is not pending")
+	ErrConfirmationExpired         = errors.New("deal: confirmation expired")
+	ErrConfirmationNotApproved     = errors.New("deal: confirmation is not approved")
+	ErrConfirmationDealMismatch    = errors.New("deal: confirmation does not belong to deal")
+	ErrCounterpartyRequired        = errors.New("deal: counterparty approval is required")
+	ErrNotDealParticipant          = errors.New("deal: company is not a deal participant")
 
 	// Удаленные ошибки
 	// ErrOnlyDraftCanBeCompleted    = errors.New("deal: only draft deals can be completed from auction")

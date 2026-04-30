@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { useAuth } from "@/entities/session/model/auth-context";
@@ -11,12 +11,13 @@ import { Button } from "@/shared/ui/button";
 import { Field } from "@/shared/ui/field";
 import { Input } from "@/shared/ui/input";
 import { Notice } from "@/shared/ui/notice";
-import type { DealRecord } from "@/shared/types/domain";
+import { Textarea } from "@/shared/ui/textarea";
+import type { DealConfirmationRecord, DealConfirmationStage, DealRecord } from "@/shared/types/domain";
 
 function primaryActionTitle(status: DealRecord["status"]): string {
   switch (status) {
     case "pending":
-      return "Подтвердить сделку";
+      return "Запросить подтверждение сделки";
     case "confirmed":
       return "Подготовить контракт";
     case "contract_prepared":
@@ -24,13 +25,13 @@ function primaryActionTitle(status: DealRecord["status"]): string {
     case "contract_signed":
       return "Запросить оплату";
     case "payment_requested":
-      return "Отметить оплату";
+      return "Подтвердить оплату";
     case "paid":
       return "Запросить отгрузку";
     case "shipment_requested":
-      return "Отметить отгрузку";
+      return "Подтвердить отгрузку";
     case "shipped":
-      return "Завершить сделку";
+      return "Закрыть поставку";
     case "completed":
       return "Сделка завершена";
     case "cancelled":
@@ -38,7 +39,73 @@ function primaryActionTitle(status: DealRecord["status"]): string {
   }
 }
 
-export function DealActionPanel({ deal }: { deal: DealRecord }) {
+function confirmationStageLabel(stage: DealConfirmationStage): string {
+  switch (stage) {
+    case "confirmed":
+      return "подтверждение сделки";
+    case "paid":
+      return "подтверждение оплаты";
+    case "shipped":
+      return "подтверждение отгрузки";
+    case "completed":
+      return "подтверждение завершения";
+    case "cancelled":
+      return "подтверждение отмены";
+  }
+}
+
+function nextConfirmationRequestStage(
+  deal: DealRecord,
+  companyId: string | undefined,
+): DealConfirmationStage | null {
+  if (!companyId) {
+    return null;
+  }
+  const isSupplier = companyId === deal.supplierId;
+  const isCustomer = companyId === deal.customerId;
+
+  switch (deal.status) {
+    case "pending":
+      return isSupplier ? "confirmed" : null;
+    case "payment_requested":
+      return isCustomer ? "paid" : null;
+    case "shipment_requested":
+      return isSupplier ? "shipped" : null;
+    case "shipped":
+      return isSupplier ? "completed" : null;
+    default:
+      return null;
+  }
+}
+
+function waitingCounterpartyLabel(deal: DealRecord, companyId: string | undefined): string | null {
+  if (!companyId) {
+    return null;
+  }
+  const isSupplier = companyId === deal.supplierId;
+  const isCustomer = companyId === deal.customerId;
+
+  switch (deal.status) {
+    case "pending":
+      return isCustomer ? "Ожидается запрос подтверждения от продавца." : null;
+    case "payment_requested":
+      return isSupplier ? "Ожидается запрос подтверждения оплаты от покупателя." : null;
+    case "shipment_requested":
+      return isCustomer ? "Ожидается запрос подтверждения отгрузки от продавца." : null;
+    case "shipped":
+      return isCustomer ? "Ожидается запрос подтверждения получения от продавца." : null;
+    default:
+      return null;
+  }
+}
+
+export function DealActionPanel({
+  deal,
+  confirmations,
+}: {
+  deal: DealRecord;
+  confirmations: DealConfirmationRecord[];
+}) {
   const { session } = useAuth();
   const queryClient = useQueryClient();
   const [error, setError] = useState<string | null>(null);
@@ -47,12 +114,15 @@ export function DealActionPanel({ deal }: { deal: DealRecord }) {
   const [signatureRef, setSignatureRef] = useState(deal.contract?.signatureRef ?? `SIG-${deal.id.slice(-6).toUpperCase()}`);
   const [invoiceNumber, setInvoiceNumber] = useState(`INV-${deal.id.slice(-6).toUpperCase()}`);
   const [dueDate, setDueDate] = useState(toDateTimeLocalValue(new Date(Date.now() + 5 * 24 * 60 * 60 * 1000)));
-  const [paymentId, setPaymentId] = useState(`PAY-${deal.id.slice(-6).toUpperCase()}`);
-  const [paymentType, setPaymentType] = useState("bank_transfer");
-  const [trackingNumber, setTrackingNumber] = useState(`TRK-${deal.id.slice(-6).toUpperCase()}`);
-  const [carrier, setCarrier] = useState("Рефрижераторная линия");
   const [newPrice, setNewPrice] = useState(String(deal.unitPrice));
   const [cancelReason, setCancelReason] = useState("Отмена по соглашению сторон");
+  const [confirmationComment, setConfirmationComment] = useState("");
+  const [rejectReason, setRejectReason] = useState("Нужна дополнительная проверка");
+
+  const pendingConfirmation = useMemo(
+    () => confirmations.find((item) => item.status === "pending") ?? null,
+    [confirmations],
+  );
 
   const mutation = useMutation({
     mutationFn: (input: DealActionInput) => {
@@ -63,15 +133,25 @@ export function DealActionPanel({ deal }: { deal: DealRecord }) {
       void queryClient.invalidateQueries({ queryKey: ["deal", deal.id] });
       void queryClient.invalidateQueries({ queryKey: ["deals"] });
       void queryClient.invalidateQueries({ queryKey: ["auction", deal.auctionId] });
+      void queryClient.invalidateQueries({ queryKey: ["deal-confirmations", deal.id] });
     },
-    onError: (error) => {
-      setError(error instanceof ApiError ? error.message : "Не удалось выполнить действие по сделке.");
+    onError: (nextError) => {
+      setError(nextError instanceof ApiError ? nextError.message : "Не удалось выполнить действие по сделке.");
     },
   });
 
+  const currentCompanyId = session?.companyId;
   const isFinal = deal.status === "completed" || deal.status === "cancelled";
-  const canUpdatePrice = deal.status === "pending";
+  const isSupplier = currentCompanyId === deal.supplierId;
+  const isCustomer = currentCompanyId === deal.customerId;
+  const canUpdatePrice = deal.status === "pending" && isSupplier;
   const canCancel = !isFinal;
+  const nextStage = nextConfirmationRequestStage(deal, currentCompanyId);
+  const waitingLabel = waitingCounterpartyLabel(deal, currentCompanyId);
+  const canApprovePending =
+    pendingConfirmation !== null && currentCompanyId === pendingConfirmation.counterpartyCompanyId;
+  const requestedByCurrentUser =
+    pendingConfirmation !== null && currentCompanyId === pendingConfirmation.requestedByCompanyId;
 
   const submit = (input: DealActionInput) => {
     mutation.mutate(input);
@@ -82,7 +162,7 @@ export function DealActionPanel({ deal }: { deal: DealRecord }) {
       <div>
         <p className="eyebrow">Lifecycle</p>
         <h2>{primaryActionTitle(deal.status)}</h2>
-        <p className="muted">Операционный контур фиксирует подтверждение, контракт, оплату и отгрузку.</p>
+        <p className="muted">Ключевые переходы сделки теперь проходят через запрос подтверждения и approve контрагентом.</p>
       </div>
 
       {error ? (
@@ -97,13 +177,77 @@ export function DealActionPanel({ deal }: { deal: DealRecord }) {
         </Notice>
       ) : null}
 
-      {deal.status === "pending" ? (
-        <Button disabled={mutation.isPending || !session} onClick={() => submit({ type: "confirm" })} type="button">
-          Подтвердить
-        </Button>
+      {pendingConfirmation ? (
+        <Notice
+          tone={canApprovePending ? "info" : "warning"}
+          title={`Ожидает ${confirmationStageLabel(pendingConfirmation.stage)}`}
+        >
+          {requestedByCurrentUser
+            ? `Запрос отправлен компанией ${pendingConfirmation.requestedByCompanyId}. Ожидается решение контрагента ${pendingConfirmation.counterpartyCompanyId}.`
+            : `Запрос инициирован компанией ${pendingConfirmation.requestedByCompanyId}. Решение требуется от ${pendingConfirmation.counterpartyCompanyId}.`}
+        </Notice>
       ) : null}
 
-      {deal.status === "pending" || deal.status === "confirmed" ? (
+      {canApprovePending && pendingConfirmation ? (
+        <div className="stack-md">
+          <Button
+            disabled={mutation.isPending || !session}
+            onClick={() => submit({ type: "approveConfirmation", confirmationId: pendingConfirmation.id })}
+            type="button"
+          >
+            Подтвердить этап
+          </Button>
+          <form
+            className="stack-md"
+            onSubmit={(event) => {
+              event.preventDefault();
+              submit({ type: "rejectConfirmation", confirmationId: pendingConfirmation.id, reason: rejectReason });
+            }}
+          >
+            <Field label="Причина отклонения">
+              <Textarea value={rejectReason} onChange={(event) => setRejectReason(event.target.value)} rows={3} />
+            </Field>
+            <Button disabled={mutation.isPending || !session} type="submit" variant="danger">
+              Отклонить этап
+            </Button>
+          </form>
+        </div>
+      ) : null}
+
+      {!pendingConfirmation && nextStage ? (
+        <form
+          className="stack-md"
+          onSubmit={(event) => {
+            event.preventDefault();
+            submit({
+              type: "requestConfirmation",
+              stage: nextStage,
+              verificationMethod: "manual",
+              comment: confirmationComment,
+            });
+          }}
+        >
+          <Field label="Комментарий к подтверждению">
+            <Textarea
+              value={confirmationComment}
+              onChange={(event) => setConfirmationComment(event.target.value)}
+              placeholder="Кратко зафиксируйте, что именно подтверждается."
+              rows={3}
+            />
+          </Field>
+          <Button disabled={mutation.isPending || !session} type="submit">
+            Запросить {confirmationStageLabel(nextStage)}
+          </Button>
+        </form>
+      ) : null}
+
+      {!pendingConfirmation && waitingLabel ? (
+        <Notice tone="info" title="Ожидание контрагента">
+          {waitingLabel}
+        </Notice>
+      ) : null}
+
+      {deal.status === "confirmed" && isSupplier ? (
         <form
           className="stack-md"
           onSubmit={(event) => {
@@ -140,7 +284,7 @@ export function DealActionPanel({ deal }: { deal: DealRecord }) {
         </form>
       ) : null}
 
-      {deal.status === "contract_signed" ? (
+      {deal.status === "contract_signed" && isSupplier ? (
         <form
           className="stack-md"
           onSubmit={(event) => {
@@ -160,55 +304,9 @@ export function DealActionPanel({ deal }: { deal: DealRecord }) {
         </form>
       ) : null}
 
-      {deal.status === "payment_requested" ? (
-        <form
-          className="stack-md"
-          onSubmit={(event) => {
-            event.preventDefault();
-            submit({ type: "markPaid", paymentId, paymentType });
-          }}
-        >
-          <Field label="Payment ID">
-            <Input value={paymentId} onChange={(event) => setPaymentId(event.target.value)} />
-          </Field>
-          <Field label="Тип платежа">
-            <Input value={paymentType} onChange={(event) => setPaymentType(event.target.value)} />
-          </Field>
-          <Button disabled={mutation.isPending || !session || !paymentId || !paymentType} type="submit">
-            Отметить оплату
-          </Button>
-        </form>
-      ) : null}
-
-      {deal.status === "paid" ? (
+      {deal.status === "paid" && isSupplier ? (
         <Button disabled={mutation.isPending || !session} onClick={() => submit({ type: "requestShipment" })} type="button">
           Запросить отгрузку
-        </Button>
-      ) : null}
-
-      {deal.status === "shipment_requested" ? (
-        <form
-          className="stack-md"
-          onSubmit={(event) => {
-            event.preventDefault();
-            submit({ type: "markShipped", trackingNumber, carrier });
-          }}
-        >
-          <Field label="Трек-номер">
-            <Input value={trackingNumber} onChange={(event) => setTrackingNumber(event.target.value)} />
-          </Field>
-          <Field label="Перевозчик">
-            <Input value={carrier} onChange={(event) => setCarrier(event.target.value)} />
-          </Field>
-          <Button disabled={mutation.isPending || !session || !trackingNumber || !carrier} type="submit">
-            Отметить отгрузку
-          </Button>
-        </form>
-      ) : null}
-
-      {deal.status === "shipped" ? (
-        <Button disabled={mutation.isPending || !session} onClick={() => submit({ type: "complete" })} type="button">
-          Завершить
         </Button>
       ) : null}
 
@@ -232,19 +330,24 @@ export function DealActionPanel({ deal }: { deal: DealRecord }) {
           </form>
         ) : null}
 
-        {canCancel ? (
+        {canCancel && !pendingConfirmation && (isSupplier || isCustomer) ? (
           <form
             className="stack-md"
             onSubmit={(event) => {
               event.preventDefault();
-              submit({ type: "cancel", reason: cancelReason });
+              submit({
+                type: "requestConfirmation",
+                stage: "cancelled",
+                verificationMethod: "manual",
+                comment: cancelReason,
+              });
             }}
           >
             <Field label="Причина отмены">
-              <Input value={cancelReason} onChange={(event) => setCancelReason(event.target.value)} />
+              <Textarea value={cancelReason} onChange={(event) => setCancelReason(event.target.value)} rows={3} />
             </Field>
             <Button disabled={mutation.isPending || !session || !cancelReason} type="submit" variant="danger">
-              Отменить сделку
+              Запросить отмену сделки
             </Button>
           </form>
         ) : null}

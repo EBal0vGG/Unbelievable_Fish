@@ -140,6 +140,10 @@ func (d *Deal) ProductSnapshot() ProductSnapshot {
 	return d.productSnapshot
 }
 
+func (d *Deal) IsParticipant(companyID string) bool {
+	return companyID != "" && (companyID == d.customerID || companyID == d.supplierID)
+}
+
 // Бизнес-методы
 
 // CalculateTotal - вычисляет общую сумму сделки
@@ -394,6 +398,94 @@ func (d *Deal) UpdatePrice(newPrice int64, updatedBy string) ([]Event, error) {
 	return events, nil
 }
 
+func (d *Deal) RequestConfirmation(
+	stage DealConfirmationStage,
+	requestedByCompanyID string,
+	requestedByUserID string,
+	method VerificationMethod,
+	verificationTokenHash string,
+	signatureRef string,
+	comment string,
+	expiresAt *time.Time,
+) (*DealConfirmation, []Event, error) {
+	if !d.IsParticipant(requestedByCompanyID) {
+		return nil, nil, ErrNotDealParticipant
+	}
+	counterpartyCompanyID, err := d.counterpartyCompanyID(requestedByCompanyID)
+	if err != nil {
+		return nil, nil, err
+	}
+	if !d.canRequestConfirmationStage(stage) {
+		return nil, nil, ErrInvalidStageTransition
+	}
+
+	confirmation, err := NewDealConfirmation(DealConfirmationParams{
+		DealID:                d.id,
+		Stage:                 stage,
+		RequestedByUserID:     requestedByUserID,
+		RequestedByCompanyID:  requestedByCompanyID,
+		CounterpartyCompanyID: counterpartyCompanyID,
+		VerificationMethod:    method,
+		VerificationTokenHash: verificationTokenHash,
+		SignatureRef:          signatureRef,
+		RequestedAt:           time.Now().UTC(),
+		ExpiresAt:             expiresAt,
+		Comment:               comment,
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return confirmation, []Event{
+		DealConfirmationRequested{
+			ConfirmationID:        confirmation.ID(),
+			DealID:                confirmation.DealID(),
+			Stage:                 confirmation.Stage(),
+			RequestedByUserID:     confirmation.RequestedByUserID(),
+			RequestedByCompanyID:  confirmation.RequestedByCompanyID(),
+			CounterpartyCompanyID: confirmation.CounterpartyCompanyID(),
+			VerificationMethod:    confirmation.VerificationMethod(),
+			RequestedAt:           confirmation.RequestedAt(),
+			ExpiresAt:             confirmation.ExpiresAt(),
+			Comment:               confirmation.Comment(),
+		},
+	}, nil
+}
+
+func (d *Deal) ApplyApprovedConfirmation(confirmation *DealConfirmation) ([]Event, error) {
+	if confirmation == nil {
+		return nil, ErrConfirmationRequired
+	}
+	if confirmation.DealID() != d.id {
+		return nil, ErrConfirmationDealMismatch
+	}
+	if confirmation.Status() != DealConfirmationStatusApproved {
+		return nil, ErrConfirmationNotApproved
+	}
+	if !d.canRequestConfirmationStage(confirmation.Stage()) {
+		return nil, ErrInvalidStageTransition
+	}
+
+	switch confirmation.Stage() {
+	case DealConfirmationStageConfirmed:
+		return d.Confirm()
+	case DealConfirmationStagePaid:
+		return d.MarkAsPaid("", "")
+	case DealConfirmationStageShipped:
+		return d.MarkAsShipped("", "")
+	case DealConfirmationStageCompleted:
+		return d.Complete()
+	case DealConfirmationStageCancelled:
+		reason := confirmation.Comment()
+		if reason == "" {
+			reason = "cancelled by approved confirmation"
+		}
+		return d.Cancel(reason, confirmation.RequestedByCompanyID())
+	default:
+		return nil, ErrInvalidStageTransition
+	}
+}
+
 // Validate - валидирует данные сделки
 func (d *Deal) Validate() error {
 	if d.id == "" {
@@ -439,6 +531,34 @@ func (d *Deal) hasSignedContract() bool {
 // hasContract - есть ли контракт
 func (d *Deal) hasContract() bool {
 	return d.contract != nil && d.contract.PreparedAt != nil
+}
+
+func (d *Deal) canRequestConfirmationStage(stage DealConfirmationStage) bool {
+	switch stage {
+	case DealConfirmationStageConfirmed:
+		return d.status == DealStatusPending
+	case DealConfirmationStagePaid:
+		return d.status == DealStatusPaymentRequested
+	case DealConfirmationStageShipped:
+		return d.status == DealStatusShipmentRequested
+	case DealConfirmationStageCompleted:
+		return d.status == DealStatusShipped
+	case DealConfirmationStageCancelled:
+		return d.status != DealStatusCompleted && d.status != DealStatusCancelled
+	default:
+		return false
+	}
+}
+
+func (d *Deal) counterpartyCompanyID(companyID string) (string, error) {
+	switch companyID {
+	case d.customerID:
+		return d.supplierID, nil
+	case d.supplierID:
+		return d.customerID, nil
+	default:
+		return "", ErrNotDealParticipant
+	}
 }
 
 // Private helpers

@@ -22,6 +22,44 @@ type DealCreated struct {
 
 func (DealCreated) isDealEvent() {}
 
+type DealConfirmationRequested struct {
+	ConfirmationID        string
+	DealID                string
+	Stage                 DealConfirmationStage
+	RequestedByUserID     string
+	RequestedByCompanyID  string
+	CounterpartyCompanyID string
+	VerificationMethod    VerificationMethod
+	RequestedAt           time.Time
+	ExpiresAt             *time.Time
+	Comment               string
+}
+
+func (DealConfirmationRequested) isDealEvent() {}
+
+type DealConfirmationApproved struct {
+	ConfirmationID      string
+	DealID              string
+	Stage               DealConfirmationStage
+	ApprovedByUserID    string
+	ApprovedByCompanyID string
+	ApprovedAt          time.Time
+}
+
+func (DealConfirmationApproved) isDealEvent() {}
+
+type DealConfirmationRejected struct {
+	ConfirmationID      string
+	DealID              string
+	Stage               DealConfirmationStage
+	RejectedByUserID    string
+	RejectedByCompanyID string
+	RejectedAt          time.Time
+	Reason              string
+}
+
+func (DealConfirmationRejected) isDealEvent() {}
+
 // DealConfirmed - событие подтверждения сделки
 type DealConfirmed struct {
 	DealID      string
