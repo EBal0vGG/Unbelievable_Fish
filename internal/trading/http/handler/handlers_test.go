@@ -338,7 +338,7 @@ func TestProtectedPlaceBidEndpointAllowsBuyerSellerRole(t *testing.T) {
 	}).RequireRole(identity.RoleBuyer, NewPlaceBidHandler(uc))
 
 	body, _ := json.Marshal(httpapi.PlaceBidRequest{Amount: 100})
-	req := httptest.NewRequest(http.MethodPost, "/auctions/a-2/bids", bytes.NewReader(body))
+	req := withURLParam(httptest.NewRequest(http.MethodPost, "/auctions/a-2/bids", bytes.NewReader(body)), "auctionID", "a-2")
 	req.Header.Set("Authorization", "Bearer "+token)
 	rec := httptest.NewRecorder()
 
