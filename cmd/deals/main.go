@@ -1,26 +1,22 @@
 package main
 
 import (
-	"database/sql"
 	"net/http"
-	"os"
-	"strconv"
-	"time"
 
 	dealsapp "github.com/EBal0vGG/Unbelievable_Fish/internal/deals/app"
 	httpapi "github.com/EBal0vGG/Unbelievable_Fish/internal/deals/http"
 	"github.com/EBal0vGG/Unbelievable_Fish/internal/deals/http/handler"
 	dealspg "github.com/EBal0vGG/Unbelievable_Fish/internal/deals/postgres"
 	identityauth "github.com/EBal0vGG/Unbelievable_Fish/internal/identity/auth"
+	"github.com/EBal0vGG/Unbelievable_Fish/internal/infra/dbconfig"
 	"github.com/EBal0vGG/Unbelievable_Fish/internal/infra/httplog"
 	"github.com/EBal0vGG/Unbelievable_Fish/internal/infra/httpauth"
 	"github.com/EBal0vGG/Unbelievable_Fish/internal/infra/logging"
-	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
 func main() {
 	logger := logging.New("deals")
-	db, ok := openDB()
+	db, ok := dbconfig.OpenPostgresFromEnv(0)
 	if !ok {
 		logging.Fatal(logger, "database_config_missing", "required", "PGHOST,PGUSER,PGDATABASE")
 	}
@@ -63,8 +59,8 @@ func main() {
 		logging.Fatal(logger, "update_deal_price_usecase_init_failed", "error", err)
 	}
 	tokenProvider := identityauth.NewTokenProvider(
-		envOrDefault("IDENTITY_TOKEN_SECRET", "dev-secret"),
-		envDurationMinutes("IDENTITY_TOKEN_TTL_MINUTES", 24*60),
+		dbconfig.EnvOrDefault("IDENTITY_TOKEN_SECRET", "dev-secret"),
+		dbconfig.EnvDurationMinutes("IDENTITY_TOKEN_TTL_MINUTES", 24*60),
 	)
 
 	authMiddleware := identityauth.NewMiddleware(tokenProvider, httpauth.JSONErrorHandler("deals_auth_error"))
@@ -85,58 +81,9 @@ func main() {
 		authMiddleware.Wrap,
 	)
 
-	port := envOrDefault("DEALS_PORT", "8083")
+	port := dbconfig.EnvOrDefault("DEALS_PORT", "8083")
 	logger.Info("http_server_starting", "component", "http.server", "addr", ":"+port)
 	if err := http.ListenAndServe(":"+port, router); err != nil {
 		logging.Fatal(logger, "http_server_stopped", "component", "http.server", "error", err)
 	}
-}
-
-func openDB() (*sql.DB, bool) {
-	host := os.Getenv("PGHOST")
-	user := os.Getenv("PGUSER")
-	password := os.Getenv("PGPASSWORD")
-	database := os.Getenv("PGDATABASE")
-	port := os.Getenv("PGPORT")
-	sslmode := os.Getenv("PGSSLMODE")
-
-	if host == "" || user == "" || database == "" {
-		return nil, false
-	}
-	if port == "" {
-		port = "5432"
-	}
-	if sslmode == "" {
-		sslmode = "disable"
-	}
-
-	dsn := "host=" + host + " user=" + user + " dbname=" + database + " port=" + port + " sslmode=" + sslmode
-	if password != "" {
-		dsn += " password=" + password
-	}
-	db, err := sql.Open("pgx", dsn)
-	if err != nil {
-		return nil, false
-	}
-	db.SetMaxOpenConns(5)
-	return db, true
-}
-
-func envOrDefault(key, def string) string {
-	if value := os.Getenv(key); value != "" {
-		return value
-	}
-	return def
-}
-
-func envDurationMinutes(key string, def int) time.Duration {
-	value := os.Getenv(key)
-	if value == "" {
-		return time.Duration(def) * time.Minute
-	}
-	minutes, err := strconv.Atoi(value)
-	if err != nil || minutes <= 0 {
-		return time.Duration(def) * time.Minute
-	}
-	return time.Duration(minutes) * time.Minute
 }

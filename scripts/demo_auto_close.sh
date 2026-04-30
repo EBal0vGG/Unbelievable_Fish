@@ -116,6 +116,8 @@ seller_token="$(login_token "$seller_login" "$password")"
 
 if command -v gdate >/dev/null 2>&1; then
   starts_at="$(gdate -u -d "-2 min" +%Y-%m-%dT%H:%M:%SZ)"
+elif date -u -d "-2 min" +%Y-%m-%dT%H:%M:%SZ >/dev/null 2>&1; then
+  starts_at="$(date -u -d "-2 min" +%Y-%m-%dT%H:%M:%SZ)"
 else
   starts_at="$(date -u -v-2M +%Y-%m-%dT%H:%M:%SZ)"
 fi

@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"database/sql"
 	"os"
 	"strconv"
 	"time"
@@ -10,15 +9,15 @@ import (
 	catalogapp "github.com/EBal0vGG/Unbelievable_Fish/internal/catalog/app"
 	catalogpg "github.com/EBal0vGG/Unbelievable_Fish/internal/catalog/postgres"
 	dealspg "github.com/EBal0vGG/Unbelievable_Fish/internal/deals/postgres"
+	"github.com/EBal0vGG/Unbelievable_Fish/internal/infra/dbconfig"
 	"github.com/EBal0vGG/Unbelievable_Fish/internal/infra/logging"
 	integration "github.com/EBal0vGG/Unbelievable_Fish/internal/integration/runtime"
 	tradingpg "github.com/EBal0vGG/Unbelievable_Fish/internal/trading/postgres"
-	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
 func main() {
 	logger := logging.New("integration")
-	db, ok := openDB()
+	db, ok := dbconfig.OpenPostgresFromEnv(0)
 	if !ok {
 		logging.Fatal(logger, "database_config_missing", "required", "PGHOST,PGUSER,PGDATABASE")
 	}
@@ -82,36 +81,6 @@ func main() {
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
-}
-
-func openDB() (*sql.DB, bool) {
-	host := os.Getenv("PGHOST")
-	user := os.Getenv("PGUSER")
-	password := os.Getenv("PGPASSWORD")
-	database := os.Getenv("PGDATABASE")
-	port := os.Getenv("PGPORT")
-	sslmode := os.Getenv("PGSSLMODE")
-
-	if host == "" || user == "" || database == "" {
-		return nil, false
-	}
-	if port == "" {
-		port = "5432"
-	}
-	if sslmode == "" {
-		sslmode = "disable"
-	}
-
-	dsn := "host=" + host + " user=" + user + " dbname=" + database + " port=" + port + " sslmode=" + sslmode
-	if password != "" {
-		dsn += " password=" + password
-	}
-	db, err := sql.Open("pgx", dsn)
-	if err != nil {
-		return nil, false
-	}
-	db.SetMaxOpenConns(5)
-	return db, true
 }
 
 func envDurationSeconds(key string, def int) time.Duration {

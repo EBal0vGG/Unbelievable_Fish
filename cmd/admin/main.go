@@ -8,10 +8,10 @@ import (
 
 	dealsapp "github.com/EBal0vGG/Unbelievable_Fish/internal/deals/app"
 	dealspg "github.com/EBal0vGG/Unbelievable_Fish/internal/deals/postgres"
+	"github.com/EBal0vGG/Unbelievable_Fish/internal/infra/dbconfig"
 	"github.com/EBal0vGG/Unbelievable_Fish/internal/infra/logging"
 	tradingapp "github.com/EBal0vGG/Unbelievable_Fish/internal/trading/app"
 	tradingpg "github.com/EBal0vGG/Unbelievable_Fish/internal/trading/postgres"
-	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
 func main() {
@@ -27,7 +27,7 @@ func main() {
 		logging.Fatal(logger, "auction_id_missing", "required", "AUCTION_ID")
 	}
 
-	db, ok := openDB()
+	db, ok := dbconfig.OpenPostgresFromEnv(0)
 	if !ok {
 		logging.Fatal(logger, "database_config_missing", "required", "PGHOST,PGUSER,PGDATABASE")
 	}
@@ -59,10 +59,10 @@ func closeAuction(db *sql.DB, auctionID string) error {
 		return err
 	}
 	meta := tradingapp.CommandMeta{
-		CompanyID:     envOrDefault("COMPANY_ID", "system"),
-		UserID:        envOrDefault("USER_ID", "system"),
-		CorrelationID: envOrDefault("CORRELATION_ID", "admin-close"),
-		CausationID:   envOrDefault("CAUSATION_ID", "admin-close"),
+		CompanyID:     dbconfig.EnvOrDefault("COMPANY_ID", "system"),
+		UserID:        dbconfig.EnvOrDefault("USER_ID", "system"),
+		CorrelationID: dbconfig.EnvOrDefault("CORRELATION_ID", "admin-close"),
+		CausationID:   dbconfig.EnvOrDefault("CAUSATION_ID", "admin-close"),
 	}
 	return uc.Execute(context.Background(), meta, tradingapp.AuctionID(auctionID))
 }
@@ -74,10 +74,10 @@ func declineDeal(db *sql.DB, auctionID string) error {
 		return err
 	}
 	meta := dealsapp.CommandMeta{
-		CompanyID:     envOrDefault("COMPANY_ID", "system"),
-		UserID:        envOrDefault("USER_ID", "system"),
-		CorrelationID: envOrDefault("CORRELATION_ID", "admin-decline"),
-		CausationID:   envOrDefault("CAUSATION_ID", "admin-decline"),
+		CompanyID:     dbconfig.EnvOrDefault("COMPANY_ID", "system"),
+		UserID:        dbconfig.EnvOrDefault("USER_ID", "system"),
+		CorrelationID: dbconfig.EnvOrDefault("CORRELATION_ID", "admin-decline"),
+		CausationID:   dbconfig.EnvOrDefault("CAUSATION_ID", "admin-decline"),
 	}
 	dealID := os.Getenv("DEAL_ID")
 	return uc.Execute(context.Background(), meta, auctionID, dealID)
@@ -87,41 +87,4 @@ func usage() {
 	fmt.Println("Usage: admin <close-auction|decline-deal>")
 	fmt.Println("Required env: AUCTION_ID, PGHOST, PGUSER, PGDATABASE")
 	fmt.Println("Optional env: DEAL_ID (for idempotent decline)")
-}
-
-func openDB() (*sql.DB, bool) {
-	host := os.Getenv("PGHOST")
-	user := os.Getenv("PGUSER")
-	password := os.Getenv("PGPASSWORD")
-	database := os.Getenv("PGDATABASE")
-	port := os.Getenv("PGPORT")
-	sslmode := os.Getenv("PGSSLMODE")
-
-	if host == "" || user == "" || database == "" {
-		return nil, false
-	}
-	if port == "" {
-		port = "5432"
-	}
-	if sslmode == "" {
-		sslmode = "disable"
-	}
-
-	dsn := "host=" + host + " user=" + user + " dbname=" + database + " port=" + port + " sslmode=" + sslmode
-	if password != "" {
-		dsn += " password=" + password
-	}
-	db, err := sql.Open("pgx", dsn)
-	if err != nil {
-		return nil, false
-	}
-	db.SetMaxOpenConns(5)
-	return db, true
-}
-
-func envOrDefault(key, def string) string {
-	if value := os.Getenv(key); value != "" {
-		return value
-	}
-	return def
 }

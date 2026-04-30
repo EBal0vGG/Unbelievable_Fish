@@ -11,13 +11,13 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/EBal0vGG/Unbelievable_Fish/internal/infra/dbconfig"
 	"github.com/EBal0vGG/Unbelievable_Fish/internal/infra/logging"
-	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
 func main() {
 	logger := logging.New("migrate")
-	db, ok := openDB()
+	db, ok := dbconfig.OpenPostgresFromEnv(2)
 	if !ok {
 		logging.Fatal(logger, "database_config_missing", "required", "PGHOST,PGUSER,PGDATABASE")
 	}
@@ -27,36 +27,6 @@ func main() {
 		logging.Fatal(logger, "migrations_apply_failed", "error", err)
 	}
 	logger.Info("migrations_applied")
-}
-
-func openDB() (*sql.DB, bool) {
-	host := os.Getenv("PGHOST")
-	user := os.Getenv("PGUSER")
-	password := os.Getenv("PGPASSWORD")
-	database := os.Getenv("PGDATABASE")
-	port := os.Getenv("PGPORT")
-	sslmode := os.Getenv("PGSSLMODE")
-
-	if host == "" || user == "" || database == "" {
-		return nil, false
-	}
-	if port == "" {
-		port = "5432"
-	}
-	if sslmode == "" {
-		sslmode = "disable"
-	}
-
-	dsn := "host=" + host + " user=" + user + " dbname=" + database + " port=" + port + " sslmode=" + sslmode
-	if password != "" {
-		dsn += " password=" + password
-	}
-	db, err := sql.Open("pgx", dsn)
-	if err != nil {
-		return nil, false
-	}
-	db.SetMaxOpenConns(2)
-	return db, true
 }
 
 func applyMigrations(db *sql.DB) error {
