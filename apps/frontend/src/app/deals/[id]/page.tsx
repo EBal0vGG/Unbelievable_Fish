@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 
-import { useDealDetailsQuery } from "@/entities/deal/model/hooks";
+import { useDealConfirmationsQuery, useDealDetailsQuery } from "@/entities/deal/model/hooks";
 import { dealStatusLabels } from "@/entities/deal/ui/deal-card";
 import { useAuth } from "@/entities/session/model/auth-context";
 import { DealActionPanel } from "@/features/deal/ui/deal-action-panel";
@@ -12,7 +12,7 @@ import { buttonStyles } from "@/shared/ui/button";
 import { Card } from "@/shared/ui/card";
 import { EmptyState } from "@/shared/ui/empty-state";
 import { Notice } from "@/shared/ui/notice";
-import type { DealStatus } from "@/shared/types/domain";
+import type { DealConfirmationRecord, DealStatus } from "@/shared/types/domain";
 
 const steps: Array<{ status: DealStatus; label: string }> = [
   { status: "pending", label: "Победитель" },
@@ -47,7 +47,9 @@ export default function DealDetailsPage() {
   const rawId = params.id;
   const dealId = Array.isArray(rawId) ? rawId[0] : rawId ?? "";
   const dealQuery = useDealDetailsQuery(dealId, session);
+  const confirmationsQuery = useDealConfirmationsQuery(dealId, session);
   const deal = dealQuery.data?.data;
+  const confirmations = confirmationsQuery.data?.data ?? [];
 
   if (!session) {
     return (
@@ -96,7 +98,14 @@ export default function DealDetailsPage() {
           <Link className={buttonStyles({ variant: "secondary" })} href={`/auctions/${deal.auctionId}`}>
             Аукцион
           </Link>
-          <button className={buttonStyles({ variant: "ghost" })} onClick={() => dealQuery.refetch()} type="button">
+          <button
+            className={buttonStyles({ variant: "ghost" })}
+            onClick={() => {
+              void dealQuery.refetch();
+              void confirmationsQuery.refetch();
+            }}
+            type="button"
+          >
             Обновить
           </button>
         </div>
@@ -158,7 +167,7 @@ export default function DealDetailsPage() {
         </Card>
 
         <Card className="form-card">
-          <DealActionPanel deal={deal} />
+          <DealActionPanel deal={deal} confirmations={confirmations} />
         </Card>
       </div>
 
@@ -202,6 +211,10 @@ export default function DealDetailsPage() {
         </Card>
 
         <Card className="form-card">
+          <ConfirmationHistory confirmations={confirmations} />
+        </Card>
+
+        <Card className="form-card">
           <div className="stack-md">
             <div>
               <p className="eyebrow">Контракт</p>
@@ -233,6 +246,36 @@ export default function DealDetailsPage() {
           </div>
         </Card>
       </div>
+    </div>
+  );
+}
+
+function ConfirmationHistory({ confirmations }: { confirmations: DealConfirmationRecord[] }) {
+  return (
+    <div className="stack-md">
+      <div>
+        <p className="eyebrow">Подтверждения</p>
+        <h2>История согласований</h2>
+      </div>
+      {confirmations.length === 0 ? (
+        <p className="muted">По этой сделке еще нет запросов на подтверждение этапов.</p>
+      ) : (
+        <div className="stack-md">
+          {confirmations.map((confirmation) => (
+            <div key={confirmation.id} className="stack-sm">
+              <strong>
+                {confirmation.stage} · {confirmation.status}
+              </strong>
+              <p className="muted">
+                {confirmation.requestedByCompanyId} → {confirmation.counterpartyCompanyId} ·{" "}
+                {formatDateTime(confirmation.requestedAt)}
+              </p>
+              {confirmation.comment ? <p>{confirmation.comment}</p> : null}
+              {confirmation.reason ? <p className="muted">Причина: {confirmation.reason}</p> : null}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

@@ -46,6 +46,44 @@ type spyProjectionRepo struct {
 	projection *deal.DealProjection
 }
 
+type spyConfirmationRepo struct {
+	confirmation *deal.DealConfirmation
+}
+
+func (s *spyConfirmationRepo) Save(ctx context.Context, item *deal.DealConfirmation) error {
+	_ = ctx
+	s.confirmation = item
+	return nil
+}
+
+func (s *spyConfirmationRepo) GetByID(ctx context.Context, confirmationID string) (*deal.DealConfirmation, error) {
+	_ = ctx
+	_ = confirmationID
+	if s.confirmation == nil {
+		return nil, deal.ErrConfirmationNotFound
+	}
+	return s.confirmation, nil
+}
+
+func (s *spyConfirmationRepo) GetPendingByDealAndStage(ctx context.Context, dealID string, stage deal.DealConfirmationStage) (*deal.DealConfirmation, error) {
+	_ = ctx
+	_ = dealID
+	_ = stage
+	if s.confirmation == nil || s.confirmation.Status() != deal.DealConfirmationStatusPending {
+		return nil, deal.ErrConfirmationNotFound
+	}
+	return s.confirmation, nil
+}
+
+func (s *spyConfirmationRepo) ListByDealID(ctx context.Context, dealID string) ([]*deal.DealConfirmation, error) {
+	_ = ctx
+	_ = dealID
+	if s.confirmation == nil {
+		return []*deal.DealConfirmation{}, nil
+	}
+	return []*deal.DealConfirmation{s.confirmation}, nil
+}
+
 func (s *spyProjectionRepo) Save(ctx context.Context, item *deal.DealProjection) error {
 	_ = ctx
 	s.projection = item
@@ -107,18 +145,19 @@ func TestCreateProjectionHandlerSuccess(t *testing.T) {
 	}
 }
 
-func TestConfirmDealHandlerMissingCompanyID(t *testing.T) {
+func TestRequestDealConfirmationHandlerMissingCompanyID(t *testing.T) {
 	logTest(t)
 	repo := &spyDealRepo{deal: createPendingDeal(t)}
-	uow := app.NewSimpleUnitOfWork(repo, &spyProjectionRepo{}, spySelectionRepo{}, spyOutbox{})
-	uc, err := app.NewConfirmDeal(uow)
+	uow := app.NewSimpleUnitOfWork(repo, &spyConfirmationRepo{}, &spyProjectionRepo{}, spySelectionRepo{}, spyOutbox{})
+	uc, err := app.NewRequestDealConfirmation(uow, app.NoopConfirmationNotifier{})
 	if err != nil {
 		t.Fatalf("unexpected constructor error: %v", err)
 	}
-	h := NewConfirmDealHandler(uc)
+	h := NewRequestDealConfirmationHandler(uc)
 
-	req := httptest.NewRequest(http.MethodPost, "/deals/"+repo.deal.ID()+"/confirm", nil)
+	req := httptest.NewRequest(http.MethodPost, "/deals/"+repo.deal.ID()+"/confirmations", bytes.NewBufferString(`{"stage":"confirmed","verification_method":"manual"}`))
 	req.Header.Set("X-User-ID", "user-1")
+	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 
 	h.ServeHTTP(rec, req)
@@ -134,7 +173,7 @@ func TestCreateDealHandlerInvalidJSON(t *testing.T) {
 	logTest(t)
 	repo := &spyDealRepo{}
 	projections := &spyProjectionRepo{}
-	uow := app.NewSimpleUnitOfWork(repo, projections, spySelectionRepo{}, spyOutbox{})
+	uow := app.NewSimpleUnitOfWork(repo, &spyConfirmationRepo{}, projections, spySelectionRepo{}, spyOutbox{})
 	uc, err := app.NewCreateDealSelectionFromAuctionWon(uow)
 	if err != nil {
 		t.Fatalf("unexpected constructor error: %v", err)

@@ -4,6 +4,7 @@ import type {
   ActivityRecord,
   AuctionRecord,
   BidRecord,
+  DealConfirmationRecord,
   DealProjectionRecord,
   DealRecord,
   FishRecord,
@@ -237,6 +238,8 @@ const seedDeals: DealRecord[] = [
   },
 ];
 
+const seedDealConfirmations: DealConfirmationRecord[] = [];
+
 const seedActivities: ActivityRecord[] = [
   {
     id: "activity-seed-1",
@@ -254,6 +257,7 @@ const seedStore: FrontendStore = {
   bids: seedBids,
   dealProjections: seedDealProjections,
   deals: seedDeals,
+  dealConfirmations: seedDealConfirmations,
   activities: seedActivities,
 };
 
@@ -298,6 +302,10 @@ function migrateStore(store: FrontendStore): FrontendStore {
           volume: deal.quantity ?? 0,
           originCountry: "",
         },
+    })),
+    dealConfirmations: (store.dealConfirmations ?? seedDealConfirmations).map((confirmation) => ({
+      ...confirmation,
+      source: confirmation.source ?? "mock",
     })),
     activities: store.activities.map((activity) => ({
       ...activity,
@@ -360,6 +368,14 @@ export function listDealProjectionsStore(auctionId?: string): DealProjectionReco
 
 export function listDealsStore(): DealRecord[] {
   return getFrontendStore().deals;
+}
+
+export function listDealConfirmationsStore(dealId?: string): DealConfirmationRecord[] {
+  const confirmations = getFrontendStore().dealConfirmations;
+  if (!dealId) {
+    return confirmations;
+  }
+  return confirmations.filter((item) => item.dealId === dealId);
 }
 
 export function listActivitiesStore(session?: UserSession | null): ActivityRecord[] {
@@ -450,6 +466,13 @@ export function upsertDealProjectionStore(item: DealProjectionRecord): DealProje
 export function upsertDealStore(item: DealRecord): DealRecord {
   const store = getFrontendStore();
   store.deals = upsertById(store.deals, item);
+  saveFrontendStore(store);
+  return item;
+}
+
+export function upsertDealConfirmationStore(item: DealConfirmationRecord): DealConfirmationRecord {
+  const store = getFrontendStore();
+  store.dealConfirmations = upsertById(store.dealConfirmations, item);
   saveFrontendStore(store);
   return item;
 }

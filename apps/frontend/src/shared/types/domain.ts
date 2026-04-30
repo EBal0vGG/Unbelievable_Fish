@@ -51,6 +51,10 @@ export type DealStatus =
   | "completed"
   | "cancelled";
 
+export type DealConfirmationStage = "confirmed" | "paid" | "shipped" | "completed" | "cancelled";
+export type DealConfirmationStatus = "pending" | "approved" | "rejected" | "expired";
+export type DealVerificationMethod = "manual" | "email" | "signature";
+
 export interface FishRecord {
   id: string;
   name: string;
@@ -152,6 +156,26 @@ export interface DealRecord {
   source: DataSource;
 }
 
+export interface DealConfirmationRecord {
+  id: string;
+  dealId: string;
+  stage: DealConfirmationStage;
+  requestedByUserId: string;
+  requestedByCompanyId: string;
+  counterpartyCompanyId: string;
+  status: DealConfirmationStatus;
+  verificationMethod: DealVerificationMethod;
+  verificationTokenHash?: string;
+  signatureRef?: string;
+  requestedAt: string;
+  approvedAt?: string;
+  rejectedAt?: string;
+  expiresAt?: string;
+  comment?: string;
+  reason?: string;
+  source: DataSource;
+}
+
 export interface ActivityRecord {
   id: string;
   title: string;
@@ -169,5 +193,6 @@ export interface FrontendStore {
   bids: BidRecord[];
   dealProjections: DealProjectionRecord[];
   deals: DealRecord[];
+  dealConfirmations: DealConfirmationRecord[];
   activities: ActivityRecord[];
 }

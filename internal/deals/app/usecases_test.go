@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"reflect"
 	"testing"
 	"time"
@@ -50,9 +51,10 @@ func TestCreateDealFromAuctionWonOrchestratesSaveAndPublish(t *testing.T) {
 	calls := []string{}
 	projection := deal.NewDealProjection("auc-1", "sup-1", deal.ProductSnapshot{Name: "Fish"}, 100, time.Now().Add(-time.Hour))
 	deals := &dealRepoSpy{calls: &calls}
+	confirmations := &confirmationRepoSpy{calls: &calls}
 	projections := &projectionRepoSpy{calls: &calls, projection: projection}
 	outbox := &outboxSpy{calls: &calls}
-	uow := &spyUOW{tx: &spyTx{deals: deals, projections: projections, selections: &selectionRepoSpy{}, outbox: outbox}}
+	uow := &spyUOW{tx: &spyTx{deals: deals, confirmations: confirmations, projections: projections, selections: &selectionRepoSpy{}, outbox: outbox}}
 
 	uc, err := NewCreateDealFromAuctionWon(uow)
 	if err != nil {
@@ -75,9 +77,10 @@ func TestCreateDealFromAuctionWonRequiresProjection(t *testing.T) {
 	logTest(t)
 	calls := []string{}
 	deals := &dealRepoSpy{calls: &calls}
+	confirmations := &confirmationRepoSpy{calls: &calls}
 	projections := &projectionRepoSpy{calls: &calls}
 	outbox := &outboxSpy{calls: &calls}
-	uow := &spyUOW{tx: &spyTx{deals: deals, projections: projections, selections: &selectionRepoSpy{}, outbox: outbox}}
+	uow := &spyUOW{tx: &spyTx{deals: deals, confirmations: confirmations, projections: projections, selections: &selectionRepoSpy{}, outbox: outbox}}
 
 	uc, err := NewCreateDealFromAuctionWon(uow)
 	if err != nil {
@@ -98,10 +101,11 @@ func TestCreateDealSelectionFromAuctionWonCreatesDealForFirstCandidate(t *testin
 	calls := []string{}
 	projection := deal.NewDealProjection("auc-1", "sup-1", deal.ProductSnapshot{Name: "Fish"}, 100, time.Now().Add(-time.Hour))
 	deals := &dealRepoSpy{calls: &calls}
+	confirmations := &confirmationRepoSpy{calls: &calls}
 	projections := &projectionRepoSpy{calls: &calls, projection: projection}
 	selections := &selectionRepoSpy{calls: &calls}
 	outbox := &outboxSpy{calls: &calls}
-	uow := &spyUOW{tx: &spyTx{deals: deals, projections: projections, selections: selections, outbox: outbox}}
+	uow := &spyUOW{tx: &spyTx{deals: deals, confirmations: confirmations, projections: projections, selections: selections, outbox: outbox}}
 
 	uc, err := NewCreateDealSelectionFromAuctionWon(uow)
 	if err != nil {
@@ -132,9 +136,10 @@ func TestHandleDealDeclinedMovesToNextCandidate(t *testing.T) {
 		deal.ProductSnapshot{Name: "Fish"},
 	)
 	deals := &dealRepoSpy{calls: &calls}
+	confirmations := &confirmationRepoSpy{calls: &calls}
 	selections := &selectionRepoSpy{calls: &calls, selection: selection}
 	outbox := &outboxSpy{calls: &calls}
-	uow := &spyUOW{tx: &spyTx{deals: deals, projections: &projectionRepoSpy{}, selections: selections, outbox: outbox}}
+	uow := &spyUOW{tx: &spyTx{deals: deals, confirmations: confirmations, projections: &projectionRepoSpy{}, selections: selections, outbox: outbox}}
 
 	uc, err := NewHandleDealDeclined(uow)
 	if err != nil {
@@ -169,7 +174,7 @@ func TestHandleDealDeclinedNoOpWhenDealIDMismatch(t *testing.T) {
 
 	selections := &selectionRepoSpy{calls: &calls, selection: selection}
 	outbox := &outboxSpy{calls: &calls}
-	uow := &spyUOW{tx: &spyTx{deals: &dealRepoSpy{}, projections: &projectionRepoSpy{}, selections: selections, outbox: outbox}}
+	uow := &spyUOW{tx: &spyTx{deals: &dealRepoSpy{}, confirmations: &confirmationRepoSpy{}, projections: &projectionRepoSpy{}, selections: selections, outbox: outbox}}
 
 	uc, err := NewHandleDealDeclined(uow)
 	if err != nil {
@@ -193,8 +198,9 @@ func TestConfirmDealOrchestratesLoadSavePublish(t *testing.T) {
 	calls := []string{}
 	item := createPendingDeal(t)
 	deals := &dealRepoSpy{calls: &calls, deal: item}
+	confirmations := &confirmationRepoSpy{calls: &calls}
 	outbox := &outboxSpy{calls: &calls}
-	uow := &spyUOW{tx: &spyTx{deals: deals, projections: &projectionRepoSpy{}, selections: &selectionRepoSpy{}, outbox: outbox}}
+	uow := &spyUOW{tx: &spyTx{deals: deals, confirmations: confirmations, projections: &projectionRepoSpy{}, selections: &selectionRepoSpy{}, outbox: outbox}}
 
 	uc, err := NewConfirmDeal(uow)
 	if err != nil {
@@ -210,13 +216,114 @@ func TestConfirmDealOrchestratesLoadSavePublish(t *testing.T) {
 	}
 }
 
+func TestRequestDealConfirmationCreatesPendingRecord(t *testing.T) {
+	logTest(t)
+	calls := []string{}
+	item := createPendingDeal(t)
+	deals := &dealRepoSpy{calls: &calls, deal: item}
+	confirmations := &confirmationRepoSpy{calls: &calls}
+	outbox := &outboxSpy{calls: &calls}
+	uow := &spyUOW{tx: &spyTx{deals: deals, confirmations: confirmations, projections: &projectionRepoSpy{}, selections: &selectionRepoSpy{}, outbox: outbox}}
+
+	uc, err := NewRequestDealConfirmation(uow, NoopConfirmationNotifier{})
+	if err != nil {
+		t.Fatalf("unexpected constructor error: %v", err)
+	}
+	meta := CommandMeta{CompanyID: item.SupplierID(), UserID: "user-seller"}
+	confirmation, err := uc.Execute(context.Background(), meta, item.ID(), RequestDealConfirmationCommand{
+		Stage:              deal.DealConfirmationStageConfirmed,
+		VerificationMethod: deal.VerificationMethodManual,
+		Comment:            "seller says deal is ready",
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	assertCalls(t, calls, []string{"load_deal", "load_pending_confirmation", "save_confirmation", "outbox"})
+	if confirmation.Status() != deal.DealConfirmationStatusPending {
+		t.Fatalf("expected pending confirmation, got %s", confirmation.Status())
+	}
+}
+
+func TestApproveDealConfirmationMovesDealStatus(t *testing.T) {
+	logTest(t)
+	calls := []string{}
+	item := createPendingDeal(t)
+	confirmation, _, err := item.RequestConfirmation(
+		deal.DealConfirmationStageConfirmed,
+		item.SupplierID(),
+		"user-seller",
+		deal.VerificationMethodManual,
+		"",
+		"",
+		"",
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("request confirmation error: %v", err)
+	}
+	deals := &dealRepoSpy{calls: &calls, deal: item}
+	confirmations := &confirmationRepoSpy{calls: &calls, confirmation: confirmation}
+	outbox := &outboxSpy{calls: &calls}
+	uow := &spyUOW{tx: &spyTx{deals: deals, confirmations: confirmations, projections: &projectionRepoSpy{}, selections: &selectionRepoSpy{}, outbox: outbox}}
+
+	uc, err := NewApproveDealConfirmation(uow)
+	if err != nil {
+		t.Fatalf("unexpected constructor error: %v", err)
+	}
+	meta := CommandMeta{CompanyID: item.CustomerID(), UserID: "buyer-user"}
+	if _, err := uc.Execute(context.Background(), meta, item.ID(), confirmation.ID()); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	assertCalls(t, calls, []string{"load_deal", "load_confirmation", "save_confirmation", "save_deal", "outbox"})
+	if deals.lastSaved.Status() != deal.DealStatusConfirmed {
+		t.Fatalf("expected confirmed status, got %s", deals.lastSaved.Status())
+	}
+}
+
+func TestRequestDealConfirmationRejectsDuplicatePending(t *testing.T) {
+	logTest(t)
+	item := createPendingDeal(t)
+	existing, _, err := item.RequestConfirmation(
+		deal.DealConfirmationStageConfirmed,
+		item.SupplierID(),
+		"user-seller",
+		deal.VerificationMethodManual,
+		"",
+		"",
+		"",
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("request confirmation error: %v", err)
+	}
+	deals := &dealRepoSpy{deal: item}
+	confirmations := &confirmationRepoSpy{confirmation: existing}
+	uow := &spyUOW{tx: &spyTx{deals: deals, confirmations: confirmations, projections: &projectionRepoSpy{}, selections: &selectionRepoSpy{}, outbox: &outboxSpy{}}}
+
+	uc, err := NewRequestDealConfirmation(uow, NoopConfirmationNotifier{})
+	if err != nil {
+		t.Fatalf("unexpected constructor error: %v", err)
+	}
+	meta := CommandMeta{CompanyID: item.SupplierID(), UserID: "user-seller"}
+	_, err = uc.Execute(context.Background(), meta, item.ID(), RequestDealConfirmationCommand{
+		Stage:              deal.DealConfirmationStageConfirmed,
+		VerificationMethod: deal.VerificationMethodManual,
+	})
+	if !errors.Is(err, deal.ErrConfirmationAlreadyPending) {
+		t.Fatalf("expected ErrConfirmationAlreadyPending, got %v", err)
+	}
+}
+
 func TestUpdateDealPriceUsesMetaActor(t *testing.T) {
 	logTest(t)
 	calls := []string{}
 	item := createPendingDeal(t)
 	deals := &dealRepoSpy{calls: &calls, deal: item}
+	confirmations := &confirmationRepoSpy{calls: &calls}
 	outbox := &outboxSpy{calls: &calls}
-	uow := &spyUOW{tx: &spyTx{deals: deals, projections: &projectionRepoSpy{}, selections: &selectionRepoSpy{}, outbox: outbox}}
+	uow := &spyUOW{tx: &spyTx{deals: deals, confirmations: confirmations, projections: &projectionRepoSpy{}, selections: &selectionRepoSpy{}, outbox: outbox}}
 
 	uc, err := NewUpdateDealPrice(uow)
 	if err != nil {
@@ -269,6 +376,56 @@ type projectionRepoSpy struct {
 	calls      *[]string
 	projection *deal.DealProjection
 	lastSaved  *deal.DealProjection
+}
+
+type confirmationRepoSpy struct {
+	calls        *[]string
+	confirmation *deal.DealConfirmation
+	lastSaved    *deal.DealConfirmation
+}
+
+func (s *confirmationRepoSpy) Save(ctx context.Context, item *deal.DealConfirmation) error {
+	_ = ctx
+	s.lastSaved = item
+	s.confirmation = item
+	if s.calls != nil {
+		*s.calls = append(*s.calls, "save_confirmation")
+	}
+	return nil
+}
+
+func (s *confirmationRepoSpy) GetByID(ctx context.Context, confirmationID string) (*deal.DealConfirmation, error) {
+	_ = ctx
+	_ = confirmationID
+	if s.calls != nil {
+		*s.calls = append(*s.calls, "load_confirmation")
+	}
+	if s.confirmation == nil {
+		return nil, deal.ErrConfirmationNotFound
+	}
+	return s.confirmation, nil
+}
+
+func (s *confirmationRepoSpy) GetPendingByDealAndStage(ctx context.Context, dealID string, stage deal.DealConfirmationStage) (*deal.DealConfirmation, error) {
+	_ = ctx
+	_ = dealID
+	_ = stage
+	if s.calls != nil {
+		*s.calls = append(*s.calls, "load_pending_confirmation")
+	}
+	if s.confirmation == nil || s.confirmation.Status() != deal.DealConfirmationStatusPending {
+		return nil, deal.ErrConfirmationNotFound
+	}
+	return s.confirmation, nil
+}
+
+func (s *confirmationRepoSpy) ListByDealID(ctx context.Context, dealID string) ([]*deal.DealConfirmation, error) {
+	_ = ctx
+	_ = dealID
+	if s.confirmation == nil {
+		return []*deal.DealConfirmation{}, nil
+	}
+	return []*deal.DealConfirmation{s.confirmation}, nil
 }
 
 type selectionRepoSpy struct {
@@ -337,16 +494,18 @@ func (s *outboxSpy) Add(ctx context.Context, events []deal.Event) error {
 }
 
 type spyTx struct {
-	deals       DealRepository
-	projections ProjectionRepository
-	selections  WinnerSelectionRepository
-	outbox      OutboxRepository
+	deals         DealRepository
+	confirmations DealConfirmationRepository
+	projections   ProjectionRepository
+	selections    WinnerSelectionRepository
+	outbox        OutboxRepository
 }
 
-func (s *spyTx) Deals() DealRepository { return s.deals }
-func (s *spyTx) Projections() ProjectionRepository { return s.projections }
-func (s *spyTx) Selections() WinnerSelectionRepository { return s.selections }
-func (s *spyTx) Outbox() OutboxRepository { return s.outbox }
+func (s *spyTx) Deals() DealRepository                     { return s.deals }
+func (s *spyTx) Confirmations() DealConfirmationRepository { return s.confirmations }
+func (s *spyTx) Projections() ProjectionRepository         { return s.projections }
+func (s *spyTx) Selections() WinnerSelectionRepository     { return s.selections }
+func (s *spyTx) Outbox() OutboxRepository                  { return s.outbox }
 
 type spyUOW struct {
 	tx *spyTx

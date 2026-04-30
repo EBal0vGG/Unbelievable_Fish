@@ -6,50 +6,47 @@ import (
 )
 
 type Router struct {
-	getProjection    http.Handler
-	getDeal          http.Handler
-	getDealByAuction http.Handler
-	confirmDeal      http.Handler
-	prepareContract  http.Handler
-	signContract     http.Handler
-	requestPayment   http.Handler
-	markDealPaid     http.Handler
-	requestShipment  http.Handler
-	markDealShipped  http.Handler
-	completeDeal     http.Handler
-	cancelDeal       http.Handler
-	updateDealPrice  http.Handler
+	getProjection       http.Handler
+	getDeal             http.Handler
+	getDealByAuction    http.Handler
+	getConfirmations    http.Handler
+	requestConfirmation http.Handler
+	approveConfirmation http.Handler
+	rejectConfirmation  http.Handler
+	prepareContract     http.Handler
+	signContract        http.Handler
+	requestPayment      http.Handler
+	requestShipment     http.Handler
+	updateDealPrice     http.Handler
 }
 
 func NewRouter(
 	getProjection http.Handler,
 	getDeal http.Handler,
 	getDealByAuction http.Handler,
-	confirmDeal http.Handler,
+	getConfirmations http.Handler,
+	requestConfirmation http.Handler,
+	approveConfirmation http.Handler,
+	rejectConfirmation http.Handler,
 	prepareContract http.Handler,
 	signContract http.Handler,
 	requestPayment http.Handler,
-	markDealPaid http.Handler,
 	requestShipment http.Handler,
-	markDealShipped http.Handler,
-	completeDeal http.Handler,
-	cancelDeal http.Handler,
 	updateDealPrice http.Handler,
 ) *Router {
 	return &Router{
-		getProjection:    getProjection,
-		getDeal:          getDeal,
-		getDealByAuction: getDealByAuction,
-		confirmDeal:      confirmDeal,
-		prepareContract:  prepareContract,
-		signContract:     signContract,
-		requestPayment:   requestPayment,
-		markDealPaid:     markDealPaid,
-		requestShipment:  requestShipment,
-		markDealShipped:  markDealShipped,
-		completeDeal:     completeDeal,
-		cancelDeal:       cancelDeal,
-		updateDealPrice:  updateDealPrice,
+		getProjection:       getProjection,
+		getDeal:             getDeal,
+		getDealByAuction:    getDealByAuction,
+		getConfirmations:    getConfirmations,
+		requestConfirmation: requestConfirmation,
+		approveConfirmation: approveConfirmation,
+		rejectConfirmation:  rejectConfirmation,
+		prepareContract:     prepareContract,
+		signContract:        signContract,
+		requestPayment:      requestPayment,
+		requestShipment:     requestShipment,
+		updateDealPrice:     updateDealPrice,
 	}
 }
 
@@ -64,11 +61,20 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 	if strings.HasPrefix(req.URL.Path, "/deals/") {
 		switch {
+		case req.Method == http.MethodGet && strings.HasSuffix(req.URL.Path, "/confirmations"):
+			r.getConfirmations.ServeHTTP(w, req)
+			return
 		case req.Method == http.MethodGet:
 			r.getDeal.ServeHTTP(w, req)
 			return
-		case req.Method == http.MethodPost && strings.HasSuffix(req.URL.Path, "/confirm"):
-			r.confirmDeal.ServeHTTP(w, req)
+		case req.Method == http.MethodPost && strings.HasSuffix(req.URL.Path, "/confirmations"):
+			r.requestConfirmation.ServeHTTP(w, req)
+			return
+		case req.Method == http.MethodPost && strings.HasSuffix(req.URL.Path, "/approve"):
+			r.approveConfirmation.ServeHTTP(w, req)
+			return
+		case req.Method == http.MethodPost && strings.HasSuffix(req.URL.Path, "/reject"):
+			r.rejectConfirmation.ServeHTTP(w, req)
 			return
 		case req.Method == http.MethodPost && strings.HasSuffix(req.URL.Path, "/contract/prepare"):
 			r.prepareContract.ServeHTTP(w, req)
@@ -79,20 +85,8 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		case req.Method == http.MethodPost && strings.HasSuffix(req.URL.Path, "/payment/request"):
 			r.requestPayment.ServeHTTP(w, req)
 			return
-		case req.Method == http.MethodPost && strings.HasSuffix(req.URL.Path, "/payment/mark-paid"):
-			r.markDealPaid.ServeHTTP(w, req)
-			return
 		case req.Method == http.MethodPost && strings.HasSuffix(req.URL.Path, "/shipment/request"):
 			r.requestShipment.ServeHTTP(w, req)
-			return
-		case req.Method == http.MethodPost && strings.HasSuffix(req.URL.Path, "/shipment/mark-shipped"):
-			r.markDealShipped.ServeHTTP(w, req)
-			return
-		case req.Method == http.MethodPost && strings.HasSuffix(req.URL.Path, "/complete"):
-			r.completeDeal.ServeHTTP(w, req)
-			return
-		case req.Method == http.MethodPost && strings.HasSuffix(req.URL.Path, "/cancel"):
-			r.cancelDeal.ServeHTTP(w, req)
 			return
 		case req.Method == http.MethodPost && strings.HasSuffix(req.URL.Path, "/price"):
 			r.updateDealPrice.ServeHTTP(w, req)

@@ -13,6 +13,13 @@ type DealRepository interface {
 	GetByAuctionID(ctx context.Context, auctionID string) (*deal.Deal, error)
 }
 
+type DealConfirmationRepository interface {
+	Save(ctx context.Context, item *deal.DealConfirmation) error
+	GetByID(ctx context.Context, confirmationID string) (*deal.DealConfirmation, error)
+	GetPendingByDealAndStage(ctx context.Context, dealID string, stage deal.DealConfirmationStage) (*deal.DealConfirmation, error)
+	ListByDealID(ctx context.Context, dealID string) ([]*deal.DealConfirmation, error)
+}
+
 // ProjectionRepository persists auction-to-deal projections.
 type ProjectionRepository interface {
 	Save(ctx context.Context, item *deal.DealProjection) error
@@ -33,6 +40,7 @@ type OutboxRepository interface {
 // Tx provides transaction-scoped repositories.
 type Tx interface {
 	Deals() DealRepository
+	Confirmations() DealConfirmationRepository
 	Projections() ProjectionRepository
 	Selections() WinnerSelectionRepository
 	Outbox() OutboxRepository
@@ -46,4 +54,8 @@ type UnitOfWork interface {
 // EventPublisher delivers domain events to outer layers.
 type EventPublisher interface {
 	Publish(ctx context.Context, events []deal.Event) error
+}
+
+type ConfirmationNotifier interface {
+	NotifyConfirmationRequested(ctx context.Context, item *deal.Deal, confirmation *deal.DealConfirmation) error
 }

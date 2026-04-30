@@ -42,6 +42,42 @@ type projectionRepoMem struct {
 	data map[string]*deal.DealProjection
 }
 
+type confirmationRepoMem struct {
+	data map[string]*deal.DealConfirmation
+}
+
+func (r *confirmationRepoMem) Save(_ context.Context, item *deal.DealConfirmation) error {
+	r.data[item.ID()] = item
+	return nil
+}
+
+func (r *confirmationRepoMem) GetByID(_ context.Context, confirmationID string) (*deal.DealConfirmation, error) {
+	item, ok := r.data[confirmationID]
+	if !ok {
+		return nil, deal.ErrConfirmationNotFound
+	}
+	return item, nil
+}
+
+func (r *confirmationRepoMem) GetPendingByDealAndStage(_ context.Context, dealID string, stage deal.DealConfirmationStage) (*deal.DealConfirmation, error) {
+	for _, item := range r.data {
+		if item.DealID() == dealID && item.Stage() == stage && item.Status() == deal.DealConfirmationStatusPending {
+			return item, nil
+		}
+	}
+	return nil, deal.ErrConfirmationNotFound
+}
+
+func (r *confirmationRepoMem) ListByDealID(_ context.Context, dealID string) ([]*deal.DealConfirmation, error) {
+	items := make([]*deal.DealConfirmation, 0)
+	for _, item := range r.data {
+		if item.DealID() == dealID {
+			items = append(items, item)
+		}
+	}
+	return items, nil
+}
+
 func (r *projectionRepoMem) Save(_ context.Context, item *deal.DealProjection) error {
 	r.data[item.AuctionID] = item
 	return nil
@@ -98,10 +134,11 @@ func (fakeAuctionLister) ListExpired(_ context.Context, _ time.Time, _ int) ([]t
 func TestRunCancelExpiredDealsCancelsDeal(t *testing.T) {
 	ctx := context.Background()
 	projections := &projectionRepoMem{data: map[string]*deal.DealProjection{}}
+	confirmations := &confirmationRepoMem{data: map[string]*deal.DealConfirmation{}}
 	deals := &dealRepoMem{data: map[string]*deal.Deal{}}
 	selections := &selectionRepoMem{data: map[string]*deal.WinnerSelection{}}
 	outbox := &outboxMem{}
-	uow := dealsapp.NewSimpleUnitOfWork(deals, projections, selections, outbox)
+	uow := dealsapp.NewSimpleUnitOfWork(deals, confirmations, projections, selections, outbox)
 
 	factory := deal.NewFactory()
 	projection := deal.NewDealProjection(
@@ -144,10 +181,11 @@ func TestRunCancelExpiredDealsCancelsDeal(t *testing.T) {
 func TestDealCancelledEventMovesToNextWinner(t *testing.T) {
 	ctx := context.Background()
 	projections := &projectionRepoMem{data: map[string]*deal.DealProjection{}}
+	confirmations := &confirmationRepoMem{data: map[string]*deal.DealConfirmation{}}
 	deals := &dealRepoMem{data: map[string]*deal.Deal{}}
 	selections := &selectionRepoMem{data: map[string]*deal.WinnerSelection{}}
 	outbox := &outboxMem{}
-	uow := dealsapp.NewSimpleUnitOfWork(deals, projections, selections, outbox)
+	uow := dealsapp.NewSimpleUnitOfWork(deals, confirmations, projections, selections, outbox)
 
 	createSelection, err := dealsapp.NewCreateDealSelectionFromAuctionWon(uow)
 	if err != nil {

@@ -1,6 +1,7 @@
 package httpapi_test
 
 import (
+	"bytes"
 	"context"
 	"net/http"
 	"net/http/httptest"
@@ -37,6 +38,44 @@ func (s *spyDealRepo) GetByAuctionID(ctx context.Context, auctionID string) (*de
 
 type spyProjectionRepo struct {
 	projection *deal.DealProjection
+}
+
+type spyConfirmationRepo struct {
+	confirmation *deal.DealConfirmation
+}
+
+func (s *spyConfirmationRepo) Save(ctx context.Context, item *deal.DealConfirmation) error {
+	_ = ctx
+	s.confirmation = item
+	return nil
+}
+
+func (s *spyConfirmationRepo) GetByID(ctx context.Context, confirmationID string) (*deal.DealConfirmation, error) {
+	_ = ctx
+	_ = confirmationID
+	if s.confirmation == nil {
+		return nil, deal.ErrConfirmationNotFound
+	}
+	return s.confirmation, nil
+}
+
+func (s *spyConfirmationRepo) GetPendingByDealAndStage(ctx context.Context, dealID string, stage deal.DealConfirmationStage) (*deal.DealConfirmation, error) {
+	_ = ctx
+	_ = dealID
+	_ = stage
+	if s.confirmation == nil || s.confirmation.Status() != deal.DealConfirmationStatusPending {
+		return nil, deal.ErrConfirmationNotFound
+	}
+	return s.confirmation, nil
+}
+
+func (s *spyConfirmationRepo) ListByDealID(ctx context.Context, dealID string) ([]*deal.DealConfirmation, error) {
+	_ = ctx
+	_ = dealID
+	if s.confirmation == nil {
+		return []*deal.DealConfirmation{}, nil
+	}
+	return []*deal.DealConfirmation{s.confirmation}, nil
 }
 
 func (s *spyProjectionRepo) Save(ctx context.Context, item *deal.DealProjection) error {
@@ -93,11 +132,20 @@ func TestCommandFlowSmoke(t *testing.T) {
 	}
 	dealRepo := &spyDealRepo{}
 	dealRepo.deal = createdDeal
+	confirmationRepo := &spyConfirmationRepo{}
 	projectionRepo := &spyProjectionRepo{projection: projection}
 	outbox := &spyOutbox{}
-	uow := app.NewSimpleUnitOfWork(dealRepo, projectionRepo, spySelectionRepo{}, outbox)
+	uow := app.NewSimpleUnitOfWork(dealRepo, confirmationRepo, projectionRepo, spySelectionRepo{}, outbox)
 
-	confirmUC, err := app.NewConfirmDeal(uow)
+	requestConfirmationUC, err := app.NewRequestDealConfirmation(uow, app.NoopConfirmationNotifier{})
+	if err != nil {
+		t.Fatalf("unexpected constructor error: %v", err)
+	}
+	approveConfirmationUC, err := app.NewApproveDealConfirmation(uow)
+	if err != nil {
+		t.Fatalf("unexpected constructor error: %v", err)
+	}
+	rejectConfirmationUC, err := app.NewRejectDealConfirmation(uow)
 	if err != nil {
 		t.Fatalf("unexpected constructor error: %v", err)
 	}
@@ -106,32 +154,89 @@ func TestCommandFlowSmoke(t *testing.T) {
 		handler.NewGetProjectionByAuctionIDHandler(app.NewGetProjectionByAuctionID(projectionRepo)),
 		handler.NewGetDealByIDHandler(app.NewGetDealByID(dealRepo)),
 		handler.NewGetDealByAuctionIDHandler(app.NewGetDealByAuctionID(dealRepo)),
-		handler.NewConfirmDealHandler(confirmUC),
+		handler.NewGetDealConfirmationsHandler(app.NewGetDealConfirmations(dealRepo, confirmationRepo)),
+		handler.NewRequestDealConfirmationHandler(requestConfirmationUC),
+		handler.NewApproveDealConfirmationHandler(approveConfirmationUC),
+		handler.NewRejectDealConfirmationHandler(rejectConfirmationUC),
 		handler.NewPrepareContractHandler(mustNewPrepareContract(t, uow)),
 		handler.NewSignContractHandler(mustNewSignContract(t, uow)),
 		handler.NewRequestPaymentHandler(mustNewRequestPayment(t, uow)),
-		handler.NewMarkDealPaidHandler(mustNewMarkDealPaid(t, uow)),
 		handler.NewRequestShipmentHandler(mustNewRequestShipment(t, uow)),
-		handler.NewMarkDealShippedHandler(mustNewMarkDealShipped(t, uow)),
-		handler.NewCompleteDealHandler(mustNewCompleteDeal(t, uow)),
-		handler.NewCancelDealHandler(mustNewCancelDeal(t, uow)),
 		handler.NewUpdateDealPriceHandler(mustNewUpdateDealPrice(t, uow)),
 	)
 
-	req := httptest.NewRequest(http.MethodPost, "/deals/"+createdDeal.ID()+"/confirm", nil)
-	req.Header.Set("X-Company-ID", "company-1")
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/deals/"+createdDeal.ID()+"/confirmations",
+		bytes.NewBufferString(`{"stage":"confirmed","verification_method":"manual","comment":"seller ready"}`),
+	)
+	req.Header.Set("X-Company-ID", createdDeal.SupplierID())
 	req.Header.Set("X-User-ID", "user-1")
+	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 
 	router.ServeHTTP(rec, req)
 	logf(t, "status=%d outbox_count=%d", rec.Code, outbox.addCount)
 
-	if rec.Code != http.StatusAccepted {
-		t.Fatalf("expected status %d, got %d", http.StatusAccepted, rec.Code)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("expected status %d, got %d", http.StatusCreated, rec.Code)
 	}
 	if outbox.addCount != 1 {
 		t.Fatalf("expected outbox count 1, got %d", outbox.addCount)
 	}
+}
+
+func TestDirectStatusEndpointRemoved(t *testing.T) {
+	dealRepo := &spyDealRepo{deal: createDealForRouter(t)}
+	confirmationRepo := &spyConfirmationRepo{}
+	projectionRepo := &spyProjectionRepo{}
+	outbox := &spyOutbox{}
+	uow := app.NewSimpleUnitOfWork(dealRepo, confirmationRepo, projectionRepo, spySelectionRepo{}, outbox)
+	requestConfirmationUC, _ := app.NewRequestDealConfirmation(uow, app.NoopConfirmationNotifier{})
+	approveConfirmationUC, _ := app.NewApproveDealConfirmation(uow)
+	rejectConfirmationUC, _ := app.NewRejectDealConfirmation(uow)
+
+	router := httpapi.NewRouter(
+		handler.NewGetProjectionByAuctionIDHandler(app.NewGetProjectionByAuctionID(projectionRepo)),
+		handler.NewGetDealByIDHandler(app.NewGetDealByID(dealRepo)),
+		handler.NewGetDealByAuctionIDHandler(app.NewGetDealByAuctionID(dealRepo)),
+		handler.NewGetDealConfirmationsHandler(app.NewGetDealConfirmations(dealRepo, confirmationRepo)),
+		handler.NewRequestDealConfirmationHandler(requestConfirmationUC),
+		handler.NewApproveDealConfirmationHandler(approveConfirmationUC),
+		handler.NewRejectDealConfirmationHandler(rejectConfirmationUC),
+		handler.NewPrepareContractHandler(mustNewPrepareContract(t, uow)),
+		handler.NewSignContractHandler(mustNewSignContract(t, uow)),
+		handler.NewRequestPaymentHandler(mustNewRequestPayment(t, uow)),
+		handler.NewRequestShipmentHandler(mustNewRequestShipment(t, uow)),
+		handler.NewUpdateDealPriceHandler(mustNewUpdateDealPrice(t, uow)),
+	)
+
+	req := httptest.NewRequest(http.MethodPost, "/deals/"+dealRepo.deal.ID()+"/confirm", nil)
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("expected status %d, got %d", http.StatusNotFound, rec.Code)
+	}
+}
+
+func createDealForRouter(t *testing.T) *deal.Deal {
+	t.Helper()
+	now := time.Now().UTC()
+	projection := deal.NewDealProjection(
+		"auc-router",
+		"sup-router",
+		deal.ProductSnapshot{ProductID: "prod-router", Name: "Fish"},
+		100,
+		now.Add(-time.Hour),
+	)
+	factory := deal.NewFactory()
+	item, _, err := factory.CreateFromProjection(projection, "buyer-router", 120, now)
+	if err != nil {
+		t.Fatalf("factory error: %v", err)
+	}
+	return item
 }
 
 func mustNewPrepareContract(t *testing.T, uow app.UnitOfWork) *app.PrepareContract {
@@ -161,47 +266,11 @@ func mustNewRequestPayment(t *testing.T, uow app.UnitOfWork) *app.RequestPayment
 	return uc
 }
 
-func mustNewMarkDealPaid(t *testing.T, uow app.UnitOfWork) *app.MarkDealPaid {
-	t.Helper()
-	uc, err := app.NewMarkDealPaid(uow)
-	if err != nil {
-		t.Fatalf("mark paid constructor error: %v", err)
-	}
-	return uc
-}
-
 func mustNewRequestShipment(t *testing.T, uow app.UnitOfWork) *app.RequestShipment {
 	t.Helper()
 	uc, err := app.NewRequestShipment(uow)
 	if err != nil {
 		t.Fatalf("request shipment constructor error: %v", err)
-	}
-	return uc
-}
-
-func mustNewMarkDealShipped(t *testing.T, uow app.UnitOfWork) *app.MarkDealShipped {
-	t.Helper()
-	uc, err := app.NewMarkDealShipped(uow)
-	if err != nil {
-		t.Fatalf("mark shipped constructor error: %v", err)
-	}
-	return uc
-}
-
-func mustNewCompleteDeal(t *testing.T, uow app.UnitOfWork) *app.CompleteDeal {
-	t.Helper()
-	uc, err := app.NewCompleteDeal(uow)
-	if err != nil {
-		t.Fatalf("complete deal constructor error: %v", err)
-	}
-	return uc
-}
-
-func mustNewCancelDeal(t *testing.T, uow app.UnitOfWork) *app.CancelDeal {
-	t.Helper()
-	uc, err := app.NewCancelDeal(uow)
-	if err != nil {
-		t.Fatalf("cancel deal constructor error: %v", err)
 	}
 	return uc
 }

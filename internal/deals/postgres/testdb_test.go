@@ -82,6 +82,25 @@ type integrationSelectionRecord struct {
 	productOrigin         string
 }
 
+type integrationConfirmationRecord struct {
+	confirmationID        string
+	dealID                string
+	stage                 string
+	requestedByUserID     string
+	requestedByCompanyID  string
+	counterpartyCompanyID string
+	status                string
+	verificationMethod    string
+	verificationTokenHash sql.NullString
+	signatureRef          sql.NullString
+	requestedAt           time.Time
+	approvedAt            sql.NullTime
+	rejectedAt            sql.NullTime
+	expiresAt             sql.NullTime
+	comment               sql.NullString
+	reason                sql.NullString
+}
+
 type integrationOutboxRecord struct {
 	id            string
 	eventType     string
@@ -97,11 +116,12 @@ type integrationOutboxRecord struct {
 }
 
 type integrationStore struct {
-	mu          sync.Mutex
-	deals       map[string]integrationDealRecord
-	projections map[string]integrationProjectionRecord
-	selections  map[string]integrationSelectionRecord
-	outbox      []integrationOutboxRecord
+	mu            sync.Mutex
+	deals         map[string]integrationDealRecord
+	confirmations map[string]integrationConfirmationRecord
+	projections   map[string]integrationProjectionRecord
+	selections    map[string]integrationSelectionRecord
+	outbox        []integrationOutboxRecord
 }
 
 type integrationDriver struct {
@@ -119,10 +139,11 @@ func (d *integrationDriver) Open(name string) (driver.Conn, error) {
 	store, ok := d.stores[name]
 	if !ok {
 		store = &integrationStore{
-			deals:       make(map[string]integrationDealRecord),
-			projections: make(map[string]integrationProjectionRecord),
-			selections:  make(map[string]integrationSelectionRecord),
-			outbox:      make([]integrationOutboxRecord, 0),
+			deals:         make(map[string]integrationDealRecord),
+			confirmations: make(map[string]integrationConfirmationRecord),
+			projections:   make(map[string]integrationProjectionRecord),
+			selections:    make(map[string]integrationSelectionRecord),
+			outbox:        make([]integrationOutboxRecord, 0),
 		}
 		d.stores[name] = store
 	}
@@ -147,6 +168,8 @@ func (c *integrationConn) ExecContext(_ context.Context, query string, args []dr
 	switch {
 	case strings.Contains(query, "INSERT INTO deals"):
 		return c.execDealInsert(args)
+	case strings.Contains(query, "INSERT INTO deal_confirmations"):
+		return c.execConfirmationInsert(args)
 	case strings.Contains(query, "INSERT INTO deal_projections"):
 		return c.execProjectionInsert(args)
 	case strings.Contains(query, "INSERT INTO deal_winner_selections"):
@@ -163,36 +186,83 @@ func (c *integrationConn) ExecContext(_ context.Context, query string, args []dr
 }
 
 func (c *integrationConn) QueryContext(_ context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
-	if len(args) != 1 {
-		return nil, errors.New("unexpected query args length")
-	}
-	arg := args[0].Value.(string)
 	switch {
 	case strings.Contains(query, "FROM deals") && strings.Contains(query, "WHERE deal_id"):
+		if len(args) != 1 {
+			return nil, errors.New("unexpected query args length")
+		}
+		arg := args[0].Value.(string)
 		record, ok := c.lookupDealByID(arg)
 		if !ok {
 			return &integrationRows{}, nil
 		}
 		return &integrationRows{values: [][]driver.Value{dealRow(record)}}, nil
 	case strings.Contains(query, "FROM deals") && strings.Contains(query, "WHERE auction_id"):
+		if len(args) != 1 {
+			return nil, errors.New("unexpected query args length")
+		}
+		arg := args[0].Value.(string)
 		record, ok := c.lookupDealByAuctionID(arg)
 		if !ok {
 			return &integrationRows{}, nil
 		}
 		return &integrationRows{values: [][]driver.Value{dealRow(record)}}, nil
+	case strings.Contains(query, "FROM deal_confirmations") && strings.Contains(query, "WHERE confirmation_id"):
+		if len(args) != 1 {
+			return nil, errors.New("unexpected query args length")
+		}
+		arg := args[0].Value.(string)
+		record, ok := c.lookupConfirmationByID(arg)
+		if !ok {
+			return &integrationRows{}, nil
+		}
+		return &integrationRows{values: [][]driver.Value{confirmationRow(record)}}, nil
+	case strings.Contains(query, "FROM deal_confirmations") && strings.Contains(query, "WHERE deal_id = $1 AND stage = $2"):
+		if len(args) != 2 {
+			return nil, errors.New("unexpected confirmation pending args length")
+		}
+		dealID := args[0].Value.(string)
+		stage := args[1].Value.(string)
+		record, ok := c.lookupPendingConfirmation(dealID, stage)
+		if !ok {
+			return &integrationRows{}, nil
+		}
+		return &integrationRows{values: [][]driver.Value{confirmationRow(record)}}, nil
+	case strings.Contains(query, "FROM deal_confirmations") && strings.Contains(query, "WHERE deal_id = $1"):
+		if len(args) != 1 {
+			return nil, errors.New("unexpected confirmation list args length")
+		}
+		dealID := args[0].Value.(string)
+		records := c.lookupConfirmationsByDealID(dealID)
+		values := make([][]driver.Value, 0, len(records))
+		for _, record := range records {
+			values = append(values, confirmationRow(record))
+		}
+		return &integrationRows{values: values}, nil
 	case strings.Contains(query, "FROM deal_projections"):
+		if len(args) != 1 {
+			return nil, errors.New("unexpected query args length")
+		}
+		arg := args[0].Value.(string)
 		record, ok := c.lookupProjection(arg)
 		if !ok {
 			return &integrationRows{}, nil
 		}
 		return &integrationRows{values: [][]driver.Value{projectionRow(record)}}, nil
 	case strings.Contains(query, "FROM deal_winner_selections"):
+		if len(args) != 1 {
+			return nil, errors.New("unexpected query args length")
+		}
+		arg := args[0].Value.(string)
 		record, ok := c.lookupSelection(arg)
 		if !ok {
 			return &integrationRows{}, nil
 		}
 		return &integrationRows{values: [][]driver.Value{selectionRow(record)}}, nil
 	case strings.Contains(query, "FROM outbox_messages"):
+		if len(args) != 1 {
+			return nil, errors.New("unexpected query args length")
+		}
 		rows := c.lookupOutbox(toInt64(args[0].Value))
 		values := make([][]driver.Value, 0, len(rows))
 		for _, row := range rows {
@@ -275,6 +345,34 @@ func (c *integrationConn) execProjectionInsert(args []driver.NamedValue) (driver
 	c.store.mu.Lock()
 	defer c.store.mu.Unlock()
 	c.store.projections[record.auctionID] = record
+	return driver.RowsAffected(1), nil
+}
+
+func (c *integrationConn) execConfirmationInsert(args []driver.NamedValue) (driver.Result, error) {
+	if len(args) != 16 {
+		return nil, errors.New("unexpected confirmation args length")
+	}
+	record := integrationConfirmationRecord{
+		confirmationID:        args[0].Value.(string),
+		dealID:                args[1].Value.(string),
+		stage:                 args[2].Value.(string),
+		requestedByUserID:     args[3].Value.(string),
+		requestedByCompanyID:  args[4].Value.(string),
+		counterpartyCompanyID: args[5].Value.(string),
+		status:                args[6].Value.(string),
+		verificationMethod:    args[7].Value.(string),
+		verificationTokenHash: toNullString(args[8].Value),
+		signatureRef:          toNullString(args[9].Value),
+		requestedAt:           args[10].Value.(time.Time),
+		approvedAt:            toNullTime(args[11].Value),
+		rejectedAt:            toNullTime(args[12].Value),
+		expiresAt:             toNullTime(args[13].Value),
+		comment:               toNullString(args[14].Value),
+		reason:                toNullString(args[15].Value),
+	}
+	c.store.mu.Lock()
+	defer c.store.mu.Unlock()
+	c.store.confirmations[record.confirmationID] = record
 	return driver.RowsAffected(1), nil
 }
 
@@ -396,6 +494,36 @@ func (c *integrationConn) lookupProjection(auctionID string) (integrationProject
 	defer c.store.mu.Unlock()
 	record, ok := c.store.projections[auctionID]
 	return record, ok
+}
+
+func (c *integrationConn) lookupConfirmationByID(id string) (integrationConfirmationRecord, bool) {
+	c.store.mu.Lock()
+	defer c.store.mu.Unlock()
+	record, ok := c.store.confirmations[id]
+	return record, ok
+}
+
+func (c *integrationConn) lookupPendingConfirmation(dealID, stage string) (integrationConfirmationRecord, bool) {
+	c.store.mu.Lock()
+	defer c.store.mu.Unlock()
+	for _, record := range c.store.confirmations {
+		if record.dealID == dealID && record.stage == stage && record.status == "pending" {
+			return record, true
+		}
+	}
+	return integrationConfirmationRecord{}, false
+}
+
+func (c *integrationConn) lookupConfirmationsByDealID(dealID string) []integrationConfirmationRecord {
+	c.store.mu.Lock()
+	defer c.store.mu.Unlock()
+	records := make([]integrationConfirmationRecord, 0)
+	for _, record := range c.store.confirmations {
+		if record.dealID == dealID {
+			records = append(records, record)
+		}
+	}
+	return records
 }
 
 func (c *integrationConn) lookupSelection(auctionID string) (integrationSelectionRecord, bool) {
@@ -534,6 +662,27 @@ func selectionRow(record integrationSelectionRecord) []driver.Value {
 		record.productProcessingType,
 		record.productVolume,
 		record.productOrigin,
+	}
+}
+
+func confirmationRow(record integrationConfirmationRecord) []driver.Value {
+	return []driver.Value{
+		record.confirmationID,
+		record.dealID,
+		record.stage,
+		record.requestedByUserID,
+		record.requestedByCompanyID,
+		record.counterpartyCompanyID,
+		record.status,
+		record.verificationMethod,
+		nullStringValue(record.verificationTokenHash),
+		nullStringValue(record.signatureRef),
+		record.requestedAt,
+		nullTimeValue(record.approvedAt),
+		nullTimeValue(record.rejectedAt),
+		nullTimeValue(record.expiresAt),
+		nullStringValue(record.comment),
+		nullStringValue(record.reason),
 	}
 }
 

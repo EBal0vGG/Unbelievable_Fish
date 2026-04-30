@@ -26,6 +26,19 @@ type PrepareContractRequest struct {
 	DocumentURL    string `json:"document_url"`
 }
 
+type RequestDealConfirmationRequest struct {
+	Stage                 string     `json:"stage"`
+	VerificationMethod    string     `json:"verification_method"`
+	VerificationTokenHash string     `json:"verification_token_hash,omitempty"`
+	SignatureRef          string     `json:"signature_ref,omitempty"`
+	Comment               string     `json:"comment,omitempty"`
+	ExpiresAt             *time.Time `json:"expires_at,omitempty"`
+}
+
+type RejectDealConfirmationRequest struct {
+	Reason string `json:"reason,omitempty"`
+}
+
 type SignContractRequest struct {
 	SignatureRef string `json:"signature_ref"`
 }
@@ -73,6 +86,25 @@ type ContractInfoDTO struct {
 	SignedBy     string     `json:"signed_by,omitempty"`
 	SignatureRef string     `json:"signature_ref,omitempty"`
 	DocumentURL  string     `json:"document_url,omitempty"`
+}
+
+type DealConfirmationResponse struct {
+	ID                    string     `json:"id"`
+	DealID                string     `json:"deal_id"`
+	Stage                 string     `json:"stage"`
+	RequestedByUserID     string     `json:"requested_by_user_id"`
+	RequestedByCompanyID  string     `json:"requested_by_company_id"`
+	CounterpartyCompanyID string     `json:"counterparty_company_id"`
+	Status                string     `json:"status"`
+	VerificationMethod    string     `json:"verification_method"`
+	VerificationTokenHash string     `json:"verification_token_hash,omitempty"`
+	SignatureRef          string     `json:"signature_ref,omitempty"`
+	RequestedAt           time.Time  `json:"requested_at"`
+	ApprovedAt            *time.Time `json:"approved_at,omitempty"`
+	RejectedAt            *time.Time `json:"rejected_at,omitempty"`
+	ExpiresAt             *time.Time `json:"expires_at,omitempty"`
+	Comment               string     `json:"comment,omitempty"`
+	Reason                string     `json:"reason,omitempty"`
 }
 
 type DealResponse struct {
@@ -162,6 +194,27 @@ func NewProjectionResponse(item *deal.DealProjection) ProjectionResponse {
 		PublishedAt:     item.PublishedAt,
 		Status:          string(item.Status),
 		ProductSnapshot: NewProductSnapshotDTO(item.ProductSnapshot),
+	}
+}
+
+func NewDealConfirmationResponse(item *deal.DealConfirmation) DealConfirmationResponse {
+	return DealConfirmationResponse{
+		ID:                    item.ID(),
+		DealID:                item.DealID(),
+		Stage:                 string(item.Stage()),
+		RequestedByUserID:     item.RequestedByUserID(),
+		RequestedByCompanyID:  item.RequestedByCompanyID(),
+		CounterpartyCompanyID: item.CounterpartyCompanyID(),
+		Status:                string(item.Status()),
+		VerificationMethod:    string(item.VerificationMethod()),
+		VerificationTokenHash: item.VerificationTokenHash(),
+		SignatureRef:          item.SignatureRef(),
+		RequestedAt:           item.RequestedAt(),
+		ApprovedAt:            item.ApprovedAt(),
+		RejectedAt:            item.RejectedAt(),
+		ExpiresAt:             item.ExpiresAt(),
+		Comment:               item.Comment(),
+		Reason:                item.Reason(),
 	}
 }
 

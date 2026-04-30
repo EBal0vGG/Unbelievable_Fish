@@ -85,6 +85,12 @@ func dealIDFor(event deal.Event) string {
 	switch e := event.(type) {
 	case deal.DealCreated:
 		return e.DealID
+	case deal.DealConfirmationRequested:
+		return e.DealID
+	case deal.DealConfirmationApproved:
+		return e.DealID
+	case deal.DealConfirmationRejected:
+		return e.DealID
 	case deal.DealConfirmed:
 		return e.DealID
 	case deal.ContractPrepared:

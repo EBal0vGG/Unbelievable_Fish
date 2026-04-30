@@ -3,16 +3,22 @@ import { mixedMeta, mockMeta } from "@/shared/api/service-helpers";
 import {
   addActivity,
   listAuctionsStore,
+  listDealConfirmationsStore,
   listDealProjectionsStore,
   listDealsStore,
+  upsertDealConfirmationStore,
   upsertDealProjectionStore,
   upsertDealStore,
 } from "@/shared/api/mock-store";
 import type {
+  DealConfirmationRecord,
+  DealConfirmationStage,
+  DealConfirmationStatus,
   DealContractRecord,
   DealProjectionRecord,
   DealRecord,
   DealStatus,
+  DealVerificationMethod,
   ProductSnapshot,
   ServiceMeta,
   ServiceResult,
@@ -57,6 +63,25 @@ interface DealDTO {
   product_snapshot: ProductSnapshotDTO;
 }
 
+interface DealConfirmationDTO {
+  id: string;
+  deal_id: string;
+  stage: string;
+  requested_by_user_id: string;
+  requested_by_company_id: string;
+  counterparty_company_id: string;
+  status: string;
+  verification_method: string;
+  verification_token_hash?: string;
+  signature_ref?: string;
+  requested_at: string;
+  approved_at?: string;
+  rejected_at?: string;
+  expires_at?: string;
+  comment?: string;
+  reason?: string;
+}
+
 interface ProjectionDTO {
   auction_id: string;
   supplier_id: string;
@@ -67,15 +92,13 @@ interface ProjectionDTO {
 }
 
 export type DealActionInput =
-  | { type: "confirm" }
+  | { type: "requestConfirmation"; stage: DealConfirmationStage; verificationMethod: DealVerificationMethod; comment?: string }
+  | { type: "approveConfirmation"; confirmationId: string }
+  | { type: "rejectConfirmation"; confirmationId: string; reason?: string }
   | { type: "prepareContract"; contractNumber?: string; documentUrl?: string }
   | { type: "signContract"; signatureRef: string }
   | { type: "requestPayment"; invoiceNumber: string; dueDate?: string }
-  | { type: "markPaid"; paymentId: string; paymentType: string }
   | { type: "requestShipment" }
-  | { type: "markShipped"; trackingNumber: string; carrier: string }
-  | { type: "complete" }
-  | { type: "cancel"; reason: string }
   | { type: "updatePrice"; newPrice: number };
 
 const dealStatuses: DealStatus[] = [
@@ -140,6 +163,67 @@ function mapDeal(dto: DealDTO, source: DealRecord["source"] = "api"): DealRecord
     confirmedAt: dto.confirmed_at,
     contract: mapContract(dto.contract),
     productSnapshot: mapSnapshot(dto.product_snapshot),
+    source,
+  };
+}
+
+function mapConfirmationStatus(value: string): DealConfirmationStatus {
+  switch (value) {
+    case "pending":
+    case "approved":
+    case "rejected":
+    case "expired":
+      return value;
+    default:
+      return "pending";
+  }
+}
+
+function mapConfirmationStage(value: string): DealConfirmationStage {
+  switch (value) {
+    case "confirmed":
+    case "paid":
+    case "shipped":
+    case "completed":
+    case "cancelled":
+      return value;
+    default:
+      return "confirmed";
+  }
+}
+
+function mapVerificationMethod(value: string): DealVerificationMethod {
+  switch (value) {
+    case "manual":
+    case "email":
+    case "signature":
+      return value;
+    default:
+      return "manual";
+  }
+}
+
+function mapConfirmation(
+  dto: DealConfirmationDTO,
+  source: DealConfirmationRecord["source"] = "api",
+): DealConfirmationRecord {
+  return {
+    id: dto.id,
+    dealId: dto.deal_id,
+    stage: mapConfirmationStage(dto.stage),
+    requestedByUserId: dto.requested_by_user_id,
+    requestedByCompanyId: dto.requested_by_company_id,
+    counterpartyCompanyId: dto.counterparty_company_id,
+    status: mapConfirmationStatus(dto.status),
+    verificationMethod: mapVerificationMethod(dto.verification_method),
+    verificationTokenHash: dto.verification_token_hash,
+    signatureRef: dto.signature_ref,
+    requestedAt: dto.requested_at,
+    approvedAt: dto.approved_at,
+    rejectedAt: dto.rejected_at,
+    expiresAt: dto.expires_at,
+    comment: dto.comment,
+    reason: dto.reason,
     source,
   };
 }
@@ -311,10 +395,55 @@ export async function listDeals(session: UserSession | null): Promise<ServiceRes
   };
 }
 
+export async function listDealConfirmations(
+  dealId: string,
+  session: UserSession | null,
+): Promise<ServiceResult<DealConfirmationRecord[]>> {
+  if (!session?.companyId) {
+    return {
+      data: [],
+      meta: mockMeta("Подтверждения доступны только участникам сделки."),
+    };
+  }
+
+  try {
+    const data = await apiRequest<DealConfirmationDTO[]>("deals", `/deals/${dealId}/confirmations`, { session });
+    const confirmations = data.map((item) => upsertDealConfirmationStore(mapConfirmation(item)));
+    return {
+      data: confirmations,
+      meta: { source: "api" },
+    };
+  } catch (error) {
+    if (!isRecoverableApiGap(error)) {
+      throw error;
+    }
+    return {
+      data: listDealConfirmationsStore(dealId),
+      meta: mockMeta("Confirmation API is unavailable, using local approval mirror."),
+    };
+  }
+}
+
 function actionToRequest(input: DealActionInput): { pathSuffix: string; body?: unknown } {
   switch (input.type) {
-    case "confirm":
-      return { pathSuffix: "confirm" };
+    case "requestConfirmation":
+      return {
+        pathSuffix: "confirmations",
+        body: {
+          stage: input.stage,
+          verification_method: input.verificationMethod,
+          comment: input.comment,
+        },
+      };
+    case "approveConfirmation":
+      return { pathSuffix: `confirmations/${input.confirmationId}/approve` };
+    case "rejectConfirmation":
+      return {
+        pathSuffix: `confirmations/${input.confirmationId}/reject`,
+        body: {
+          reason: input.reason,
+        },
+      };
     case "prepareContract":
       return {
         pathSuffix: "contract/prepare",
@@ -338,33 +467,8 @@ function actionToRequest(input: DealActionInput): { pathSuffix: string; body?: u
           due_date: input.dueDate ? new Date(input.dueDate).toISOString() : undefined,
         },
       };
-    case "markPaid":
-      return {
-        pathSuffix: "payment/mark-paid",
-        body: {
-          payment_id: input.paymentId,
-          payment_type: input.paymentType,
-        },
-      };
     case "requestShipment":
       return { pathSuffix: "shipment/request" };
-    case "markShipped":
-      return {
-        pathSuffix: "shipment/mark-shipped",
-        body: {
-          tracking_number: input.trackingNumber,
-          carrier: input.carrier,
-        },
-      };
-    case "complete":
-      return { pathSuffix: "complete" };
-    case "cancel":
-      return {
-        pathSuffix: "cancel",
-        body: {
-          reason: input.reason,
-        },
-      };
     case "updatePrice":
       return {
         pathSuffix: "price",
@@ -383,8 +487,25 @@ function applyLocalDealAction(
   const now = new Date().toISOString();
 
   switch (input.type) {
-    case "confirm":
-      return { ...deal, status: "confirmed", confirmedAt: now, source: "mock" };
+    case "requestConfirmation":
+      return { ...deal, source: "mock" };
+    case "approveConfirmation":
+      switch (listDealConfirmationsStore(deal.id).find((item) => item.id === input.confirmationId)?.stage) {
+        case "confirmed":
+          return { ...deal, status: "confirmed", confirmedAt: now, source: "mock" };
+        case "paid":
+          return { ...deal, status: "paid", source: "mock" };
+        case "shipped":
+          return { ...deal, status: "shipped", source: "mock" };
+        case "completed":
+          return { ...deal, status: "completed", source: "mock" };
+        case "cancelled":
+          return { ...deal, status: "cancelled", source: "mock" };
+        default:
+          return { ...deal, source: "mock" };
+      }
+    case "rejectConfirmation":
+      return { ...deal, source: "mock" };
     case "prepareContract":
       return {
         ...deal,
@@ -411,16 +532,8 @@ function applyLocalDealAction(
       };
     case "requestPayment":
       return { ...deal, status: "payment_requested", source: "mock" };
-    case "markPaid":
-      return { ...deal, status: "paid", source: "mock" };
     case "requestShipment":
       return { ...deal, status: "shipment_requested", source: "mock" };
-    case "markShipped":
-      return { ...deal, status: "shipped", source: "mock" };
-    case "complete":
-      return { ...deal, status: "completed", source: "mock" };
-    case "cancel":
-      return { ...deal, status: "cancelled", source: "mock" };
     case "updatePrice":
       return {
         ...deal,
@@ -428,6 +541,75 @@ function applyLocalDealAction(
         totalAmount: deal.quantity * input.newPrice,
         source: "mock",
       };
+  }
+}
+
+function applyLocalConfirmationAction(
+  deal: DealRecord,
+  input: DealActionInput,
+  session: UserSession | null,
+): void {
+  const now = new Date().toISOString();
+
+  switch (input.type) {
+    case "requestConfirmation":
+      upsertDealConfirmationStore({
+        id: `confirmation-${Date.now()}`,
+        dealId: deal.id,
+        stage: input.stage,
+        requestedByUserId: session?.userId ?? "local-user",
+        requestedByCompanyId: session?.companyId ?? "local-company",
+        counterpartyCompanyId:
+          session?.companyId === deal.supplierId ? deal.customerId : deal.supplierId,
+        status: "pending",
+        verificationMethod: input.verificationMethod,
+        requestedAt: now,
+        comment: input.comment,
+        source: "mock",
+      });
+      return;
+    case "approveConfirmation": {
+      const confirmation = listDealConfirmationsStore(deal.id).find((item) => item.id === input.confirmationId);
+      if (!confirmation) {
+        return;
+      }
+      upsertDealConfirmationStore({
+        ...confirmation,
+        status: "approved",
+        approvedAt: now,
+        source: "mock",
+      });
+      return;
+    }
+    case "rejectConfirmation": {
+      const confirmation = listDealConfirmationsStore(deal.id).find((item) => item.id === input.confirmationId);
+      if (!confirmation) {
+        return;
+      }
+      upsertDealConfirmationStore({
+        ...confirmation,
+        status: "rejected",
+        rejectedAt: now,
+        reason: input.reason,
+        source: "mock",
+      });
+      return;
+    }
+    default:
+      return;
+  }
+}
+
+function actionActivityText(input: DealActionInput, deal: DealRecord): string {
+  switch (input.type) {
+    case "requestConfirmation":
+      return `Создан запрос подтверждения этапа ${input.stage} по сделке ${deal.id}`;
+    case "approveConfirmation":
+      return `Подтверждение по сделке ${deal.id} одобрено`;
+    case "rejectConfirmation":
+      return `Подтверждение по сделке ${deal.id} отклонено`;
+    default:
+      return `${deal.id} · ${deal.status}`;
   }
 }
 
@@ -467,8 +649,9 @@ export async function runDealAction(
       throw new ApiError("Сделка доступна только ее участникам", 403, "DEAL_FORBIDDEN");
     }
 
+    applyLocalConfirmationAction(existing, input, session);
     const next = upsertDealStore(applyLocalDealAction(existing, input, session));
-    addActivity("Сделка обновлена", `${next.id} · ${next.status}`, session);
+    addActivity("Сделка обновлена", actionActivityText(input, next), session);
     return {
       data: next,
       meta: mockMeta("Deal command API is unavailable, local lifecycle mirror was updated."),
@@ -484,13 +667,14 @@ export async function runDealAction(
     if (!canViewDeal(existing, session)) {
       throw new ApiError("Сделка доступна только ее участникам", 403, "DEAL_FORBIDDEN");
     }
+    applyLocalConfirmationAction(existing, input, session);
     const next = upsertDealStore({ ...applyLocalDealAction(existing, input, session), source: "mixed" });
     meta = mixedMeta("Deal command was accepted, but the read-model is not refreshed yet.");
-    addActivity("Сделка обновлена", `${next.id} · ${next.status}`, session);
+    addActivity("Сделка обновлена", actionActivityText(input, next), session);
     return { data: next, meta };
   }
 
-  addActivity("Сделка обновлена", `${refreshed.data.id} · ${refreshed.data.status}`, session);
+  addActivity("Сделка обновлена", actionActivityText(input, refreshed.data), session);
   return {
     data: refreshed.data,
     meta,
