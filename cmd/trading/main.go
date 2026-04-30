@@ -2,8 +2,6 @@ package main
 
 import (
 	"database/sql"
-	"encoding/json"
-	"log/slog"
 	"net/http"
 	"os"
 	"strconv"
@@ -12,6 +10,7 @@ import (
 	identityauth "github.com/EBal0vGG/Unbelievable_Fish/internal/identity/auth"
 	identity "github.com/EBal0vGG/Unbelievable_Fish/internal/identity/domain"
 	"github.com/EBal0vGG/Unbelievable_Fish/internal/infra/httplog"
+	"github.com/EBal0vGG/Unbelievable_Fish/internal/infra/httpauth"
 	"github.com/EBal0vGG/Unbelievable_Fish/internal/infra/logging"
 	tradingapp "github.com/EBal0vGG/Unbelievable_Fish/internal/trading/app"
 	httpapi "github.com/EBal0vGG/Unbelievable_Fish/internal/trading/http"
@@ -57,26 +56,7 @@ func main() {
 		envOrDefault("IDENTITY_TOKEN_SECRET", "dev-secret"),
 		envDurationMinutes("IDENTITY_TOKEN_TTL_MINUTES", 24*60),
 	)
-	authMiddleware := identityauth.NewMiddleware(tokenProvider, func(w http.ResponseWriter, r *http.Request, err error) {
-		httpErr := httpapi.MapError(err)
-		slog.WarnContext(
-			r.Context(),
-			"trading_auth_error",
-			"component", "auth.middleware",
-			"status", httpErr.Status,
-			"code", httpErr.Code,
-			"message", httpErr.Message,
-			"correlation_id", r.Header.Get("X-Correlation-ID"),
-			"causation_id", r.Header.Get("X-Causation-ID"),
-			"error", err,
-		)
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(httpErr.Status)
-		_ = json.NewEncoder(w).Encode(httpapi.ErrorResponse{
-			Code:    httpErr.Code,
-			Message: httpErr.Message,
-		})
-	})
+	authMiddleware := identityauth.NewMiddleware(tokenProvider, httpauth.JSONErrorHandler("trading_auth_error"))
 
 	router := httpapi.NewRouter(
 		authMiddleware.RequireRole(identity.RoleSeller, handler.NewPublishAuctionHandler(publishAuctionUC)),

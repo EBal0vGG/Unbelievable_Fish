@@ -2,8 +2,6 @@ package main
 
 import (
 	"database/sql"
-	"encoding/json"
-	"log/slog"
 	"net/http"
 	"os"
 	"strconv"
@@ -15,6 +13,7 @@ import (
 	dealspg "github.com/EBal0vGG/Unbelievable_Fish/internal/deals/postgres"
 	identityauth "github.com/EBal0vGG/Unbelievable_Fish/internal/identity/auth"
 	"github.com/EBal0vGG/Unbelievable_Fish/internal/infra/httplog"
+	"github.com/EBal0vGG/Unbelievable_Fish/internal/infra/httpauth"
 	"github.com/EBal0vGG/Unbelievable_Fish/internal/infra/logging"
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
@@ -68,26 +67,7 @@ func main() {
 		envDurationMinutes("IDENTITY_TOKEN_TTL_MINUTES", 24*60),
 	)
 
-	authMiddleware := identityauth.NewMiddleware(tokenProvider, func(w http.ResponseWriter, r *http.Request, err error) {
-		httpErr := httpapi.MapError(err)
-		slog.WarnContext(
-			r.Context(),
-			"deals_auth_error",
-			"component", "auth.middleware",
-			"status", httpErr.Status,
-			"code", httpErr.Code,
-			"message", httpErr.Message,
-			"correlation_id", r.Header.Get("X-Correlation-ID"),
-			"causation_id", r.Header.Get("X-Causation-ID"),
-			"error", err,
-		)
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(httpErr.Status)
-		_ = json.NewEncoder(w).Encode(httpapi.ErrorResponse{
-			Code:    httpErr.Code,
-			Message: httpErr.Message,
-		})
-	})
+	authMiddleware := identityauth.NewMiddleware(tokenProvider, httpauth.JSONErrorHandler("deals_auth_error"))
 	router := httpapi.NewRouter(
 		handler.NewGetProjectionByAuctionIDHandler(dealsapp.NewGetProjectionByAuctionID(projectionRepo)),
 		handler.NewGetDealByIDHandler(dealsapp.NewGetDealByID(dealRepo)),
