@@ -20,6 +20,7 @@ type integrationLotRecord struct {
 	photo           sql.NullString
 	quantity        float64
 	startPrice      int64
+	minBidStep      int64
 	curPrice        int64
 	finalPrice      int64
 	status          string
@@ -123,7 +124,7 @@ func (c *integrationConn) ExecContext(_ context.Context, query string, args []dr
 }
 
 func (c *integrationConn) execLotInsert(args []driver.NamedValue) (driver.Result, error) {
-	if len(args) != 12 {
+	if len(args) != 13 {
 		return nil, errors.New("unexpected lot args length")
 	}
 
@@ -135,11 +136,12 @@ func (c *integrationConn) execLotInsert(args []driver.NamedValue) (driver.Result
 		photo:           toIntegrationNullString(args[4].Value),
 		quantity:        args[5].Value.(float64),
 		startPrice:      args[6].Value.(int64),
-		curPrice:        args[7].Value.(int64),
-		finalPrice:      args[8].Value.(int64),
-		status:          args[9].Value.(string),
-		auctionStartsAt: args[10].Value.(time.Time),
-		auctionDurationMinutes: args[11].Value.(int64),
+		minBidStep:      args[7].Value.(int64),
+		curPrice:        args[8].Value.(int64),
+		finalPrice:      args[9].Value.(int64),
+		status:          args[10].Value.(string),
+		auctionStartsAt: args[11].Value.(time.Time),
+		auctionDurationMinutes: args[12].Value.(int64),
 	}
 
 	if c.txLots != nil {
@@ -218,6 +220,7 @@ func (c *integrationConn) QueryContext(_ context.Context, query string, args []d
 			integrationNullStringValue(record.photo),
 			record.quantity,
 			record.startPrice,
+			record.minBidStep,
 			record.curPrice,
 			record.finalPrice,
 			record.status,
@@ -298,6 +301,7 @@ func (integrationRows) Columns() []string {
 		"photo",
 		"quantity",
 		"start_price",
+		"min_bid_step",
 		"cur_price",
 		"final_price",
 		"status",

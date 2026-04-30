@@ -1,8 +1,6 @@
 package deal
 
-import (
-	"time"
-)
+import "time"
 
 // Factory - создает сделки из проекций
 type Factory struct{}
@@ -38,17 +36,19 @@ func (f *Factory) CreateFromProjection(
 	}
 
 	// Создаем сделку
+	contractSignDeadline := wonAt.Add(24 * time.Hour)
 	deal := &Deal{
-		id:              generateID(),
-		customerID:      winnerCompanyID,
-		supplierID:      projection.SupplierID,
-		auctionID:       projection.AuctionID,
-		quantity:        1,
-		unitPrice:       finalPrice,
-		status:          DealStatusPending,
-		typeName:        DealTypeAuction,
-		createdAt:       wonAt, // время победы = время создания сделки
-		productSnapshot: projection.ProductSnapshot,
+		id:                   generateID(),
+		customerID:           winnerCompanyID,
+		supplierID:           projection.SupplierID,
+		auctionID:            projection.AuctionID,
+		quantity:             1,
+		unitPrice:            finalPrice,
+		status:               DealStatusPending,
+		typeName:             DealTypeAuction,
+		createdAt:            wonAt, // время победы = время создания сделки
+		contractSignDeadline: &contractSignDeadline,
+		productSnapshot:      projection.ProductSnapshot,
 	}
 
 	events := []Event{
@@ -93,18 +93,20 @@ func (f *Factory) CreateFromSelection(
 	if wonAt.IsZero() {
 		return nil, nil, ErrCreatedAtRequired
 	}
+	contractSignDeadline := wonAt.Add(24 * time.Hour)
 
 	item := &Deal{
-		id:              generateID(),
-		customerID:      winnerCompanyID,
-		supplierID:      supplierID,
-		auctionID:       auctionID,
-		quantity:        1,
-		unitPrice:       finalPrice,
-		status:          DealStatusPending,
-		typeName:        DealTypeAuction,
-		createdAt:       wonAt,
-		productSnapshot: snapshot,
+		id:                   generateID(),
+		customerID:           winnerCompanyID,
+		supplierID:           supplierID,
+		auctionID:            auctionID,
+		quantity:             1,
+		unitPrice:            finalPrice,
+		status:               DealStatusPending,
+		typeName:             DealTypeAuction,
+		createdAt:            wonAt,
+		contractSignDeadline: &contractSignDeadline,
+		productSnapshot:      snapshot,
 	}
 
 	events := []Event{

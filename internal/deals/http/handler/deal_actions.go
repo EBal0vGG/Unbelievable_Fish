@@ -4,8 +4,102 @@ import (
 	"net/http"
 
 	"github.com/EBal0vGG/Unbelievable_Fish/internal/deals/app"
+	"github.com/EBal0vGG/Unbelievable_Fish/internal/deals/deal"
 	httpapi "github.com/EBal0vGG/Unbelievable_Fish/internal/deals/http"
 )
+
+type RequestDealConfirmationHandler struct{ uc *app.RequestDealConfirmation }
+
+func NewRequestDealConfirmationHandler(uc *app.RequestDealConfirmation) *RequestDealConfirmationHandler {
+	return &RequestDealConfirmationHandler{uc: uc}
+}
+
+func (h *RequestDealConfirmationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	meta, err := readCommandMeta(r)
+	if err != nil {
+		writeError(w, err, meta)
+		return
+	}
+	dealID, err := readDealIDFromPath(r.URL.Path, "confirmations")
+	if err != nil {
+		writeError(w, err, meta)
+		return
+	}
+	var req httpapi.RequestDealConfirmationRequest
+	if err := decodeJSON(r, &req); err != nil {
+		writeError(w, httpapi.BadRequest("INVALID_BODY", "invalid request body"), meta)
+		return
+	}
+
+	confirmation, err := h.uc.Execute(r.Context(), meta, dealID, app.RequestDealConfirmationCommand{
+		Stage:                 deal.DealConfirmationStage(req.Stage),
+		VerificationMethod:    deal.VerificationMethod(req.VerificationMethod),
+		VerificationTokenHash: req.VerificationTokenHash,
+		SignatureRef:          req.SignatureRef,
+		Comment:               req.Comment,
+		ExpiresAt:             req.ExpiresAt,
+	})
+	if err != nil {
+		writeError(w, err, meta)
+		return
+	}
+	writeCreatedJSON(w, httpapi.NewDealConfirmationResponse(confirmation))
+}
+
+type ApproveDealConfirmationHandler struct{ uc *app.ApproveDealConfirmation }
+
+func NewApproveDealConfirmationHandler(uc *app.ApproveDealConfirmation) *ApproveDealConfirmationHandler {
+	return &ApproveDealConfirmationHandler{uc: uc}
+}
+
+func (h *ApproveDealConfirmationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	meta, err := readCommandMeta(r)
+	if err != nil {
+		writeError(w, err, meta)
+		return
+	}
+	dealID, confirmationID, err := readConfirmationIDsFromPath(r.URL.Path, "approve")
+	if err != nil {
+		writeError(w, err, meta)
+		return
+	}
+	confirmation, err := h.uc.Execute(r.Context(), meta, dealID, confirmationID)
+	if err != nil {
+		writeError(w, err, meta)
+		return
+	}
+	writeJSON(w, http.StatusOK, httpapi.NewDealConfirmationResponse(confirmation))
+}
+
+type RejectDealConfirmationHandler struct{ uc *app.RejectDealConfirmation }
+
+func NewRejectDealConfirmationHandler(uc *app.RejectDealConfirmation) *RejectDealConfirmationHandler {
+	return &RejectDealConfirmationHandler{uc: uc}
+}
+
+func (h *RejectDealConfirmationHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	meta, err := readCommandMeta(r)
+	if err != nil {
+		writeError(w, err, meta)
+		return
+	}
+	dealID, confirmationID, err := readConfirmationIDsFromPath(r.URL.Path, "reject")
+	if err != nil {
+		writeError(w, err, meta)
+		return
+	}
+	var req httpapi.RejectDealConfirmationRequest
+	if err := decodeJSON(r, &req); err != nil && r.ContentLength != 0 {
+		writeError(w, httpapi.BadRequest("INVALID_BODY", "invalid request body"), meta)
+		return
+	}
+	confirmation, err := h.uc.Execute(r.Context(), meta, dealID, confirmationID, req.Reason)
+	if err != nil {
+		writeError(w, err, meta)
+		return
+	}
+	writeJSON(w, http.StatusOK, httpapi.NewDealConfirmationResponse(confirmation))
+}
 
 type ConfirmDealHandler struct{ uc *app.ConfirmDeal }
 

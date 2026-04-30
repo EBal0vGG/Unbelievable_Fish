@@ -6,6 +6,7 @@ import (
 
 	"github.com/EBal0vGG/Unbelievable_Fish/internal/deals/app"
 	"github.com/EBal0vGG/Unbelievable_Fish/internal/deals/deal"
+	identityauth "github.com/EBal0vGG/Unbelievable_Fish/internal/identity/auth"
 )
 
 var (
@@ -25,6 +26,14 @@ func MapError(err error) HTTPError {
 	switch {
 	case errors.As(err, &badReq):
 		return HTTPError{http.StatusBadRequest, badReq.code, badReq.message}
+	case errors.Is(err, identityauth.ErrMissingAuthorizationHeader):
+		return HTTPError{http.StatusUnauthorized, "MISSING_AUTHORIZATION", "missing Authorization header"}
+	case errors.Is(err, identityauth.ErrInvalidAuthorizationHeader):
+		return HTTPError{http.StatusUnauthorized, "INVALID_AUTHORIZATION", "invalid Authorization header"}
+	case errors.Is(err, identityauth.ErrInvalidToken), errors.Is(err, identityauth.ErrExpiredToken):
+		return HTTPError{http.StatusUnauthorized, "INVALID_TOKEN", "invalid token"}
+	case errors.Is(err, identityauth.ErrForbidden):
+		return HTTPError{http.StatusForbidden, "FORBIDDEN", "forbidden"}
 	case errors.Is(err, ErrMissingCompanyID):
 		return HTTPError{http.StatusBadRequest, "MISSING_COMPANY_ID", "missing X-Company-ID header"}
 	case errors.Is(err, ErrMissingUserID):
@@ -32,9 +41,12 @@ func MapError(err error) HTTPError {
 	case errors.Is(err, ErrInvalidPath):
 		return HTTPError{http.StatusBadRequest, "INVALID_PATH", "invalid path"}
 	case errors.Is(err, app.ErrDealNotFound), errors.Is(err, deal.ErrProjectionNotFound):
-		return HTTPError{http.StatusNotFound, "NOT_FOUND", "resource not found"}
+		return HTTPError{http.StatusNotFound, "DEAL_NOT_FOUND", "deal not found"}
+	case errors.Is(err, deal.ErrConfirmationNotFound):
+		return HTTPError{http.StatusNotFound, "CONFIRMATION_NOT_FOUND", "confirmation not found"}
 	case errors.Is(err, app.ErrAuctionIDRequired),
 		errors.Is(err, app.ErrDealIDRequired),
+		errors.Is(err, app.ErrConfirmationIDRequired),
 		errors.Is(err, app.ErrWinnerCompanyRequired),
 		errors.Is(err, app.ErrWinnerCandidatesRequired),
 		errors.Is(err, app.ErrFinalPriceRequired),
@@ -53,6 +65,15 @@ func MapError(err error) HTTPError {
 		errors.Is(err, app.ErrSignedByRequired),
 		errors.Is(err, app.ErrSignatureRefRequired),
 		errors.Is(err, app.ErrStartPriceMustBePositive),
+		errors.Is(err, deal.ErrConfirmationIDRequired),
+		errors.Is(err, deal.ErrConfirmationDealIDRequired),
+		errors.Is(err, deal.ErrConfirmationStageRequired),
+		errors.Is(err, deal.ErrConfirmationStatusRequired),
+		errors.Is(err, deal.ErrVerificationMethodRequired),
+		errors.Is(err, deal.ErrRequestedAtRequired),
+		errors.Is(err, deal.ErrRequestedByUserRequired),
+		errors.Is(err, deal.ErrRequestedByCompanyRequired),
+		errors.Is(err, deal.ErrCounterpartyCompanyRequired),
 		errors.Is(err, deal.ErrPriceMustBePositive),
 		errors.Is(err, deal.ErrDealIDRequired),
 		errors.Is(err, deal.ErrCustomerIDRequired),
@@ -63,6 +84,12 @@ func MapError(err error) HTTPError {
 		errors.Is(err, deal.ErrProductNameRequired),
 		errors.Is(err, deal.ErrCreatedAtRequired):
 		return HTTPError{http.StatusBadRequest, "INVALID_BODY", "invalid request body"}
+	case errors.Is(err, deal.ErrCounterpartyRequired):
+		return HTTPError{http.StatusForbidden, "COUNTERPARTY_REQUIRED", "counterparty approval is required"}
+	case errors.Is(err, deal.ErrNotDealParticipant):
+		return HTTPError{http.StatusForbidden, "NOT_DEAL_PARTICIPANT", "company is not a deal participant"}
+	case errors.Is(err, deal.ErrConfirmationAlreadyPending):
+		return HTTPError{http.StatusConflict, "CONFIRMATION_ALREADY_PENDING", "confirmation already pending"}
 	case errors.Is(err, deal.ErrCannotConfirmDeal),
 		errors.Is(err, deal.ErrCannotPrepareContract),
 		errors.Is(err, deal.ErrContractAlreadyPrepared),
@@ -77,11 +104,16 @@ func MapError(err error) HTTPError {
 		errors.Is(err, deal.ErrCannotCompleteDeal),
 		errors.Is(err, deal.ErrCannotCancelDeal),
 		errors.Is(err, deal.ErrCannotUpdatePrice),
+		errors.Is(err, deal.ErrConfirmationNotPending),
+		errors.Is(err, deal.ErrConfirmationExpired),
+		errors.Is(err, deal.ErrConfirmationNotApproved),
+		errors.Is(err, deal.ErrConfirmationDealMismatch),
+		errors.Is(err, deal.ErrInvalidStageTransition),
 		errors.Is(err, deal.ErrContractNotPrepared),
 		errors.Is(err, deal.ErrContractNotSigned),
 		errors.Is(err, deal.ErrProjectionRequired),
 		errors.Is(err, deal.ErrProjectionNotActive):
-		return HTTPError{http.StatusConflict, "INVALID_STATE", "invalid state transition"}
+		return HTTPError{http.StatusConflict, "INVALID_STAGE_TRANSITION", "invalid stage transition"}
 	case errors.Is(err, app.ErrNoAvailableWinner):
 		return HTTPError{http.StatusConflict, "NO_AVAILABLE_WINNER", "no available winner candidates"}
 	default:

@@ -2,10 +2,15 @@ package main
 
 import (
 	"database/sql"
+	"encoding/json"
 	"log"
 	"net/http"
 	"os"
+	"strconv"
+	"time"
 
+	identityauth "github.com/EBal0vGG/Unbelievable_Fish/internal/identity/auth"
+	identity "github.com/EBal0vGG/Unbelievable_Fish/internal/identity/domain"
 	tradingapp "github.com/EBal0vGG/Unbelievable_Fish/internal/trading/app"
 	httpapi "github.com/EBal0vGG/Unbelievable_Fish/internal/trading/http"
 	"github.com/EBal0vGG/Unbelievable_Fish/internal/trading/http/handler"
@@ -21,13 +26,51 @@ func main() {
 	defer db.Close()
 
 	uow := tradingpg.NewUnitOfWork(db)
+	publishAuctionUC, err := tradingapp.NewPublishAuction(uow)
+	if err != nil {
+		log.Fatal(err)
+	}
 	placeBidUC, err := tradingapp.NewPlaceBid(uow)
 	if err != nil {
 		log.Fatal(err)
 	}
+	closeAuctionUC, err := tradingapp.NewCloseAuction(uow)
+	if err != nil {
+		log.Fatal(err)
+	}
+	cancelAuctionUC, err := tradingapp.NewCancelAuction(uow)
+	if err != nil {
+		log.Fatal(err)
+	}
+	getAuctionByLotUC, err := tradingapp.NewGetAuctionByLot(tradingpg.NewAuctionReadRepository(db))
+	if err != nil {
+		log.Fatal(err)
+	}
+	getAuctionByIDUC, err := tradingapp.NewGetAuctionByID(tradingpg.NewAuctionReadRepository(db))
+	if err != nil {
+		log.Fatal(err)
+	}
+	tokenProvider := identityauth.NewTokenProvider(
+		envOrDefault("IDENTITY_TOKEN_SECRET", "dev-secret"),
+		envDurationMinutes("IDENTITY_TOKEN_TTL_MINUTES", 24*60),
+	)
+	authMiddleware := identityauth.NewMiddleware(tokenProvider, func(w http.ResponseWriter, r *http.Request, err error) {
+		httpErr := httpapi.MapError(err)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(httpErr.Status)
+		_ = json.NewEncoder(w).Encode(httpapi.ErrorResponse{
+			Code:    httpErr.Code,
+			Message: httpErr.Message,
+		})
+	})
 
 	router := httpapi.NewRouter(
-		handler.NewPlaceBidHandler(placeBidUC),
+		authMiddleware.RequireRole(identity.RoleSeller, handler.NewPublishAuctionHandler(publishAuctionUC)),
+		authMiddleware.RequireRole(identity.RoleBuyer, handler.NewPlaceBidHandler(placeBidUC)),
+		authMiddleware.RequireRole(identity.RoleSeller, handler.NewCloseAuctionHandler(closeAuctionUC)),
+		authMiddleware.RequireRole(identity.RoleSeller, handler.NewCancelAuctionHandler(cancelAuctionUC)),
+		authMiddleware.Wrap(handler.NewGetAuctionByIDHandler(getAuctionByIDUC)),
+		authMiddleware.Wrap(handler.NewGetAuctionByLotHandler(getAuctionByLotUC)),
 	)
 
 	port := envOrDefault("TRADING_PORT", "8082")
@@ -70,4 +113,16 @@ func envOrDefault(key, def string) string {
 		return value
 	}
 	return def
+}
+
+func envDurationMinutes(key string, def int) time.Duration {
+	value := os.Getenv(key)
+	if value == "" {
+		return time.Duration(def) * time.Minute
+	}
+	minutes, err := strconv.Atoi(value)
+	if err != nil || minutes <= 0 {
+		return time.Duration(def) * time.Minute
+	}
+	return time.Duration(minutes) * time.Minute
 }

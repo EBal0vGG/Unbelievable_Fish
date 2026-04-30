@@ -1,0 +1,352 @@
+import { ApiError, apiRequest, isRecoverableApiGap } from "@/shared/api/http-client";
+import { getProjectionByAuctionId, getDealByAuctionId } from "@/shared/api/deals-service";
+import { canFallbackCommand, mixedMeta, mockMeta } from "@/shared/api/service-helpers";
+import { isSellerSession } from "@/shared/lib/access";
+import {
+  addActivity,
+  appendBidStore,
+  listAuctionsStore,
+  listBidsStore,
+  listLotsStore,
+  upsertAuctionStore,
+} from "@/shared/api/mock-store";
+import { makeClientId } from "@/shared/lib/id";
+import {
+  getBidAccessError,
+  getAuctionEndAfterBid,
+  getBidValidationError,
+} from "@/shared/lib/trading-domain";
+import type {
+  AuctionRecord,
+  BidRecord,
+  DealProjectionRecord,
+  DealRecord,
+  ServiceMeta,
+  ServiceResult,
+  UserSession,
+} from "@/shared/types/domain";
+
+interface CreateAuctionInput {
+  lotId: string;
+  startsAt: string;
+  endsAt: string;
+}
+
+interface CreateAuctionResponse {
+  auction_id?: string;
+}
+
+interface PlaceBidInput {
+  auctionId: string;
+  amount: number;
+}
+
+interface AuctionDetails {
+  auction: AuctionRecord | null;
+  bids: BidRecord[];
+  projection: DealProjectionRecord | null;
+  deal: DealRecord | null;
+}
+
+function getAuctionFallbackNote(): string {
+  return "Trading query endpoints for auction list/details are not exposed in the current backend build, using local auction mirror.";
+}
+
+function deriveAuctionFromLot(lot: ReturnType<typeof listLotsStore>[number]): AuctionRecord {
+  const startsAt = lot.auctionStartsAt;
+  const startTs = new Date(startsAt).getTime();
+  const endsAt = Number.isNaN(startTs)
+    ? new Date().toISOString()
+    : new Date(startTs + lot.auctionDurationMinutes * 60_000).toISOString();
+  return {
+    id: lot.auctionId ?? makeClientId("auction"),
+    lotId: lot.id,
+    sellerCompanyId: lot.sellerCompanyId,
+    state: lot.status === "PUBLISHED" ? "PUBLISHED" : lot.status === "CLOSED" ? "WON" : "CANCELLED",
+    startsAt,
+    endsAt,
+    currentPrice: lot.currentPrice ?? lot.startPrice,
+    minBidStep: lot.minBidStep ?? 1,
+    finalPrice: lot.finalPrice,
+    source: "mixed",
+    statusNote: "Собрано из Catalog lot read-model до появления Trading query endpoint.",
+  };
+}
+
+function getMissingTradingSessionError(session: UserSession | null): ApiError | null {
+  if (!session?.companyId) {
+    return new ApiError("Войдите в профиль, чтобы продолжить", 400, "MISSING_COMPANY_ID");
+  }
+
+  if (!session.userId) {
+    return new ApiError("Войдите в профиль, чтобы продолжить", 400, "MISSING_USER_ID");
+  }
+
+  return null;
+}
+
+function isCreateAuctionCompatibilityGap(error: unknown, session: UserSession): boolean {
+  if (!canFallbackCommand()) {
+    return false;
+  }
+  if (isRecoverableApiGap(error)) {
+    return true;
+  }
+
+  return isSellerSession(session) && error instanceof ApiError && error.status === 403 && error.code === "FORBIDDEN";
+}
+
+export async function listAuctions(): Promise<ServiceResult<AuctionRecord[]>> {
+  // TODO: replace local list once GET /auctions read-model endpoint exists in Trading.
+  const existing = listAuctionsStore().filter((item) => (canFallbackCommand() ? true : item.source !== "mock"));
+  const knownIDs = new Set(existing.map((item) => item.id));
+  const derived = listLotsStore()
+    .filter((lot) => lot.status === "PUBLISHED" || lot.status === "CLOSED" || lot.status === "CANCELLED")
+    .filter((lot) => Boolean(lot.auctionId))
+    .filter((lot) => !knownIDs.has(lot.auctionId as string))
+    .map((lot) => deriveAuctionFromLot(lot));
+
+  return {
+    data: [...derived, ...existing],
+    meta: canFallbackCommand() ? mockMeta(getAuctionFallbackNote()) : mixedMeta("Список строится только по данным backend."),
+  };
+}
+
+export async function createAuction(
+  input: CreateAuctionInput,
+  session: UserSession | null,
+): Promise<ServiceResult<AuctionRecord>> {
+  const sessionError = getMissingTradingSessionError(session);
+  if (sessionError) {
+    throw sessionError;
+  }
+  const activeSession = session as UserSession;
+  const relatedLot = listLotsStore().find((item) => item.id === input.lotId);
+  if (!relatedLot) {
+    throw new ApiError("Лот не найден", 404, "LOT_NOT_FOUND");
+  }
+  if (
+    relatedLot.sellerCompanyId !== activeSession.companyId ||
+    relatedLot.creatorUserId !== activeSession.userId
+  ) {
+    throw new ApiError("Аукцион можно создать только для собственного лота", 403, "LOT_ACCESS_DENIED");
+  }
+  if (relatedLot.status !== "PUBLISHED") {
+    throw new ApiError("Сначала опубликуйте лот", 409, "LOT_NOT_PUBLISHED");
+  }
+  if (relatedLot?.auctionId) {
+    throw new ApiError("Этот лот уже участвует в аукционе", 409, "LOT_ALREADY_LINKED");
+  }
+
+  const fallbackAuction: AuctionRecord = {
+    id: makeClientId("auction"),
+    lotId: input.lotId,
+    sellerCompanyId: relatedLot?.sellerCompanyId,
+    state: "PUBLISHED",
+    startsAt: input.startsAt,
+    endsAt: input.endsAt,
+    currentPrice: relatedLot.startPrice,
+    source: "mock",
+    statusNote: "Аукцион выставлен и готов принимать ставки.",
+  };
+
+  try {
+    const response = await apiRequest<CreateAuctionResponse>("trading", "/auctions", {
+      method: "POST",
+      session: activeSession,
+      body: {
+        lot_id: input.lotId,
+        starts_at: input.startsAt,
+        ends_at: input.endsAt,
+      },
+    });
+
+    const auctionId = response?.auction_id ?? fallbackAuction.id;
+    const apiBackedAuction = {
+      ...fallbackAuction,
+      id: auctionId,
+    };
+
+    try {
+      await apiRequest("trading", `/auctions/${auctionId}/publish`, {
+        method: "POST",
+        session: activeSession,
+      });
+    } catch (error) {
+      if (!isRecoverableApiGap(error)) {
+        throw error;
+      }
+    }
+
+    const mirroredAuction = upsertAuctionStore({
+      ...apiBackedAuction,
+      source: "mixed",
+    });
+    addActivity("Аукцион выставлен", mirroredAuction.lotId, session);
+    return {
+      data: mirroredAuction,
+      meta: mixedMeta("Аукцион выставлен. Витрина обновлена локально до синхронизации списка торгов."),
+    };
+  } catch (error) {
+    if (!isCreateAuctionCompatibilityGap(error, activeSession)) {
+      throw error;
+    }
+
+    const createdAuction = upsertAuctionStore(fallbackAuction);
+    addActivity("Аукцион выставлен", createdAuction.lotId, session);
+    return {
+      data: createdAuction,
+      meta: mockMeta("Аукцион выставлен локально. Пересоберите trading-сервис, чтобы команда уходила в backend."),
+    };
+  }
+}
+
+export async function getAuctionDetails(
+  auctionId: string,
+  session: UserSession | null,
+): Promise<ServiceResult<AuctionDetails>> {
+  let meta: ServiceMeta = mockMeta(getAuctionFallbackNote());
+  let auction = listAuctionsStore().find((item) => item.id === auctionId) ?? null;
+
+  try {
+    const summary = await apiRequest<{
+      auction_id: string;
+      lot_id: string;
+      state: AuctionRecord["state"];
+      starts_at: string;
+      ends_at: string;
+      current_price?: number | null;
+      min_bid_step?: number | null;
+      leader_company_id?: string | null;
+      winner_company_id?: string | null;
+      final_price?: number | null;
+    }>("trading", `/auctions/${auctionId}`, { session });
+
+    const existing = listAuctionsStore().find((item) => item.id === summary.auction_id);
+    auction = {
+      id: summary.auction_id,
+      lotId: summary.lot_id ?? existing?.lotId ?? "unknown-lot",
+      sellerCompanyId: existing?.sellerCompanyId,
+      state: summary.state,
+      startsAt: summary.starts_at ?? existing?.startsAt ?? new Date().toISOString(),
+      endsAt: summary.ends_at ?? existing?.endsAt ?? new Date().toISOString(),
+      currentPrice: summary.current_price ?? existing?.currentPrice,
+      minBidStep: summary.min_bid_step ?? existing?.minBidStep ?? 1,
+      finalPrice: summary.final_price ?? existing?.finalPrice,
+      winnerCompanyId: summary.winner_company_id ?? existing?.winnerCompanyId ?? undefined,
+      leaderCompanyId: summary.leader_company_id ?? existing?.leaderCompanyId,
+      source: existing ? "mixed" : "api",
+    };
+    upsertAuctionStore(auction);
+    meta = { source: existing ? "mixed" : "api" };
+  } catch (error) {
+    if (!isRecoverableApiGap(error) || !canFallbackCommand()) {
+      throw error;
+    }
+  }
+
+  const [projectionResult, dealResult] = await Promise.all([
+    auction?.source === "mock" && !canFallbackCommand()
+      ? Promise.resolve({ data: null, meta: { source: "mock" as const } })
+      : getProjectionByAuctionId(auctionId, session),
+    auction?.source === "mock" && !canFallbackCommand()
+      ? Promise.resolve({ data: null, meta: { source: "mock" as const } })
+      : getDealByAuctionId(auctionId, session),
+  ]);
+
+  if (auction && !auction.sellerCompanyId && projectionResult.data?.supplierId) {
+    auction = upsertAuctionStore({
+      ...auction,
+      sellerCompanyId: projectionResult.data.supplierId,
+    });
+  }
+
+  return {
+    data: {
+      auction,
+      bids: listBidsStore(auctionId),
+      projection: projectionResult.data,
+      deal: dealResult.data,
+    },
+    meta,
+  };
+}
+
+export async function placeBid(
+  input: PlaceBidInput,
+  session: UserSession | null,
+): Promise<ServiceResult<BidRecord>> {
+  const sessionError = getMissingTradingSessionError(session);
+  if (sessionError) {
+    throw sessionError;
+  }
+  const activeSession = session as UserSession;
+  const auction = listAuctionsStore().find((item) => item.id === input.auctionId);
+  const lot =
+    listLotsStore().find((item) => item.auctionId === input.auctionId) ??
+    (auction ? listLotsStore().find((item) => item.id === auction.lotId) : undefined);
+  const existingBids = listBidsStore(input.auctionId);
+  const placedAt = new Date();
+  const bidAccessError = getBidAccessError({
+    actorCompanyId: activeSession.companyId,
+    sellerCompanyId: auction?.sellerCompanyId ?? lot?.sellerCompanyId,
+    leaderCompanyId: auction?.leaderCompanyId,
+    bids: existingBids,
+  });
+
+  if (bidAccessError) {
+    throw new ApiError(bidAccessError, 403, "BID_ACCESS_DENIED");
+  }
+
+  if (auction) {
+    const validationError = getBidValidationError(auction, input.amount, placedAt, existingBids);
+    if (validationError) {
+      const tooSmall = validationError.startsWith("Ставка слишком маленькая");
+      const status = tooSmall ? 400 : 409;
+      const code = tooSmall ? "BID_TOO_SMALL" : "AUCTION_NOT_ACTIVE";
+      throw new ApiError(validationError, status, code);
+    }
+  }
+
+  const fallbackBid: BidRecord = {
+    auctionId: input.auctionId,
+    bidderCompanyId: activeSession.companyId,
+    amount: input.amount,
+    placedAt: placedAt.toISOString(),
+    source: "mock",
+  };
+  const nextAuctionEndAt = auction ? getAuctionEndAfterBid(auction, placedAt) : undefined;
+
+  try {
+    await apiRequest("trading", `/auctions/${input.auctionId}/bids`, {
+      method: "POST",
+      session: activeSession,
+      body: {
+        amount: input.amount,
+        placed_at: fallbackBid.placedAt,
+      },
+    });
+
+    const storedBid = appendBidStore({ ...fallbackBid, source: "mixed" }, { endsAt: nextAuctionEndAt });
+    addActivity("Ставка отправлена", `${storedBid.auctionId} · ${storedBid.amount}`, session);
+    return {
+      data: storedBid,
+      meta: {
+        source: "api",
+      },
+    };
+  } catch (error) {
+    if (!isRecoverableApiGap(error)) {
+      throw error;
+    }
+
+    const storedBid = appendBidStore(fallbackBid, { endsAt: nextAuctionEndAt });
+    addActivity("Ставка отправлена", `${storedBid.auctionId} · ${storedBid.amount}`, session);
+    return {
+      data: storedBid,
+      meta: mockMeta(
+        "PlaceBid fallback is active. Real bidding currently requires a reachable Trading auction endpoint and a known auction id.",
+      ),
+    };
+  }
+}

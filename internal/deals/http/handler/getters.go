@@ -84,3 +84,33 @@ func (h *GetDealByAuctionIDHandler) ServeHTTP(w http.ResponseWriter, r *http.Req
 	}
 	writeJSON(w, http.StatusOK, httpapi.NewDealResponse(item))
 }
+
+type GetDealConfirmationsHandler struct {
+	uc *app.GetDealConfirmations
+}
+
+func NewGetDealConfirmationsHandler(uc *app.GetDealConfirmations) *GetDealConfirmationsHandler {
+	return &GetDealConfirmationsHandler{uc: uc}
+}
+
+func (h *GetDealConfirmationsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		return
+	}
+	dealID, err := readDealIDFromPath(r.URL.Path, "confirmations")
+	if err != nil {
+		writeError(w, err, app.CommandMeta{})
+		return
+	}
+	items, err := h.uc.Execute(r.Context(), dealID)
+	if err != nil {
+		writeError(w, err, app.CommandMeta{})
+		return
+	}
+	response := make([]httpapi.DealConfirmationResponse, 0, len(items))
+	for _, item := range items {
+		response = append(response, httpapi.NewDealConfirmationResponse(item))
+	}
+	writeJSON(w, http.StatusOK, response)
+}

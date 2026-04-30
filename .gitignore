@@ -66,3 +66,15 @@ Desktop.ini
 tmp/
 temp/
 test-log/*.log
+
+############################
+# Frontend / Node
+############################
+node_modules/
+.next/
+out/
+build/
+coverage/
+.turbo/
+.vercel/
+test-logs/

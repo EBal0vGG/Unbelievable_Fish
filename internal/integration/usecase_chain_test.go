@@ -51,6 +51,7 @@ func TestUseCaseChainHappyPathAndWinnerFallback(t *testing.T) {
 		ucCreateProjection := dealsapp.NewCreateProjection(dealsRepos.projections)
 		dealsUOW := dealsapp.NewSimpleUnitOfWork(
 			dealsRepos.deals,
+			dealsRepos.confirmations,
 			dealsRepos.projections,
 			dealsRepos.selections,
 			dealsRepos.outbox,
@@ -65,7 +66,7 @@ func TestUseCaseChainHappyPathAndWinnerFallback(t *testing.T) {
 			if !ok {
 				return errors.New("unexpected payload for LotPublished")
 			}
-			if err := ucCreateAuction.Execute(ctx, tradingMeta(), evt.LotID, startsAt, endsAt); err != nil {
+			if _, err := ucCreateAuction.Execute(ctx, tradingMeta(), evt.LotID, startsAt, endsAt, evt.StartPrice, evt.MinBidStep); err != nil {
 				return err
 			}
 			if err := ucPublish.Execute(ctx, tradingMeta(), tradingapp.AuctionID(evt.AuctionID)); err != nil {
@@ -162,6 +163,7 @@ func TestUseCaseChainHappyPathAndWinnerFallback(t *testing.T) {
 
 		dealsUOW := dealsapp.NewSimpleUnitOfWork(
 			dealsRepos.deals,
+			dealsRepos.confirmations,
 			dealsRepos.projections,
 			dealsRepos.selections,
 			dealsRepos.outbox,
@@ -224,6 +226,7 @@ func setupCatalog(ctx context.Context, t *testing.T, startsAt time.Time) (*catal
 		Photo:                  "photo",
 		Quantity:               10,
 		StartPrice:             100,
+		MinBidStep:             10,
 		AuctionStartsAt:        startsAt,
 		AuctionDurationMinutes: 60,
 	})
@@ -250,10 +253,11 @@ func setupTrading(auctionID, lotID string, startsAt, endsAt time.Time) (*memoryU
 
 func setupDeals() *dealsRepoState {
 	return &dealsRepoState{
-		deals:       &dealRepoMemory{data: make(map[string]*deal.Deal)},
-		projections: &projectionRepoMemory{data: make(map[string]*deal.DealProjection)},
-		selections:  &selectionRepoMemory{data: make(map[string]*deal.WinnerSelection)},
-		outbox:      &dealOutbox{},
+		deals:         &dealRepoMemory{data: make(map[string]*deal.Deal)},
+		confirmations: &confirmationRepoMemory{data: make(map[string]*deal.DealConfirmation)},
+		projections:   &projectionRepoMemory{data: make(map[string]*deal.DealProjection)},
+		selections:    &selectionRepoMemory{data: make(map[string]*deal.WinnerSelection)},
+		outbox:        &dealOutbox{},
 	}
 }
 
@@ -334,6 +338,15 @@ func newMemoryFishRepo() *memoryFishRepo {
 func (r *memoryFishRepo) Get(ctx context.Context, fishID string) (*catalog.Fish, error) {
 	_ = ctx
 	return r.data[fishID], nil
+}
+
+func (r *memoryFishRepo) List(ctx context.Context) ([]*catalog.Fish, error) {
+	_ = ctx
+	out := make([]*catalog.Fish, 0, len(r.data))
+	for _, fish := range r.data {
+		out = append(out, fish)
+	}
+	return out, nil
 }
 
 func (r *memoryFishRepo) Exists(ctx context.Context, fishID string) (bool, error) {
@@ -576,6 +589,46 @@ type projectionRepoMemory struct {
 	data map[string]*deal.DealProjection
 }
 
+type confirmationRepoMemory struct {
+	data map[string]*deal.DealConfirmation
+}
+
+func (r *confirmationRepoMemory) Save(ctx context.Context, item *deal.DealConfirmation) error {
+	_ = ctx
+	r.data[item.ID()] = item
+	return nil
+}
+
+func (r *confirmationRepoMemory) GetByID(ctx context.Context, confirmationID string) (*deal.DealConfirmation, error) {
+	_ = ctx
+	item, ok := r.data[confirmationID]
+	if !ok {
+		return nil, deal.ErrConfirmationNotFound
+	}
+	return item, nil
+}
+
+func (r *confirmationRepoMemory) GetPendingByDealAndStage(ctx context.Context, dealID string, stage deal.DealConfirmationStage) (*deal.DealConfirmation, error) {
+	_ = ctx
+	for _, item := range r.data {
+		if item.DealID() == dealID && item.Stage() == stage && item.Status() == deal.DealConfirmationStatusPending {
+			return item, nil
+		}
+	}
+	return nil, deal.ErrConfirmationNotFound
+}
+
+func (r *confirmationRepoMemory) ListByDealID(ctx context.Context, dealID string) ([]*deal.DealConfirmation, error) {
+	_ = ctx
+	items := make([]*deal.DealConfirmation, 0)
+	for _, item := range r.data {
+		if item.DealID() == dealID {
+			items = append(items, item)
+		}
+	}
+	return items, nil
+}
+
 func (r *projectionRepoMemory) Save(ctx context.Context, item *deal.DealProjection) error {
 	_ = ctx
 	r.data[item.AuctionID] = item
@@ -625,10 +678,11 @@ func (o *dealOutbox) Add(ctx context.Context, events []deal.Event) error {
 }
 
 type dealsRepoState struct {
-	deals       *dealRepoMemory
-	projections *projectionRepoMemory
-	selections  *selectionRepoMemory
-	outbox      *dealOutbox
+	deals         *dealRepoMemory
+	confirmations *confirmationRepoMemory
+	projections   *projectionRepoMemory
+	selections    *selectionRepoMemory
+	outbox        *dealOutbox
 }
 
 func dealsMeta() dealsapp.CommandMeta {

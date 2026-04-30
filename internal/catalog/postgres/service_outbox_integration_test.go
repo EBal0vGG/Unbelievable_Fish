@@ -28,6 +28,7 @@ func newPublishedLotForServiceTest(t *testing.T, lotID, auctionID string) *catal
 		"photo-key",
 		10,
 		100,
+		10,
 		catalog.NewAuctionScheduleAt(time.Now().Add(time.Hour), time.Hour),
 	)
 	if err != nil {

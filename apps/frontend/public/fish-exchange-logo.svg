@@ -1,0 +1,38 @@
+<svg width="160" height="160" viewBox="0 0 160 160" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="ring" x1="23" y1="28" x2="138" y2="137" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#2ED1E3"/>
+      <stop offset="1" stop-color="#0D2C73"/>
+    </linearGradient>
+    <linearGradient id="fishBody" x1="56" y1="52" x2="118" y2="101" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#2ED1E3"/>
+      <stop offset="1" stop-color="#0D6CA6"/>
+    </linearGradient>
+    <linearGradient id="fishTail" x1="31" y1="67" x2="86" y2="124" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#173F8A"/>
+      <stop offset="1" stop-color="#081A53"/>
+    </linearGradient>
+  </defs>
+  <path d="M36 119C19 102 14 74 26 50C37 29 60 16 84 17C100 17 115 22 127 31" stroke="url(#ring)" stroke-width="5" stroke-linecap="round"/>
+  <path d="M128 41C140 54 146 72 143 90C140 107 130 122 115 132" stroke="url(#ring)" stroke-width="7" stroke-linecap="round"/>
+  <path d="M109 124L116 132L105 137" stroke="#12BFD4" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M48 98C53 114 69 126 89 126C110 126 128 113 136 95" stroke="#9DEAF1" stroke-width="5" stroke-linecap="round"/>
+  <path d="M96 49C110 49 123 54 132 64C122 75 109 81 96 81C83 81 72 75 63 64C72 54 83 49 96 49Z" fill="url(#fishBody)"/>
+  <path d="M63 64C60 64 55 63 49 61C43 59 37 55 33 51C33 63 36 74 43 84C49 92 58 99 69 103L74 93L85 92L76 85L82 77L71 77L63 64Z" fill="url(#fishTail)"/>
+  <path d="M94 52C80 52 67 58 57 69C64 79 79 86 95 86C111 86 125 79 133 67C124 57 110 52 94 52Z" fill="url(#fishBody)"/>
+  <path d="M114 61C118 61 122 64 122 69C122 74 118 77 114 77C109 77 106 74 106 69C106 64 109 61 114 61Z" fill="white"/>
+  <path d="M113 64C116 64 118 66 118 69C118 72 116 74 113 74C110 74 108 72 108 69C108 66 110 64 113 64Z" fill="#19306B"/>
+  <path d="M96 52C95 57 95 62 96 67C97 73 98 79 97 86" stroke="white" stroke-width="4" stroke-linecap="round"/>
+  <circle cx="69" cy="71" r="5" fill="white" fill-opacity="0.95"/>
+  <circle cx="81" cy="66" r="4" fill="white" fill-opacity="0.92"/>
+  <circle cx="79" cy="81" r="6" fill="white" fill-opacity="0.95"/>
+  <circle cx="92" cy="74" r="4" fill="white" fill-opacity="0.92"/>
+  <circle cx="65" cy="85" r="3" fill="white" fill-opacity="0.92"/>
+  <circle cx="100" cy="60" r="2.5" fill="white" fill-opacity="0.9"/>
+  <path d="M136 57H144" stroke="#3BD5E6" stroke-width="3" stroke-linecap="round"/>
+  <path d="M38 110H48" stroke="#53DDEA" stroke-width="3" stroke-linecap="round"/>
+  <path d="M108 109H119" stroke="#53DDEA" stroke-width="3" stroke-linecap="round"/>
+  <circle cx="148" cy="57" r="3" fill="#3BD5E6"/>
+  <circle cx="50" cy="110" r="4" fill="#53DDEA"/>
+  <circle cx="122" cy="109" r="5" fill="#53DDEA"/>
+</svg>

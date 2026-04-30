@@ -9,8 +9,8 @@ import (
 )
 
 type CreateAuction struct {
-	uow       UnitOfWork
-	factory   AuctionIDFactory
+	uow     UnitOfWork
+	factory AuctionIDFactory
 }
 
 func NewCreateAuction(uow UnitOfWork, factory AuctionIDFactory) (*CreateAuction, error) {
@@ -26,23 +26,37 @@ func NewCreateAuction(uow UnitOfWork, factory AuctionIDFactory) (*CreateAuction,
 	}, nil
 }
 
-func (uc *CreateAuction) Execute(ctx context.Context, meta CommandMeta, lotID string, startsAt, endsAt time.Time) error {
+func (uc *CreateAuction) Execute(
+	ctx context.Context,
+	meta CommandMeta,
+	lotID string,
+	startsAt, endsAt time.Time,
+	startPrice int64,
+	minBidStep int64,
+) (AuctionID, error) {
+	if minBidStep <= 0 {
+		minBidStep = 1
+	}
 	id, err := uc.factory.NewID()
 	if err != nil {
-		return err
+		return "", err
 	}
-	return uc.uow.Do(ctx, func(tx Tx) error {
+	err = uc.uow.Do(ctx, func(tx Tx) error {
 		if _, err := tx.Auctions().Load(ctx, id); err == nil {
 			return nil
 		} else if !errors.Is(err, ErrNotFound) {
 			return err
 		}
-		a, err := auction.NewAuction(string(id), lotID, startsAt, endsAt)
+		a, err := auction.NewAuctionWithPricing(string(id), lotID, startsAt, endsAt, startPrice, minBidStep)
 		if err != nil {
 			return err
 		}
 		return tx.Auctions().Save(ctx, a)
 	})
+	if err != nil {
+		return "", err
+	}
+	return id, nil
 }
 
 type PublishAuction struct {

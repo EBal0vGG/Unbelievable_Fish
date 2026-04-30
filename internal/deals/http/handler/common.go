@@ -7,9 +7,18 @@ import (
 
 	"github.com/EBal0vGG/Unbelievable_Fish/internal/deals/app"
 	httpapi "github.com/EBal0vGG/Unbelievable_Fish/internal/deals/http"
+	identityauth "github.com/EBal0vGG/Unbelievable_Fish/internal/identity/auth"
 )
 
 func readCommandMeta(r *http.Request) (app.CommandMeta, error) {
+	if identity, ok := identityauth.IdentityFromContext(r.Context()); ok {
+		return app.CommandMeta{
+			CompanyID:     identity.CompanyID,
+			UserID:        identity.UserID,
+			CorrelationID: r.Header.Get("X-Correlation-ID"),
+			CausationID:   r.Header.Get("X-Causation-ID"),
+		}, nil
+	}
 	companyID := r.Header.Get("X-Company-ID")
 	if companyID == "" {
 		return app.CommandMeta{}, httpapi.ErrMissingCompanyID
@@ -72,6 +81,18 @@ func readAuctionIDFromDealPath(path string) (string, error) {
 	return auctionID, nil
 }
 
+func readConfirmationIDsFromPath(path, action string) (string, string, error) {
+	if !strings.HasPrefix(path, "/deals/") {
+		return "", "", httpapi.ErrInvalidPath
+	}
+	rest := strings.TrimPrefix(path, "/deals/")
+	parts := strings.Split(rest, "/")
+	if len(parts) != 4 || parts[0] == "" || parts[1] != "confirmations" || parts[2] == "" || parts[3] != action {
+		return "", "", httpapi.ErrInvalidPath
+	}
+	return parts[0], parts[2], nil
+}
+
 func decodeJSON(r *http.Request, dst any) error {
 	decoder := json.NewDecoder(r.Body)
 	decoder.DisallowUnknownFields()
@@ -80,6 +101,10 @@ func decodeJSON(r *http.Request, dst any) error {
 
 func writeAccepted(w http.ResponseWriter) {
 	w.WriteHeader(http.StatusAccepted)
+}
+
+func writeCreatedJSON(w http.ResponseWriter, payload any) {
+	writeJSON(w, http.StatusCreated, payload)
 }
 
 func writeJSON(w http.ResponseWriter, status int, payload any) {

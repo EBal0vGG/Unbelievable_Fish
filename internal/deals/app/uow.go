@@ -3,16 +3,18 @@ package app
 import "context"
 
 type simpleTx struct {
-	deals       DealRepository
-	projections ProjectionRepository
-	selections  WinnerSelectionRepository
-	outbox      OutboxRepository
+	deals         DealRepository
+	confirmations DealConfirmationRepository
+	projections   ProjectionRepository
+	selections    WinnerSelectionRepository
+	outbox        OutboxRepository
 }
 
-func (t *simpleTx) Deals() DealRepository           { return t.deals }
-func (t *simpleTx) Projections() ProjectionRepository { return t.projections }
-func (t *simpleTx) Selections() WinnerSelectionRepository { return t.selections }
-func (t *simpleTx) Outbox() OutboxRepository         { return t.outbox }
+func (t *simpleTx) Deals() DealRepository                     { return t.deals }
+func (t *simpleTx) Confirmations() DealConfirmationRepository { return t.confirmations }
+func (t *simpleTx) Projections() ProjectionRepository         { return t.projections }
+func (t *simpleTx) Selections() WinnerSelectionRepository     { return t.selections }
+func (t *simpleTx) Outbox() OutboxRepository                  { return t.outbox }
 
 type SimpleUnitOfWork struct {
 	tx *simpleTx
@@ -20,16 +22,18 @@ type SimpleUnitOfWork struct {
 
 func NewSimpleUnitOfWork(
 	deals DealRepository,
+	confirmations DealConfirmationRepository,
 	projections ProjectionRepository,
 	selections WinnerSelectionRepository,
 	outbox OutboxRepository,
 ) *SimpleUnitOfWork {
 	return &SimpleUnitOfWork{
 		tx: &simpleTx{
-			deals:       deals,
-			projections: projections,
-			selections:  selections,
-			outbox:      outbox,
+			deals:         deals,
+			confirmations: confirmations,
+			projections:   projections,
+			selections:    selections,
+			outbox:        outbox,
 		},
 	}
 }

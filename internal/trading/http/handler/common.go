@@ -4,9 +4,11 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"log"
 	"net/http"
 	"strings"
 
+	identityauth "github.com/EBal0vGG/Unbelievable_Fish/internal/identity/auth"
 	"github.com/EBal0vGG/Unbelievable_Fish/internal/trading/app"
 	httpapi "github.com/EBal0vGG/Unbelievable_Fish/internal/trading/http"
 )
@@ -14,6 +16,14 @@ import (
 const maxBodyBytes = 1 << 20
 
 func readCommandMeta(r *http.Request) (app.CommandMeta, error) {
+	if identity, ok := identityauth.IdentityFromContext(r.Context()); ok {
+		return app.CommandMeta{
+			CompanyID:     identity.CompanyID,
+			UserID:        identity.UserID,
+			CorrelationID: r.Header.Get("X-Correlation-ID"),
+			CausationID:   r.Header.Get("X-Causation-ID"),
+		}, nil
+	}
 	companyID := r.Header.Get("X-Company-ID")
 	if companyID == "" {
 		return app.CommandMeta{}, httpapi.ErrMissingCompanyID
@@ -71,6 +81,12 @@ func writeAccepted(w http.ResponseWriter) {
 	w.WriteHeader(http.StatusAccepted)
 }
 
+func writeAcceptedJSON(w http.ResponseWriter, payload any) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusAccepted)
+	_ = json.NewEncoder(w).Encode(payload)
+}
+
 func requirePost(w http.ResponseWriter, r *http.Request, meta app.CommandMeta) bool {
 	if r.Method == http.MethodPost {
 		return true
@@ -82,5 +98,6 @@ func requirePost(w http.ResponseWriter, r *http.Request, meta app.CommandMeta) b
 
 func handleCommandError(w http.ResponseWriter, err error, meta app.CommandMeta) {
 	httpErr := httpapi.MapError(err)
+	log.Printf("trading_http_mapped status=%d code=%s message=%q correlation_id=%s causation_id=%s", httpErr.Status, httpErr.Code, httpErr.Message, meta.CorrelationID, meta.CausationID)
 	writeError(w, httpErr.Status, httpErr.Code, httpErr.Message, meta)
 }

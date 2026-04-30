@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 
+	identityauth "github.com/EBal0vGG/Unbelievable_Fish/internal/identity/auth"
 	"github.com/EBal0vGG/Unbelievable_Fish/internal/trading/app"
 	"github.com/EBal0vGG/Unbelievable_Fish/internal/trading/auction"
 )
@@ -22,6 +23,14 @@ type HTTPError struct {
 
 func MapError(err error) HTTPError {
 	switch {
+	case errors.Is(err, identityauth.ErrMissingAuthorizationHeader):
+		return HTTPError{http.StatusUnauthorized, "MISSING_AUTHORIZATION", "missing Authorization header"}
+	case errors.Is(err, identityauth.ErrInvalidAuthorizationHeader):
+		return HTTPError{http.StatusUnauthorized, "INVALID_AUTHORIZATION", "invalid Authorization header"}
+	case errors.Is(err, identityauth.ErrInvalidToken), errors.Is(err, identityauth.ErrExpiredToken):
+		return HTTPError{http.StatusUnauthorized, "INVALID_TOKEN", "invalid token"}
+	case errors.Is(err, identityauth.ErrForbidden):
+		return HTTPError{http.StatusForbidden, "FORBIDDEN", "forbidden"}
 	case errors.Is(err, ErrMissingCompanyID):
 		return HTTPError{http.StatusBadRequest, "MISSING_COMPANY_ID", "missing X-Company-ID header"}
 	case errors.Is(err, ErrMissingUserID):
@@ -50,8 +59,13 @@ func MapError(err error) HTTPError {
 		errors.Is(err, auction.ErrBidPlacedAtZero),
 		errors.Is(err, auction.ErrBidTooLow):
 		return HTTPError{http.StatusBadRequest, "INVALID_BID", "invalid bid"}
+	case errors.Is(err, auction.ErrBidStepTooSmall):
+		return HTTPError{http.StatusBadRequest, "BID_TOO_SMALL", "bid is below minimum allowed"}
 	case errors.Is(err, auction.ErrInvalidSchedule):
 		return HTTPError{http.StatusBadRequest, "INVALID_SCHEDULE", "invalid auction schedule"}
+	case errors.Is(err, auction.ErrInvalidStartPrice),
+		errors.Is(err, auction.ErrInvalidMinBidStep):
+		return HTTPError{http.StatusBadRequest, "INVALID_BODY", "invalid request body"}
 	case errors.Is(err, app.ErrNotFound):
 		return HTTPError{http.StatusNotFound, "AUCTION_NOT_FOUND", "auction not found"}
 	default:

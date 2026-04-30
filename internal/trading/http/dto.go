@@ -2,12 +2,6 @@ package httpapi
 
 import "time"
 
-// DTOs for external API contract (commands).
-type CreateAuctionRequest struct {
-	LotID     string    `json:"lot_id"`
-	StartsAt  time.Time `json:"starts_at"`
-	EndsAt    time.Time `json:"ends_at"`
-}
 type PlaceBidRequest struct {
 	Amount   int64     `json:"amount"`
 	PlacedAt time.Time `json:"placed_at"`

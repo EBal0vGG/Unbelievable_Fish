@@ -1,0 +1,3 @@
+ALTER TABLE deals
+    ADD COLUMN IF NOT EXISTS contract_sign_deadline TIMESTAMPTZ NULL,
+    ADD COLUMN IF NOT EXISTS payment_deadline TIMESTAMPTZ NULL;

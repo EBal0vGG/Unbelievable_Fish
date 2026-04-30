@@ -25,24 +25,31 @@ type Dependencies struct {
 	DealsUOW       dealsapp.UnitOfWork
 	ProjectionRepo dealsapp.ProjectionRepository
 	AuctionLister  ExpiredAuctionLister
+	DealLister     ExpiredDealLister
 }
 
 type Runtime struct {
 	Bus           *inmemory.Bus
 	Relay         *outbox.Relay
 	closeAuction  *tradingapp.CloseAuction
+	cancelDeal    *dealsapp.CancelDeal
 	auctionLister ExpiredAuctionLister
+	dealLister    ExpiredDealLister
 }
 
 type ExpiredAuctionLister interface {
 	ListExpired(ctx context.Context, now time.Time, limit int) ([]tradingapp.AuctionID, error)
 }
 
+type ExpiredDealLister interface {
+	ListExpiredForFallback(ctx context.Context, now time.Time, limit int) ([]string, error)
+}
+
 func New(db *sql.DB, deps Dependencies) (*Runtime, error) {
 	if db == nil {
 		return nil, errors.New("db is required")
 	}
-	if deps.Catalog == nil || deps.TradingUOW == nil || deps.DealsUOW == nil || deps.ProjectionRepo == nil || deps.AuctionLister == nil {
+	if deps.Catalog == nil || deps.TradingUOW == nil || deps.DealsUOW == nil || deps.ProjectionRepo == nil || deps.AuctionLister == nil || deps.DealLister == nil {
 		return nil, errors.New("runtime dependencies are incomplete")
 	}
 
@@ -58,18 +65,28 @@ func New(db *sql.DB, deps Dependencies) (*Runtime, error) {
 	if err != nil {
 		return nil, err
 	}
+	handleDealDeclinedUC, err := dealsapp.NewHandleDealDeclined(deps.DealsUOW)
+	if err != nil {
+		return nil, err
+	}
 	closeAuctionUC, err := tradingapp.NewCloseAuction(deps.TradingUOW)
 	if err != nil {
 		return nil, err
 	}
+	cancelDealUC, err := dealsapp.NewCancelDeal(deps.DealsUOW)
+	if err != nil {
+		return nil, err
+	}
 
-	subscribeHandlers(bus, deps, publishAuctionUC, createProjectionUC, createSelectionUC)
+	subscribeHandlers(bus, deps, publishAuctionUC, createProjectionUC, createSelectionUC, handleDealDeclinedUC)
 
 	return &Runtime{
 		Bus:           bus,
 		Relay:         relay,
 		closeAuction:  closeAuctionUC,
+		cancelDeal:    cancelDealUC,
 		auctionLister: deps.AuctionLister,
+		dealLister:    deps.DealLister,
 	}, nil
 }
 
@@ -99,12 +116,35 @@ func (r *Runtime) RunCloseExpired(ctx context.Context, now time.Time, limit int)
 	return nil
 }
 
+func (r *Runtime) RunCancelExpiredDeals(ctx context.Context, now time.Time, limit int) error {
+	ids, err := r.dealLister.ListExpiredForFallback(ctx, now, limit)
+	if err != nil {
+		return err
+	}
+	for _, id := range ids {
+		log.Printf("scheduler_cancel_deal_attempt deal_id=%s", id)
+		meta := dealsapp.CommandMeta{
+			CompanyID:     "system",
+			UserID:        "system",
+			CorrelationID: "scheduler-deal-deadline",
+			CausationID:   "scheduler-deal-deadline",
+		}
+		if err := r.cancelDeal.Execute(ctx, meta, id, "deadline exceeded"); err != nil {
+			log.Printf("scheduler_cancel_deal_error deal_id=%s error=%q", id, err.Error())
+			continue
+		}
+		log.Printf("scheduler_cancel_deal_success deal_id=%s", id)
+	}
+	return nil
+}
+
 func subscribeHandlers(
 	bus *inmemory.Bus,
 	deps Dependencies,
 	publishAuction *tradingapp.PublishAuction,
 	createProjection *dealsapp.CreateProjection,
 	createSelection *dealsapp.CreateDealSelectionFromAuctionWon,
+	handleDealDeclined *dealsapp.HandleDealDeclined,
 ) {
 	bus.Subscribe("catalog.LotPublished", func(ctx context.Context, envelope events.Envelope) error {
 		evt, ok := envelope.Payload.(catalog.LotPublished)
@@ -114,6 +154,10 @@ func subscribeHandlers(
 
 		startsAt := evt.AuctionStartsAt
 		endsAt := evt.AuctionEndsAt
+		minBidStep := evt.MinBidStep
+		if minBidStep <= 0 {
+			minBidStep = 1
+		}
 		if startsAt.IsZero() || endsAt.IsZero() {
 			return errors.New("missing auction schedule in LotPublished")
 		}
@@ -147,7 +191,7 @@ func subscribeHandlers(
 			auctionID,
 			tradingMeta.CorrelationID,
 		)
-		if err := createAuction.Execute(ctx, tradingMeta, evt.LotID, startsAt, endsAt); err != nil {
+		if _, err := createAuction.Execute(ctx, tradingMeta, evt.LotID, startsAt, endsAt, evt.StartPrice, minBidStep); err != nil {
 			return err
 		}
 		if err := publishAuction.Execute(ctx, tradingMeta, auctionID); err != nil {
@@ -225,36 +269,56 @@ func subscribeHandlers(
 			WinnerCompanyID: evt.WinnerCompanyID[0],
 		})
 	})
+
+	bus.Subscribe("deals.DealCancelled", func(ctx context.Context, envelope events.Envelope) error {
+		evt, ok := envelope.Payload.(deal.DealCancelled)
+		if !ok {
+			return errors.New("unexpected payload for DealCancelled")
+		}
+		dealsMeta := dealsMetaFromEnvelope(envelope)
+		err := handleDealDeclined.Execute(ctx, dealsMeta, valueOrEmpty(envelope.Meta, "auction_id"), evt.DealID)
+		if err != nil {
+			if errors.Is(err, dealsapp.ErrNoAvailableWinner) {
+				log.Printf("integration_deal_cancelled_no_next_winner deal_id=%s", evt.DealID)
+				return nil
+			}
+			return err
+		}
+		return nil
+	})
 }
 
 func DefaultDecoders() map[string]outbox.Decoder {
 	return map[string]outbox.Decoder{
-		"catalog.ProductCreated":     outbox.JSONDecoder[catalog.ProductCreated](),
-		"catalog.ProductUpdated":     outbox.JSONDecoder[catalog.ProductUpdated](),
-		"catalog.ProductPublished":   outbox.JSONDecoder[catalog.ProductPublished](),
-		"catalog.ProductUnpublished": outbox.JSONDecoder[catalog.ProductUnpublished](),
-		"catalog.LotCreated":         outbox.JSONDecoder[catalog.LotCreated](),
-		"catalog.LotPublished":       outbox.JSONDecoder[catalog.LotPublished](),
-		"catalog.LotUnpublished":     outbox.JSONDecoder[catalog.LotUnpublished](),
-		"catalog.LotClosed":          outbox.JSONDecoder[catalog.LotClosed](),
-		"catalog.LotPriceUpdated":    outbox.JSONDecoder[catalog.LotPriceUpdated](),
-		"catalog.LotAuctionLinked":   outbox.JSONDecoder[catalog.LotAuctionLinked](),
-		"trading.AuctionPublished":   outbox.JSONDecoder[auction.AuctionPublished](),
-		"trading.BidPlaced":          outbox.JSONDecoder[auction.BidPlaced](),
-		"trading.AuctionClosed":      outbox.JSONDecoder[auction.AuctionClosed](),
-		"trading.AuctionWon":         outbox.JSONDecoder[auction.AuctionWon](),
-		"trading.AuctionCancelled":   outbox.JSONDecoder[auction.AuctionCancelled](),
-		"deals.DealCreated":          outbox.JSONDecoder[deal.DealCreated](),
-		"deals.DealConfirmed":        outbox.JSONDecoder[deal.DealConfirmed](),
-		"deals.ContractPrepared":     outbox.JSONDecoder[deal.ContractPrepared](),
-		"deals.ContractSigned":       outbox.JSONDecoder[deal.ContractSigned](),
-		"deals.PaymentRequested":     outbox.JSONDecoder[deal.PaymentRequested](),
-		"deals.DealPaid":             outbox.JSONDecoder[deal.DealPaid](),
-		"deals.ShipmentRequested":    outbox.JSONDecoder[deal.ShipmentRequested](),
-		"deals.DealShipped":          outbox.JSONDecoder[deal.DealShipped](),
-		"deals.DealCompleted":        outbox.JSONDecoder[deal.DealCompleted](),
-		"deals.DealCancelled":        outbox.JSONDecoder[deal.DealCancelled](),
-		"deals.PriceUpdated":         outbox.JSONDecoder[deal.PriceUpdated](),
+		"catalog.ProductCreated":          outbox.JSONDecoder[catalog.ProductCreated](),
+		"catalog.ProductUpdated":          outbox.JSONDecoder[catalog.ProductUpdated](),
+		"catalog.ProductPublished":        outbox.JSONDecoder[catalog.ProductPublished](),
+		"catalog.ProductUnpublished":      outbox.JSONDecoder[catalog.ProductUnpublished](),
+		"catalog.LotCreated":              outbox.JSONDecoder[catalog.LotCreated](),
+		"catalog.LotPublished":            outbox.JSONDecoder[catalog.LotPublished](),
+		"catalog.LotUnpublished":          outbox.JSONDecoder[catalog.LotUnpublished](),
+		"catalog.LotClosed":               outbox.JSONDecoder[catalog.LotClosed](),
+		"catalog.LotPriceUpdated":         outbox.JSONDecoder[catalog.LotPriceUpdated](),
+		"catalog.LotAuctionLinked":        outbox.JSONDecoder[catalog.LotAuctionLinked](),
+		"trading.AuctionPublished":        outbox.JSONDecoder[auction.AuctionPublished](),
+		"trading.BidPlaced":               outbox.JSONDecoder[auction.BidPlaced](),
+		"trading.AuctionClosed":           outbox.JSONDecoder[auction.AuctionClosed](),
+		"trading.AuctionWon":              outbox.JSONDecoder[auction.AuctionWon](),
+		"trading.AuctionCancelled":        outbox.JSONDecoder[auction.AuctionCancelled](),
+		"deals.DealCreated":               outbox.JSONDecoder[deal.DealCreated](),
+		"deals.DealConfirmationRequested": outbox.JSONDecoder[deal.DealConfirmationRequested](),
+		"deals.DealConfirmationApproved":  outbox.JSONDecoder[deal.DealConfirmationApproved](),
+		"deals.DealConfirmationRejected":  outbox.JSONDecoder[deal.DealConfirmationRejected](),
+		"deals.DealConfirmed":             outbox.JSONDecoder[deal.DealConfirmed](),
+		"deals.ContractPrepared":          outbox.JSONDecoder[deal.ContractPrepared](),
+		"deals.ContractSigned":            outbox.JSONDecoder[deal.ContractSigned](),
+		"deals.PaymentRequested":          outbox.JSONDecoder[deal.PaymentRequested](),
+		"deals.DealPaid":                  outbox.JSONDecoder[deal.DealPaid](),
+		"deals.ShipmentRequested":         outbox.JSONDecoder[deal.ShipmentRequested](),
+		"deals.DealShipped":               outbox.JSONDecoder[deal.DealShipped](),
+		"deals.DealCompleted":             outbox.JSONDecoder[deal.DealCompleted](),
+		"deals.DealCancelled":             outbox.JSONDecoder[deal.DealCancelled](),
+		"deals.PriceUpdated":              outbox.JSONDecoder[deal.PriceUpdated](),
 	}
 }
 

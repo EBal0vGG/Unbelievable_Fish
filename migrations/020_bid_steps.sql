@@ -1,0 +1,5 @@
+ALTER TABLE catalog_lots
+    ADD COLUMN IF NOT EXISTS min_bid_step BIGINT NOT NULL DEFAULT 1;
+
+ALTER TABLE trading_auctions
+    ADD COLUMN IF NOT EXISTS min_bid_step BIGINT NOT NULL DEFAULT 1;

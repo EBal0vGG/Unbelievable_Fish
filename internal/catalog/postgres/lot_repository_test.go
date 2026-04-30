@@ -28,6 +28,7 @@ type lotRecord struct {
 	photo                  sql.NullString
 	quantity               float64
 	startPrice             int64
+	minBidStep             int64
 	curPrice               int64
 	finalPrice             int64
 	status                 string
@@ -90,7 +91,7 @@ func (c *lotRepoConn) BeginTx(context.Context, driver.TxOptions) (driver.Tx, err
 }
 
 func (c *lotRepoConn) ExecContext(_ context.Context, _ string, args []driver.NamedValue) (driver.Result, error) {
-	if len(args) != 12 {
+	if len(args) != 13 {
 		return nil, errors.New("unexpected args length")
 	}
 
@@ -102,11 +103,12 @@ func (c *lotRepoConn) ExecContext(_ context.Context, _ string, args []driver.Nam
 		photo:           toNullString(args[4].Value),
 		quantity:        args[5].Value.(float64),
 		startPrice:      args[6].Value.(int64),
-		curPrice:        args[7].Value.(int64),
-		finalPrice:      args[8].Value.(int64),
-		status:          args[9].Value.(string),
-		auctionStartsAt: args[10].Value.(time.Time),
-		auctionDurationMinutes: args[11].Value.(int64),
+		minBidStep:      args[7].Value.(int64),
+		curPrice:        args[8].Value.(int64),
+		finalPrice:      args[9].Value.(int64),
+		status:          args[10].Value.(string),
+		auctionStartsAt: args[11].Value.(time.Time),
+		auctionDurationMinutes: args[12].Value.(int64),
 	}
 
 	if c.txStore != nil {
@@ -149,6 +151,7 @@ func (c *lotRepoConn) QueryContext(_ context.Context, query string, args []drive
 			nullStringValue(record.photo),
 			record.quantity,
 			record.startPrice,
+			record.minBidStep,
 			record.curPrice,
 			record.finalPrice,
 			record.status,
@@ -223,6 +226,7 @@ func (lotRepoRows) Columns() []string {
 		"photo",
 		"quantity",
 		"start_price",
+		"min_bid_step",
 		"cur_price",
 		"final_price",
 		"status",
@@ -287,6 +291,7 @@ func newDraftLot(t *testing.T, lotID string) *catalog.Lot {
 		"photo-key",
 		10.5,
 		100,
+		10,
 		catalog.NewAuctionScheduleAt(time.Now().Add(time.Hour), time.Hour),
 	)
 	if err != nil {

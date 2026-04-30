@@ -166,8 +166,8 @@ func TestBidLowerThanCurrentPriceIsRejected(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error")
 	}
-	if !errors.Is(err, ErrBidTooLow) {
-		t.Fatalf("expected ErrBidTooLow, got %v", err)
+	if !errors.Is(err, ErrBidStepTooSmall) {
+		t.Fatalf("expected ErrBidStepTooSmall, got %v", err)
 	}
 }
 
@@ -183,8 +183,8 @@ func TestBidEqualToCurrentPriceIsRejected(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected error")
 	}
-	if !errors.Is(err, ErrBidTooLow) {
-		t.Fatalf("expected ErrBidTooLow, got %v", err)
+	if !errors.Is(err, ErrBidStepTooSmall) {
+		t.Fatalf("expected ErrBidStepTooSmall, got %v", err)
 	}
 }
 
@@ -214,6 +214,94 @@ func TestBidExtendsAuctionNearEnd(t *testing.T) {
 	}
 	if placed.NewEndAt != a.EndsAt() {
 		t.Fatal("expected BidPlaced.NewEndAt to match auction end time")
+	}
+}
+
+func TestBidOutsideExtensionWindowDoesNotExtendAuction(t *testing.T) {
+	logTest(t)
+	startsAt := time.Now().Add(-time.Hour)
+	endsAt := time.Now().Add(20 * time.Minute)
+	a := mustAuctionWithSchedule(t, startsAt, endsAt)
+	_, _ = a.Publish()
+
+	bidTime := time.Now()
+	_, err := a.PlaceBid(mustBid(t, "x", 100, bidTime))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if !a.EndsAt().Equal(endsAt) {
+		t.Fatalf("expected ends_at unchanged, got %s want %s", a.EndsAt(), endsAt)
+	}
+}
+
+func TestBidNearEndExtendsFromBidTime(t *testing.T) {
+	logTest(t)
+	startsAt := time.Now().Add(-time.Hour)
+	endsAt := time.Now().Add(2 * time.Minute)
+	a := mustAuctionWithSchedule(t, startsAt, endsAt)
+	_, _ = a.Publish()
+
+	bidTime := endsAt.Add(-30 * time.Second)
+	_, err := a.PlaceBid(mustBid(t, "x", 100, bidTime))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	expectedEnd := bidTime.Add(5 * time.Minute)
+	if !a.EndsAt().Equal(expectedEnd) {
+		t.Fatalf("expected extended end to be %s, got %s", expectedEnd, a.EndsAt())
+	}
+}
+
+func TestBidBelowConfiguredMinStepIsRejected(t *testing.T) {
+	logTest(t)
+	startsAt := time.Now().Add(-time.Hour)
+	endsAt := time.Now().Add(time.Hour)
+	a, err := NewAuctionWithPricing("2", "lot-2", startsAt, endsAt, 100, 100)
+	if err != nil {
+		t.Fatalf("unexpected auction error: %v", err)
+	}
+	_, _ = a.Publish()
+	_, err = a.PlaceBid(mustBid(t, "x", 200, time.Now()))
+	if err != nil {
+		t.Fatalf("unexpected first bid error: %v", err)
+	}
+	_, err = a.PlaceBid(mustBid(t, "y", 250, time.Now().Add(time.Second)))
+	if !errors.Is(err, ErrBidStepTooSmall) {
+		t.Fatalf("expected ErrBidStepTooSmall, got %v", err)
+	}
+	_, err = a.PlaceBid(mustBid(t, "z", 300, time.Now().Add(2*time.Second)))
+	if err != nil {
+		t.Fatalf("expected valid bid at min step, got %v", err)
+	}
+}
+
+func TestFirstBidAllowsAnyAmountFromStartPrice(t *testing.T) {
+	logTest(t)
+	startsAt := time.Now().Add(-time.Hour)
+	endsAt := time.Now().Add(time.Hour)
+	a, err := NewAuctionWithPricing("3", "lot-3", startsAt, endsAt, 100, 100)
+	if err != nil {
+		t.Fatalf("unexpected auction error: %v", err)
+	}
+	_, _ = a.Publish()
+	_, err = a.PlaceBid(mustBid(t, "x", 150, time.Now()))
+	if err != nil {
+		t.Fatalf("expected first bid in [start_price, start_price+min_step) to pass, got %v", err)
+	}
+}
+
+func TestFirstBidBelowStartPriceIsRejected(t *testing.T) {
+	logTest(t)
+	startsAt := time.Now().Add(-time.Hour)
+	endsAt := time.Now().Add(time.Hour)
+	a, err := NewAuctionWithPricing("4", "lot-4", startsAt, endsAt, 100, 100)
+	if err != nil {
+		t.Fatalf("unexpected auction error: %v", err)
+	}
+	_, _ = a.Publish()
+	_, err = a.PlaceBid(mustBid(t, "x", 99, time.Now()))
+	if !errors.Is(err, ErrBidStepTooSmall) {
+		t.Fatalf("expected ErrBidStepTooSmall, got %v", err)
 	}
 }
 

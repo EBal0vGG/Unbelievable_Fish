@@ -26,6 +26,19 @@ type PrepareContractRequest struct {
 	DocumentURL    string `json:"document_url"`
 }
 
+type RequestDealConfirmationRequest struct {
+	Stage                 string     `json:"stage"`
+	VerificationMethod    string     `json:"verification_method"`
+	VerificationTokenHash string     `json:"verification_token_hash,omitempty"`
+	SignatureRef          string     `json:"signature_ref,omitempty"`
+	Comment               string     `json:"comment,omitempty"`
+	ExpiresAt             *time.Time `json:"expires_at,omitempty"`
+}
+
+type RejectDealConfirmationRequest struct {
+	Reason string `json:"reason,omitempty"`
+}
+
 type SignContractRequest struct {
 	SignatureRef string `json:"signature_ref"`
 }
@@ -75,20 +88,41 @@ type ContractInfoDTO struct {
 	DocumentURL  string     `json:"document_url,omitempty"`
 }
 
+type DealConfirmationResponse struct {
+	ID                    string     `json:"id"`
+	DealID                string     `json:"deal_id"`
+	Stage                 string     `json:"stage"`
+	RequestedByUserID     string     `json:"requested_by_user_id"`
+	RequestedByCompanyID  string     `json:"requested_by_company_id"`
+	CounterpartyCompanyID string     `json:"counterparty_company_id"`
+	Status                string     `json:"status"`
+	VerificationMethod    string     `json:"verification_method"`
+	VerificationTokenHash string     `json:"verification_token_hash,omitempty"`
+	SignatureRef          string     `json:"signature_ref,omitempty"`
+	RequestedAt           time.Time  `json:"requested_at"`
+	ApprovedAt            *time.Time `json:"approved_at,omitempty"`
+	RejectedAt            *time.Time `json:"rejected_at,omitempty"`
+	ExpiresAt             *time.Time `json:"expires_at,omitempty"`
+	Comment               string     `json:"comment,omitempty"`
+	Reason                string     `json:"reason,omitempty"`
+}
+
 type DealResponse struct {
-	ID              string             `json:"id"`
-	CustomerID      string             `json:"customer_id"`
-	SupplierID      string             `json:"supplier_id"`
-	AuctionID       string             `json:"auction_id"`
-	Quantity        int64              `json:"quantity"`
-	UnitPrice       int64              `json:"unit_price"`
-	TotalAmount     int64              `json:"total_amount"`
-	Status          string             `json:"status"`
-	Type            string             `json:"type"`
-	CreatedAt       time.Time          `json:"created_at"`
-	ConfirmedAt     *time.Time         `json:"confirmed_at,omitempty"`
-	Contract        *ContractInfoDTO   `json:"contract,omitempty"`
-	ProductSnapshot ProductSnapshotDTO `json:"product_snapshot"`
+	ID                   string             `json:"id"`
+	CustomerID           string             `json:"customer_id"`
+	SupplierID           string             `json:"supplier_id"`
+	AuctionID            string             `json:"auction_id"`
+	Quantity             int64              `json:"quantity"`
+	UnitPrice            int64              `json:"unit_price"`
+	TotalAmount          int64              `json:"total_amount"`
+	Status               string             `json:"status"`
+	Type                 string             `json:"type"`
+	CreatedAt            time.Time          `json:"created_at"`
+	ConfirmedAt          *time.Time         `json:"confirmed_at,omitempty"`
+	ContractSignDeadline *time.Time         `json:"contract_sign_deadline,omitempty"`
+	PaymentDeadline      *time.Time         `json:"payment_deadline,omitempty"`
+	Contract             *ContractInfoDTO   `json:"contract,omitempty"`
+	ProductSnapshot      ProductSnapshotDTO `json:"product_snapshot"`
 }
 
 type ProjectionResponse struct {
@@ -124,18 +158,20 @@ func (d ProductSnapshotDTO) ToDomain() deal.ProductSnapshot {
 
 func NewDealResponse(item *deal.Deal) DealResponse {
 	response := DealResponse{
-		ID:              item.ID(),
-		CustomerID:      item.CustomerID(),
-		SupplierID:      item.SupplierID(),
-		AuctionID:       item.AuctionID(),
-		Quantity:        item.Quantity(),
-		UnitPrice:       item.UnitPrice(),
-		TotalAmount:     item.CalculateTotal(),
-		Status:          string(item.Status()),
-		Type:            string(item.Type()),
-		CreatedAt:       item.CreatedAt(),
-		ConfirmedAt:     item.ConfirmedAt(),
-		ProductSnapshot: NewProductSnapshotDTO(item.ProductSnapshot()),
+		ID:                   item.ID(),
+		CustomerID:           item.CustomerID(),
+		SupplierID:           item.SupplierID(),
+		AuctionID:            item.AuctionID(),
+		Quantity:             item.Quantity(),
+		UnitPrice:            item.UnitPrice(),
+		TotalAmount:          item.CalculateTotal(),
+		Status:               string(item.Status()),
+		Type:                 string(item.Type()),
+		CreatedAt:            item.CreatedAt(),
+		ConfirmedAt:          item.ConfirmedAt(),
+		ContractSignDeadline: item.ContractSignDeadline(),
+		PaymentDeadline:      item.PaymentDeadline(),
+		ProductSnapshot:      NewProductSnapshotDTO(item.ProductSnapshot()),
 	}
 	if item.Contract() != nil {
 		response.Contract = &ContractInfoDTO{
@@ -158,6 +194,27 @@ func NewProjectionResponse(item *deal.DealProjection) ProjectionResponse {
 		PublishedAt:     item.PublishedAt,
 		Status:          string(item.Status),
 		ProductSnapshot: NewProductSnapshotDTO(item.ProductSnapshot),
+	}
+}
+
+func NewDealConfirmationResponse(item *deal.DealConfirmation) DealConfirmationResponse {
+	return DealConfirmationResponse{
+		ID:                    item.ID(),
+		DealID:                item.DealID(),
+		Stage:                 string(item.Stage()),
+		RequestedByUserID:     item.RequestedByUserID(),
+		RequestedByCompanyID:  item.RequestedByCompanyID(),
+		CounterpartyCompanyID: item.CounterpartyCompanyID(),
+		Status:                string(item.Status()),
+		VerificationMethod:    string(item.VerificationMethod()),
+		VerificationTokenHash: item.VerificationTokenHash(),
+		SignatureRef:          item.SignatureRef(),
+		RequestedAt:           item.RequestedAt(),
+		ApprovedAt:            item.ApprovedAt(),
+		RejectedAt:            item.RejectedAt(),
+		ExpiresAt:             item.ExpiresAt(),
+		Comment:               item.Comment(),
+		Reason:                item.Reason(),
 	}
 }
 

@@ -68,15 +68,15 @@ func (s *spyOutbox) Add(ctx context.Context, events []auction.Event) error {
 }
 
 type spyTx struct {
-	repo   *spyRepo
-	bids   *spyBidRepo
-	outbox *spyOutbox
+	repo    *spyRepo
+	bids    *spyBidRepo
+	outbox  *spyOutbox
 	winners *spyWinners
 }
 
-func (s *spyTx) Auctions() app.AuctionRepository { return s.repo }
-func (s *spyTx) Bids() app.BidRepository         { return s.bids }
-func (s *spyTx) Outbox() app.OutboxRepository    { return s.outbox }
+func (s *spyTx) Auctions() app.AuctionRepository       { return s.repo }
+func (s *spyTx) Bids() app.BidRepository               { return s.bids }
+func (s *spyTx) Outbox() app.OutboxRepository          { return s.outbox }
 func (s *spyTx) Winners() app.AuctionWinnersRepository { return s.winners }
 
 type spyUOW struct {
@@ -115,7 +115,12 @@ func TestCommandFlowSmoke(t *testing.T) {
 	}
 
 	router := httpapi.NewRouter(
+		http.NotFoundHandler(),
 		handler.NewPlaceBidHandler(placeBidUC),
+		http.NotFoundHandler(),
+		http.NotFoundHandler(),
+		http.NotFoundHandler(),
+		http.NotFoundHandler(),
 	)
 
 	body, _ := json.Marshal(httpapi.PlaceBidRequest{
@@ -142,5 +147,25 @@ func TestCommandFlowSmoke(t *testing.T) {
 	}
 	if outbox.saveCount != 1 {
 		t.Fatalf("expected Outbox.Save to be called once, got %d", outbox.saveCount)
+	}
+}
+
+func TestCreateAuctionRouteIsNotExposed(t *testing.T) {
+	router := httpapi.NewRouter(
+		http.NotFoundHandler(),
+		http.NotFoundHandler(),
+		http.NotFoundHandler(),
+		http.NotFoundHandler(),
+		http.NotFoundHandler(),
+		http.NotFoundHandler(),
+	)
+
+	req := httptest.NewRequest(http.MethodPost, "/auctions", bytes.NewBufferString(`{}`))
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("expected status %d, got %d", http.StatusNotFound, rec.Code)
 	}
 }

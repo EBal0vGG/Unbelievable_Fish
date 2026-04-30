@@ -104,12 +104,30 @@ Config:
 For live demos where you need to call one endpoint at a time, use:
 - `scripts/realtime/` (see `scripts/realtime/README.md`)
 
+### `scripts/e2e_bid_race_extension.sh`
+Flow:
+- Registers seller + two buyers in Identity (real auth flow with JWT).
+- Creates fish/product/lot and publishes lot.
+- Waits for async auction creation (`GET /auctions/by-lot/{lot_id}` polling).
+- Sends two near-concurrent bids: `110` and `120`.
+- Verifies race result and extension behavior via direct SQL checks.
+- Verifies bid validation:
+  - bid below min step -> `400`
+  - bid after `ends_at` -> `409`
+  - bid outside extension window does not change `ends_at`
+
+Expected output:
+- Per-check `PASS/FAIL` lines.
+- Final summary: `SUMMARY: PASS=<N> FAIL=<M>`.
+- Script exits non-zero if any check failed.
+
 ## How to run each script
 From repo root:
 - `./scripts/demo_happy_path.sh`
 - `./scripts/demo_fallback_winner.sh`
 - `./scripts/demo_auto_close.sh`
 - `./scripts/demo_stress.sh`
+- `./scripts/e2e_bid_race_extension.sh`
 
 Optional: let scripts manage compose:
 - `START_COMPOSE=1 STOP_COMPOSE=1 ./scripts/demo_happy_path.sh`

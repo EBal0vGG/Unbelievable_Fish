@@ -121,37 +121,6 @@ tags:
     description: Read-only operations (read).
 
 paths:
-  /auctions:
-    post:
-      tags: [Commands]
-      summary: CreateAuction
-      operationId: CreateAuction
-      parameters:
-        - $ref: '#/components/parameters/XCompanyID'
-        - $ref: '#/components/parameters/XUserID'
-        - $ref: '#/components/parameters/XCorrelationID'
-        - $ref: '#/components/parameters/XCausationID'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateAuctionCommand'
-      responses:
-        '202':
-          description: Command accepted
-        '400':
-          description: Invalid command
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-              examples:
-                invalid_state:
-                  value:
-                    code: INVALID_STATE_TRANSITION
-                    message: invalid state transition
-                    correlation_id: "corr-1"
   /auctions/{id}/publish:
     post:
       tags: [Commands]
@@ -374,18 +343,6 @@ components:
         type: string
       description: Causation ID for tracing event chains.
   schemas:
-    CreateAuctionCommand:
-      type: object
-      required: [lot_id, starts_at, ends_at]
-      properties:
-        lot_id:
-          type: string
-        starts_at:
-          type: string
-          format: date-time
-        ends_at:
-          type: string
-          format: date-time
     PlaceBidCommand:
       type: object
       required: [amount, placed_at]

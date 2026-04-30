@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/EBal0vGG/Unbelievable_Fish/internal/deals/deal"
@@ -65,7 +66,7 @@ func (uc *GetProjectionByAuctionID) Execute(ctx context.Context, auctionID strin
 
 type CreateDealFromAuctionWon struct {
 	uow     UnitOfWork
-	factory     *deal.Factory
+	factory *deal.Factory
 }
 
 func NewCreateDealFromAuctionWon(
@@ -245,12 +246,20 @@ func NewHandleDealDeclined(
 
 func (uc *HandleDealDeclined) Execute(ctx context.Context, meta CommandMeta, auctionID string, dealID string) error {
 	_ = meta
-	if auctionID == "" {
-		return ErrAuctionIDRequired
-	}
 
 	return uc.uow.Do(ctx, func(tx Tx) error {
-		selection, err := tx.Selections().GetByAuctionID(ctx, auctionID)
+		resolvedAuctionID := auctionID
+		if resolvedAuctionID == "" && dealID != "" {
+			item, err := tx.Deals().GetByID(ctx, dealID)
+			if err != nil {
+				return err
+			}
+			resolvedAuctionID = item.AuctionID()
+		}
+		if resolvedAuctionID == "" {
+			return ErrAuctionIDRequired
+		}
+		selection, err := tx.Selections().GetByAuctionID(ctx, resolvedAuctionID)
 		if err != nil {
 			return err
 		}
@@ -362,11 +371,16 @@ func NewPrepareContract(uow UnitOfWork) (*PrepareContract, error) {
 
 func (uc *PrepareContract) Execute(ctx context.Context, meta CommandMeta, dealID, contractNumber, documentURL string) error {
 	_ = meta
-	if contractNumber == "" {
-		return ErrContractNumberRequired
-	}
 	return executeDealMutation(ctx, uc.uow, dealID, func(item *deal.Deal) ([]deal.Event, error) {
-		return item.PrepareContract(contractNumber, documentURL)
+		nextContractNumber := contractNumber
+		if nextContractNumber == "" {
+			nextContractNumber = fmt.Sprintf("CNT-%s-%s", item.ID(), time.Now().UTC().Format("20060102150405"))
+		}
+		nextDocumentURL := documentURL
+		if nextDocumentURL == "" {
+			nextDocumentURL = fmt.Sprintf("generated://contracts/%s.pdf", nextContractNumber)
+		}
+		return item.PrepareContract(nextContractNumber, nextDocumentURL)
 	})
 }
 
