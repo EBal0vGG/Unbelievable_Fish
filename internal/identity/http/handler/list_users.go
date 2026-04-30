@@ -16,10 +16,6 @@ func NewListUsersHandler(uc *identityapp.ListUsers) *ListUsersHandler {
 }
 
 func (h *ListUsersHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
-	}
 	meta := readMeta(r)
 	users, err := h.uc.Execute(r.Context())
 	if err != nil {

@@ -16,11 +16,7 @@ func NewGetProjectionByAuctionIDHandler(uc *app.GetProjectionByAuctionID) *GetPr
 }
 
 func (h *GetProjectionByAuctionIDHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
-	}
-	auctionID, err := readAuctionIDFromProjectionPath(r.URL.Path)
+	auctionID, err := readAuctionIDFromRequest(r)
 	if err != nil {
 		writeError(w, err, app.CommandMeta{})
 		return
@@ -42,11 +38,7 @@ func NewGetDealByIDHandler(uc *app.GetDealByID) *GetDealByIDHandler {
 }
 
 func (h *GetDealByIDHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
-	}
-	dealID, err := readDealIDFromPath(r.URL.Path, "")
+	dealID, err := readDealIDFromRequest(r)
 	if err != nil {
 		writeError(w, err, app.CommandMeta{})
 		return
@@ -68,11 +60,7 @@ func NewGetDealByAuctionIDHandler(uc *app.GetDealByAuctionID) *GetDealByAuctionI
 }
 
 func (h *GetDealByAuctionIDHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
-	}
-	auctionID, err := readAuctionIDFromDealPath(r.URL.Path)
+	auctionID, err := readAuctionIDFromRequest(r)
 	if err != nil {
 		writeError(w, err, app.CommandMeta{})
 		return
@@ -98,7 +86,7 @@ func (h *GetDealConfirmationsHandler) ServeHTTP(w http.ResponseWriter, r *http.R
 		w.WriteHeader(http.StatusMethodNotAllowed)
 		return
 	}
-	dealID, err := readDealIDFromPath(r.URL.Path, "confirmations")
+	dealID, err := readDealIDFromRequest(r)
 	if err != nil {
 		writeError(w, err, app.CommandMeta{})
 		return

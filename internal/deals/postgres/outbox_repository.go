@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"encoding/json"
+	"log/slog"
 	"reflect"
 	"time"
 
@@ -56,12 +57,14 @@ INSERT INTO outbox_messages (
 		}
 		eventType := "deals." + reflect.TypeOf(event).Name()
 		aggregateID := dealIDFor(event)
+		messageID := newOutboxID()
+		eventID := newOutboxID()
 
 		if _, err := dbtx.ExecContext(
 			ctx,
 			query,
-			newOutboxID(),
-			newOutboxID(),
+			messageID,
+			eventID,
 			eventType,
 			aggregateID,
 			payload,
@@ -76,6 +79,16 @@ INSERT INTO outbox_messages (
 		); err != nil {
 			return err
 		}
+		slog.InfoContext(
+			ctx,
+			"outbox_message_enqueued",
+			"component", "outbox.repository",
+			"source_context", "deals",
+			"message_id", messageID,
+			"event_id", eventID,
+			"event_type", eventType,
+			"aggregate_id", aggregateID,
+		)
 	}
 
 	return nil

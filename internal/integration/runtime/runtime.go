@@ -4,7 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"log"
+	"log/slog"
 	"time"
 
 	catalogapp "github.com/EBal0vGG/Unbelievable_Fish/internal/catalog/app"
@@ -96,7 +96,7 @@ func (r *Runtime) RunCloseExpired(ctx context.Context, now time.Time, limit int)
 		return err
 	}
 	for _, id := range ids {
-		log.Printf("scheduler_close_attempt auction_id=%s", id)
+		slog.InfoContext(ctx, "scheduler_close_attempt", "component", "scheduler", "operation", "close_expired_auction", "auction_id", id)
 		meta := tradingapp.CommandMeta{
 			CompanyID:     "system",
 			UserID:        "system",
@@ -105,13 +105,13 @@ func (r *Runtime) RunCloseExpired(ctx context.Context, now time.Time, limit int)
 		}
 		if err := r.closeAuction.Execute(ctx, meta, id); err != nil {
 			if errors.Is(err, auction.ErrAuctionNotActive) || errors.Is(err, auction.ErrInvalidStateTransition) || errors.Is(err, auction.ErrAuctionAlreadyEnded) {
-				log.Printf("scheduler_close_skip auction_id=%s reason=%s", id, err.Error())
+				slog.InfoContext(ctx, "scheduler_close_skip", "component", "scheduler", "operation", "close_expired_auction", "auction_id", id, "reason", err.Error())
 				continue
 			}
-			log.Printf("scheduler_close_error auction_id=%s error=%q", id, err.Error())
+			slog.ErrorContext(ctx, "scheduler_close_error", "component", "scheduler", "operation", "close_expired_auction", "auction_id", id, "error", err)
 			return err
 		}
-		log.Printf("scheduler_close_success auction_id=%s", id)
+		slog.InfoContext(ctx, "scheduler_close_success", "component", "scheduler", "operation", "close_expired_auction", "auction_id", id)
 	}
 	return nil
 }
@@ -122,7 +122,7 @@ func (r *Runtime) RunCancelExpiredDeals(ctx context.Context, now time.Time, limi
 		return err
 	}
 	for _, id := range ids {
-		log.Printf("scheduler_cancel_deal_attempt deal_id=%s", id)
+		slog.InfoContext(ctx, "scheduler_cancel_deal_attempt", "component", "scheduler", "operation", "cancel_expired_deal", "deal_id", id)
 		meta := dealsapp.CommandMeta{
 			CompanyID:     "system",
 			UserID:        "system",
@@ -130,10 +130,10 @@ func (r *Runtime) RunCancelExpiredDeals(ctx context.Context, now time.Time, limi
 			CausationID:   "scheduler-deal-deadline",
 		}
 		if err := r.cancelDeal.Execute(ctx, meta, id, "deadline exceeded"); err != nil {
-			log.Printf("scheduler_cancel_deal_error deal_id=%s error=%q", id, err.Error())
+			slog.ErrorContext(ctx, "scheduler_cancel_deal_error", "component", "scheduler", "operation", "cancel_expired_deal", "deal_id", id, "error", err)
 			continue
 		}
-		log.Printf("scheduler_cancel_deal_success deal_id=%s", id)
+		slog.InfoContext(ctx, "scheduler_cancel_deal_success", "component", "scheduler", "operation", "cancel_expired_deal", "deal_id", id)
 	}
 	return nil
 }
@@ -185,11 +185,14 @@ func subscribeHandlers(
 		}
 
 		tradingMeta := tradingMetaFromEnvelope(envelope)
-		log.Printf(
-			"integration_lot_published lot_id=%s auction_id=%s correlation_id=%s",
-			evt.LotID,
-			auctionID,
-			tradingMeta.CorrelationID,
+		slog.InfoContext(
+			ctx,
+			"integration_lot_published",
+			"component", "integration.runtime",
+			"event_type", envelope.Type,
+			"lot_id", evt.LotID,
+			"auction_id", auctionID,
+			"correlation_id", tradingMeta.CorrelationID,
 		)
 		if _, err := createAuction.Execute(ctx, tradingMeta, evt.LotID, startsAt, endsAt, evt.StartPrice, minBidStep); err != nil {
 			return err
@@ -279,7 +282,7 @@ func subscribeHandlers(
 		err := handleDealDeclined.Execute(ctx, dealsMeta, valueOrEmpty(envelope.Meta, "auction_id"), evt.DealID)
 		if err != nil {
 			if errors.Is(err, dealsapp.ErrNoAvailableWinner) {
-				log.Printf("integration_deal_cancelled_no_next_winner deal_id=%s", evt.DealID)
+				slog.InfoContext(ctx, "integration_deal_cancelled_no_next_winner", "component", "integration.runtime", "event_type", envelope.Type, "deal_id", evt.DealID)
 				return nil
 			}
 			return err

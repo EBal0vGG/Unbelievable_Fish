@@ -3,7 +3,7 @@ package main
 import (
 	"database/sql"
 	"encoding/json"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"strconv"
@@ -11,6 +11,8 @@ import (
 
 	identityauth "github.com/EBal0vGG/Unbelievable_Fish/internal/identity/auth"
 	identity "github.com/EBal0vGG/Unbelievable_Fish/internal/identity/domain"
+	"github.com/EBal0vGG/Unbelievable_Fish/internal/infra/httplog"
+	"github.com/EBal0vGG/Unbelievable_Fish/internal/infra/logging"
 	tradingapp "github.com/EBal0vGG/Unbelievable_Fish/internal/trading/app"
 	httpapi "github.com/EBal0vGG/Unbelievable_Fish/internal/trading/http"
 	"github.com/EBal0vGG/Unbelievable_Fish/internal/trading/http/handler"
@@ -19,36 +21,37 @@ import (
 )
 
 func main() {
+	logger := logging.New("trading")
 	db, ok := openDB()
 	if !ok {
-		log.Fatal("PGHOST/PGUSER/PGDATABASE are required")
+		logging.Fatal(logger, "database_config_missing", "required", "PGHOST,PGUSER,PGDATABASE")
 	}
 	defer db.Close()
 
 	uow := tradingpg.NewUnitOfWork(db)
 	publishAuctionUC, err := tradingapp.NewPublishAuction(uow)
 	if err != nil {
-		log.Fatal(err)
+		logging.Fatal(logger, "publish_auction_usecase_init_failed", "error", err)
 	}
 	placeBidUC, err := tradingapp.NewPlaceBid(uow)
 	if err != nil {
-		log.Fatal(err)
+		logging.Fatal(logger, "place_bid_usecase_init_failed", "error", err)
 	}
 	closeAuctionUC, err := tradingapp.NewCloseAuction(uow)
 	if err != nil {
-		log.Fatal(err)
+		logging.Fatal(logger, "close_auction_usecase_init_failed", "error", err)
 	}
 	cancelAuctionUC, err := tradingapp.NewCancelAuction(uow)
 	if err != nil {
-		log.Fatal(err)
+		logging.Fatal(logger, "cancel_auction_usecase_init_failed", "error", err)
 	}
 	getAuctionByLotUC, err := tradingapp.NewGetAuctionByLot(tradingpg.NewAuctionReadRepository(db))
 	if err != nil {
-		log.Fatal(err)
+		logging.Fatal(logger, "get_auction_by_lot_usecase_init_failed", "error", err)
 	}
 	getAuctionByIDUC, err := tradingapp.NewGetAuctionByID(tradingpg.NewAuctionReadRepository(db))
 	if err != nil {
-		log.Fatal(err)
+		logging.Fatal(logger, "get_auction_by_id_usecase_init_failed", "error", err)
 	}
 	tokenProvider := identityauth.NewTokenProvider(
 		envOrDefault("IDENTITY_TOKEN_SECRET", "dev-secret"),
@@ -56,6 +59,17 @@ func main() {
 	)
 	authMiddleware := identityauth.NewMiddleware(tokenProvider, func(w http.ResponseWriter, r *http.Request, err error) {
 		httpErr := httpapi.MapError(err)
+		slog.WarnContext(
+			r.Context(),
+			"trading_auth_error",
+			"component", "auth.middleware",
+			"status", httpErr.Status,
+			"code", httpErr.Code,
+			"message", httpErr.Message,
+			"correlation_id", r.Header.Get("X-Correlation-ID"),
+			"causation_id", r.Header.Get("X-Causation-ID"),
+			"error", err,
+		)
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(httpErr.Status)
 		_ = json.NewEncoder(w).Encode(httpapi.ErrorResponse{
@@ -71,11 +85,14 @@ func main() {
 		authMiddleware.RequireRole(identity.RoleSeller, handler.NewCancelAuctionHandler(cancelAuctionUC)),
 		authMiddleware.Wrap(handler.NewGetAuctionByIDHandler(getAuctionByIDUC)),
 		authMiddleware.Wrap(handler.NewGetAuctionByLotHandler(getAuctionByLotUC)),
+		httplog.Middleware(logger),
 	)
 
 	port := envOrDefault("TRADING_PORT", "8082")
-	log.Printf("trading http listening on :%s", port)
-	log.Fatal(http.ListenAndServe(":"+port, router))
+	logger.Info("http_server_starting", "component", "http.server", "addr", ":"+port)
+	if err := http.ListenAndServe(":"+port, router); err != nil {
+		logging.Fatal(logger, "http_server_stopped", "component", "http.server", "error", err)
+	}
 }
 
 func openDB() (*sql.DB, bool) {

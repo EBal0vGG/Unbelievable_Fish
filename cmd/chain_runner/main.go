@@ -4,7 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -17,6 +17,7 @@ import (
 	catalogpg "github.com/EBal0vGG/Unbelievable_Fish/internal/catalog/postgres"
 	dealsapp "github.com/EBal0vGG/Unbelievable_Fish/internal/deals/app"
 	dealspg "github.com/EBal0vGG/Unbelievable_Fish/internal/deals/postgres"
+	"github.com/EBal0vGG/Unbelievable_Fish/internal/infra/logging"
 	integration "github.com/EBal0vGG/Unbelievable_Fish/internal/integration/runtime"
 	tradingapp "github.com/EBal0vGG/Unbelievable_Fish/internal/trading/app"
 	tradingpg "github.com/EBal0vGG/Unbelievable_Fish/internal/trading/postgres"
@@ -24,23 +25,24 @@ import (
 )
 
 func main() {
+	logger := logging.New("chain_runner")
 	db, ok := openRealPostgres()
 	if !ok {
-		log.Fatal("PGHOST/PGUSER/PGDATABASE are required")
+		logging.Fatal(logger, "database_config_missing", "required", "PGHOST,PGUSER,PGDATABASE")
 	}
 	defer db.Close()
 
 	if err := applyMigrations(db); err != nil {
-		log.Fatalf("apply migrations: %v", err)
+		logging.Fatal(logger, "migrations_apply_failed", "error", err)
 	}
 	if err := truncateAll(db); err != nil {
-		log.Fatalf("truncate: %v", err)
+		logging.Fatal(logger, "truncate_failed", "error", err)
 	}
 
 	if err := runChains(db); err != nil {
-		log.Fatalf("chains failed: %v", err)
+		logging.Fatal(logger, "chains_failed", "error", err)
 	}
-	log.Println("chains verified")
+	logger.Info("chains_verified")
 }
 
 func runChains(db *sql.DB) error {
@@ -151,7 +153,7 @@ func runChains(db *sql.DB) error {
 	if err != nil {
 		return fmt.Errorf("deal not created: %w", err)
 	}
-	log.Printf("deal created id=%s buyer=%s", dealItem.ID(), dealItem.CustomerID())
+	slog.Info("deal_created", "component", "chain_runner", "deal_id", dealItem.ID(), "buyer_id", dealItem.CustomerID())
 	return nil
 }
 

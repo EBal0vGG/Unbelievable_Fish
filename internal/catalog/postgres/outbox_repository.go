@@ -6,11 +6,12 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"encoding/json"
+	"log/slog"
 	"reflect"
 	"time"
 
-	"github.com/EBal0vGG/Unbelievable_Fish/internal/catalog/domain"
 	"github.com/EBal0vGG/Unbelievable_Fish/internal/catalog/app"
+	"github.com/EBal0vGG/Unbelievable_Fish/internal/catalog/domain"
 )
 
 type OutboxRepository struct {
@@ -79,6 +80,16 @@ INSERT INTO outbox_messages (
 		); err != nil {
 			return err
 		}
+		slog.InfoContext(
+			ctx,
+			"outbox_message_enqueued",
+			"component", "outbox.repository",
+			"source_context", "catalog",
+			"message_id", id,
+			"event_id", eventID,
+			"event_type", eventType,
+			"aggregate_id", aggregateID,
+		)
 	}
 
 	return nil

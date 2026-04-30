@@ -1,16 +1,10 @@
 package httpapi
 
-import "net/http"
-import "strings"
+import (
+	"net/http"
 
-type Router struct {
-	registerCompany  http.Handler
-	registerUser     http.Handler
-	listUsers        http.Handler
-	promoteUserAdmin http.Handler
-	login            http.Handler
-	getCurrentUser   http.Handler
-}
+	"github.com/go-chi/chi/v5"
+)
 
 func NewRouter(
 	registerCompany http.Handler,
@@ -19,38 +13,15 @@ func NewRouter(
 	promoteUserAdmin http.Handler,
 	login http.Handler,
 	getCurrentUser http.Handler,
-) *Router {
-	return &Router{
-		registerCompany:  registerCompany,
-		registerUser:     registerUser,
-		listUsers:        listUsers,
-		promoteUserAdmin: promoteUserAdmin,
-		login:            login,
-		getCurrentUser:   getCurrentUser,
-	}
-}
-
-func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	switch {
-	case req.URL.Path == "/companies" && req.Method == http.MethodPost:
-		r.registerCompany.ServeHTTP(w, req)
-		return
-	case req.URL.Path == "/users" && req.Method == http.MethodPost:
-		r.registerUser.ServeHTTP(w, req)
-		return
-	case req.URL.Path == "/users" && req.Method == http.MethodGet:
-		r.listUsers.ServeHTTP(w, req)
-		return
-	case req.Method == http.MethodPost && strings.HasPrefix(req.URL.Path, "/users/") && strings.HasSuffix(req.URL.Path, "/promote-admin"):
-		r.promoteUserAdmin.ServeHTTP(w, req)
-		return
-	case req.URL.Path == "/auth/login" && req.Method == http.MethodPost:
-		r.login.ServeHTTP(w, req)
-		return
-	case req.URL.Path == "/users/me" && req.Method == http.MethodGet:
-		r.getCurrentUser.ServeHTTP(w, req)
-		return
-	default:
-		http.NotFound(w, req)
-	}
+	middlewares ...func(http.Handler) http.Handler,
+) chi.Router {
+	r := chi.NewRouter()
+	r.Use(middlewares...)
+	r.Method(http.MethodPost, "/companies", registerCompany)
+	r.Method(http.MethodPost, "/users", registerUser)
+	r.Method(http.MethodGet, "/users", listUsers)
+	r.Method(http.MethodPost, "/users/{userID}/promote-admin", promoteUserAdmin)
+	r.Method(http.MethodPost, "/auth/login", login)
+	r.Method(http.MethodGet, "/users/me", getCurrentUser)
+	return r
 }

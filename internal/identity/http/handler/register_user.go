@@ -16,11 +16,6 @@ func NewRegisterUserHandler(uc *identityapp.RegisterUser) *RegisterUserHandler {
 }
 
 func (h *RegisterUserHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		w.WriteHeader(http.StatusMethodNotAllowed)
-		return
-	}
-
 	meta := readMeta(r)
 	var req httpapi.RegisterUserRequest
 	if err := decodeJSON(w, r, &req); err != nil {

@@ -2,12 +2,13 @@ package handler
 
 import (
 	"encoding/json"
+	"log/slog"
 	"net/http"
-	"strings"
 
 	"github.com/EBal0vGG/Unbelievable_Fish/internal/deals/app"
 	httpapi "github.com/EBal0vGG/Unbelievable_Fish/internal/deals/http"
 	identityauth "github.com/EBal0vGG/Unbelievable_Fish/internal/identity/auth"
+	"github.com/go-chi/chi/v5"
 )
 
 func readCommandMeta(r *http.Request) (app.CommandMeta, error) {
@@ -35,62 +36,29 @@ func readCommandMeta(r *http.Request) (app.CommandMeta, error) {
 	}, nil
 }
 
-func readDealIDFromPath(path, suffix string) (string, error) {
-	if !strings.HasPrefix(path, "/deals/") {
-		return "", httpapi.ErrInvalidPath
+func readDealIDFromRequest(r *http.Request) (string, error) {
+	dealID := chi.URLParam(r, "dealID")
+	if dealID != "" {
+		return dealID, nil
 	}
-	rest := strings.TrimPrefix(path, "/deals/")
-	parts := strings.Split(rest, "/")
-	if suffix == "" {
-		if len(parts) != 1 || parts[0] == "" {
-			return "", httpapi.ErrInvalidPath
-		}
-		return parts[0], nil
-	}
-	tail := strings.Split(suffix, "/")
-	if len(parts) != len(tail)+1 || parts[0] == "" {
-		return "", httpapi.ErrInvalidPath
-	}
-	for i, want := range tail {
-		if parts[i+1] != want {
-			return "", httpapi.ErrInvalidPath
-		}
-	}
-	return parts[0], nil
+	return "", httpapi.ErrInvalidPath
 }
 
-func readAuctionIDFromProjectionPath(path string) (string, error) {
-	if !strings.HasPrefix(path, "/deal-projections/") {
-		return "", httpapi.ErrInvalidPath
+func readAuctionIDFromRequest(r *http.Request) (string, error) {
+	auctionID := chi.URLParam(r, "auctionID")
+	if auctionID != "" {
+		return auctionID, nil
 	}
-	auctionID := strings.TrimPrefix(path, "/deal-projections/")
-	if auctionID == "" || strings.Contains(auctionID, "/") {
-		return "", httpapi.ErrInvalidPath
-	}
-	return auctionID, nil
+	return "", httpapi.ErrInvalidPath
 }
 
-func readAuctionIDFromDealPath(path string) (string, error) {
-	if !strings.HasPrefix(path, "/deals/by-auction/") {
-		return "", httpapi.ErrInvalidPath
-	}
-	auctionID := strings.TrimPrefix(path, "/deals/by-auction/")
-	if auctionID == "" || strings.Contains(auctionID, "/") {
-		return "", httpapi.ErrInvalidPath
-	}
-	return auctionID, nil
-}
-
-func readConfirmationIDsFromPath(path, action string) (string, string, error) {
-	if !strings.HasPrefix(path, "/deals/") {
+func readConfirmationIDsFromRequest(r *http.Request) (string, string, error) {
+	dealID := chi.URLParam(r, "dealID")
+	confirmationID := chi.URLParam(r, "confirmationID")
+	if dealID == "" || confirmationID == "" {
 		return "", "", httpapi.ErrInvalidPath
 	}
-	rest := strings.TrimPrefix(path, "/deals/")
-	parts := strings.Split(rest, "/")
-	if len(parts) != 4 || parts[0] == "" || parts[1] != "confirmations" || parts[2] == "" || parts[3] != action {
-		return "", "", httpapi.ErrInvalidPath
-	}
-	return parts[0], parts[2], nil
+	return dealID, confirmationID, nil
 }
 
 func decodeJSON(r *http.Request, dst any) error {
@@ -115,10 +83,31 @@ func writeJSON(w http.ResponseWriter, status int, payload any) {
 
 func writeError(w http.ResponseWriter, err error, meta app.CommandMeta) {
 	httpErr := httpapi.MapError(err)
+	logHTTPError("deals_http_error", err, httpErr.Status, httpErr.Code, httpErr.Message, meta)
 	writeJSON(w, httpErr.Status, httpapi.ErrorResponse{
 		Code:          httpErr.Code,
 		Message:       httpErr.Message,
 		CorrelationID: meta.CorrelationID,
 		CausationID:   meta.CausationID,
 	})
+}
+
+func logHTTPError(message string, err error, status int, code, responseMessage string, meta app.CommandMeta) {
+	args := []any{
+		"component", "http.handler",
+		"bounded_context", "deals",
+		"status", status,
+		"code", code,
+		"message", responseMessage,
+		"company_id", meta.CompanyID,
+		"user_id", meta.UserID,
+		"correlation_id", meta.CorrelationID,
+		"causation_id", meta.CausationID,
+		"error", err,
+	}
+	if status >= http.StatusInternalServerError {
+		slog.Error(message, args...)
+		return
+	}
+	slog.Warn(message, args...)
 }
