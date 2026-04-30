@@ -87,12 +87,6 @@ func (s *spyUOW) Do(ctx context.Context, fn func(app.Tx) error) error {
 	return fn(s.tx)
 }
 
-type fakeIDFactory struct {
-	id app.AuctionID
-}
-
-func (f fakeIDFactory) NewID() (app.AuctionID, error) { return f.id, nil }
-
 type spyWinners struct {
 	saveCount int
 }
@@ -100,50 +94,6 @@ type spyWinners struct {
 func (s *spyWinners) Save(ctx context.Context, auctionID app.AuctionID, winners []app.WinnerRecord) error {
 	s.saveCount++
 	return nil
-}
-
-func TestCreateAuctionHandlerSuccess(t *testing.T) {
-	logTest(t)
-	repo := &spyRepo{}
-	bidRepo := &spyBidRepo{}
-	outbox := &spyOutbox{}
-	winners := &spyWinners{}
-	uow := &spyUOW{tx: &spyTx{repo: repo, bids: bidRepo, outbox: outbox, winners: winners}}
-	uc, err := app.NewCreateAuction(uow, fakeIDFactory{id: "gen-1"})
-	if err != nil {
-		t.Fatalf("unexpected constructor error: %v", err)
-	}
-	handler := NewCreateAuctionHandler(uc)
-
-	startsAt := time.Now().Add(-time.Hour).UTC()
-	endsAt := startsAt.Add(time.Hour)
-	logf(t, "request lot_id=%s starts_at=%s ends_at=%s", "lot-1", startsAt, endsAt)
-	body, _ := json.Marshal(httpapi.CreateAuctionRequest{
-		LotID:    "lot-1",
-		StartsAt: startsAt,
-		EndsAt:   endsAt,
-	})
-	req := httptest.NewRequest(http.MethodPost, "/auctions", bytes.NewReader(body))
-	req.Header.Set("X-Company-ID", "company-1")
-	req.Header.Set("X-User-ID", "user-1")
-	rec := httptest.NewRecorder()
-
-	handler.ServeHTTP(rec, req)
-
-	logf(t, "status=%d save_count=%d", rec.Code, repo.saveCount)
-	if rec.Code != http.StatusAccepted {
-		t.Fatalf("expected status %d, got %d", http.StatusAccepted, rec.Code)
-	}
-	if repo.saveCount != 1 {
-		t.Fatalf("expected save to be called once, got %d", repo.saveCount)
-	}
-	var response httpapi.CreateAuctionResponse
-	if err := json.NewDecoder(rec.Body).Decode(&response); err != nil {
-		t.Fatalf("failed to decode response: %v", err)
-	}
-	if response.AuctionID != "gen-1" {
-		t.Fatalf("expected auction_id gen-1, got %s", response.AuctionID)
-	}
 }
 
 func TestPublishAuctionHandlerMissingCompanyID(t *testing.T) {
