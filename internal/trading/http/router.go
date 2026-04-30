@@ -6,7 +6,6 @@ import (
 )
 
 type Router struct {
-	createAuction  http.Handler
 	publishAuction http.Handler
 	placeBid       http.Handler
 	closeAuction   http.Handler
@@ -16,7 +15,6 @@ type Router struct {
 }
 
 func NewRouter(
-	createAuction http.Handler,
 	publishAuction http.Handler,
 	placeBid http.Handler,
 	closeAuction http.Handler,
@@ -25,7 +23,6 @@ func NewRouter(
 	getByLot http.Handler,
 ) *Router {
 	return &Router{
-		createAuction:  createAuction,
 		publishAuction: publishAuction,
 		placeBid:       placeBid,
 		closeAuction:   closeAuction,
@@ -36,10 +33,6 @@ func NewRouter(
 }
 
 func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	if req.Method == http.MethodPost && req.URL.Path == "/auctions" {
-		r.createAuction.ServeHTTP(w, req)
-		return
-	}
 	if req.Method == http.MethodPost && strings.HasPrefix(req.URL.Path, "/auctions/") && strings.HasSuffix(req.URL.Path, "/publish") {
 		r.publishAuction.ServeHTTP(w, req)
 		return

@@ -26,10 +26,8 @@ json_get() {
   python3 -c 'import json,sys; print(json.loads(sys.argv[1])[sys.argv[2]])' "$1" "$2"
 }
 
-json_get_path() {
-  python3 -c 'import json,sys; obj=json.loads(sys.argv[1]); path=sys.argv[2].split("."); 
-for p in path: obj=obj[p]
-print(obj)' "$1" "$2"
+json_get_optional() {
+  python3 -c 'import json,sys; print(json.loads(sys.argv[1]).get(sys.argv[2], ""))' "$1" "$2"
 }
 
 valid_requisites() {
@@ -83,6 +81,10 @@ fi
 if [[ -z "$PG_CONTAINER" ]]; then
   PG_CONTAINER="fish-postgres-1"
 fi
+if [[ -z "$(docker compose ps -q integration)" ]]; then
+  echo "Integration service is not running. Start it: docker compose up -d integration" >&2
+  exit 1
+fi
 
 fish_resp="$(curl -s -X POST "$CATALOG_URL/fish" -H "Content-Type: application/json" -d '{"name":"Cod","description":"desc"}')"
 fish_id="$(json_get "$fish_resp" "fish_id")"
@@ -123,19 +125,30 @@ buyer2_token="$(login_token "$buyer2_login" "$password")"
 
 if command -v gdate >/dev/null 2>&1; then
   starts_at="$(gdate -u -d "-1 min" +%Y-%m-%dT%H:%M:%SZ)"
-  ends_at="$(gdate -u -d "+2 min" +%Y-%m-%dT%H:%M:%SZ)"
 else
   starts_at="$(date -u -v-1M +%Y-%m-%dT%H:%M:%SZ)"
-  ends_at="$(date -u -v+2M +%Y-%m-%dT%H:%M:%SZ)"
 fi
 lot_resp="$(curl -fsS -X POST "$CATALOG_URL/lots" -H "Content-Type: application/json" -H "Authorization: Bearer $seller_token" -d "{\"product_id\":\"$product_id\",\"photo\":\"photo\",\"quantity\":10,\"start_price\":100,\"auction_starts_at\":\"$starts_at\",\"auction_duration_minutes\":2}")"
 lot_id="$(json_get "$lot_resp" "lot_id")"
 
 curl -fsS -X POST "$CATALOG_URL/lots/$lot_id/publish" -H "Authorization: Bearer $seller_token" >/dev/null
 
-auction_resp="$(curl -fsS -X POST "$TRADING_URL/auctions" -H "Content-Type: application/json" -H "Authorization: Bearer $seller_token" -d "{\"lot_id\":\"$lot_id\",\"starts_at\":\"$starts_at\",\"ends_at\":\"$ends_at\"}")"
-auction_id="$(json_get "$auction_resp" "auction_id")"
-curl -fsS -X POST "$TRADING_URL/auctions/$auction_id/publish" -H "Authorization: Bearer $seller_token" >/dev/null
+auction_id=""
+for _ in $(seq 1 30); do
+  code="$(curl -s -o /tmp/demo_happy_bylot.json -w "%{http_code}" "$TRADING_URL/auctions/by-lot/$lot_id" -H "Authorization: Bearer $seller_token")"
+  if [[ "$code" == "200" ]]; then
+    auction_id="$(json_get_optional "$(cat /tmp/demo_happy_bylot.json)" "auction_id")"
+    if [[ -n "$auction_id" ]]; then
+      break
+    fi
+  fi
+  sleep 1
+done
+if [[ -z "$auction_id" ]]; then
+  echo "Auction not found for lot: $lot_id (check integration service logs)" >&2
+  cat /tmp/demo_happy_bylot.json >&2 || true
+  exit 1
+fi
 
 curl -s -o /dev/null -w "%{http_code}\n" -X POST "$TRADING_URL/auctions/$auction_id/bids" -H "Content-Type: application/json" -H "Authorization: Bearer $buyer1_token" -d '{"amount":120}' | grep -q "202"
 curl -s -o /dev/null -w "%{http_code}\n" -X POST "$TRADING_URL/auctions/$auction_id/bids" -H "Content-Type: application/json" -H "Authorization: Bearer $buyer2_token" -d '{"amount":150}' | grep -q "202"

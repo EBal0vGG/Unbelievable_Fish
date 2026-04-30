@@ -26,10 +26,6 @@ func main() {
 	defer db.Close()
 
 	uow := tradingpg.NewUnitOfWork(db)
-	createAuctionUC, err := tradingapp.NewCreateAuction(uow, tradingapp.RandomAuctionIDFactory{})
-	if err != nil {
-		log.Fatal(err)
-	}
 	publishAuctionUC, err := tradingapp.NewPublishAuction(uow)
 	if err != nil {
 		log.Fatal(err)
@@ -69,7 +65,6 @@ func main() {
 	})
 
 	router := httpapi.NewRouter(
-		authMiddleware.RequireRole(identity.RoleSeller, handler.NewCreateAuctionHandler(createAuctionUC)),
 		authMiddleware.RequireRole(identity.RoleSeller, handler.NewPublishAuctionHandler(publishAuctionUC)),
 		authMiddleware.RequireRole(identity.RoleBuyer, handler.NewPlaceBidHandler(placeBidUC)),
 		authMiddleware.RequireRole(identity.RoleSeller, handler.NewCloseAuctionHandler(closeAuctionUC)),

@@ -116,7 +116,6 @@ func TestCommandFlowSmoke(t *testing.T) {
 
 	router := httpapi.NewRouter(
 		http.NotFoundHandler(),
-		http.NotFoundHandler(),
 		handler.NewPlaceBidHandler(placeBidUC),
 		http.NotFoundHandler(),
 		http.NotFoundHandler(),
@@ -148,5 +147,25 @@ func TestCommandFlowSmoke(t *testing.T) {
 	}
 	if outbox.saveCount != 1 {
 		t.Fatalf("expected Outbox.Save to be called once, got %d", outbox.saveCount)
+	}
+}
+
+func TestCreateAuctionRouteIsNotExposed(t *testing.T) {
+	router := httpapi.NewRouter(
+		http.NotFoundHandler(),
+		http.NotFoundHandler(),
+		http.NotFoundHandler(),
+		http.NotFoundHandler(),
+		http.NotFoundHandler(),
+		http.NotFoundHandler(),
+	)
+
+	req := httptest.NewRequest(http.MethodPost, "/auctions", bytes.NewBufferString(`{}`))
+	rec := httptest.NewRecorder()
+
+	router.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("expected status %d, got %d", http.StatusNotFound, rec.Code)
 	}
 }
