@@ -374,7 +374,7 @@ func TestRegisterUserSuccessByCompanyRequisites(t *testing.T) {
 	}
 }
 
-func TestRegisterUserWithoutCompanyKeepsEmptyCompanyID(t *testing.T) {
+func TestRegisterUserWithoutCompanyCreatesShellCompany(t *testing.T) {
 	users := newFakeUserRepo()
 	companies := newFakeCompanyRepo()
 	hasher := &fakePasswordHasher{hashValue: "hashed-password"}
@@ -395,8 +395,11 @@ func TestRegisterUserWithoutCompanyKeepsEmptyCompanyID(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if result.CompanyID != "" {
-		t.Fatalf("expected empty company id, got %q", result.CompanyID)
+	if result.CompanyID != "company-auto" {
+		t.Fatalf("expected shell company id company-auto, got %q", result.CompanyID)
+	}
+	if _, err := companies.GetByID(context.Background(), "company-auto"); err != nil {
+		t.Fatalf("expected shell company saved: %v", err)
 	}
 }
 

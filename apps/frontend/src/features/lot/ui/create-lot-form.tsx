@@ -200,6 +200,10 @@ export function CreateLotForm() {
         <Notice tone="warning" title="Доступно продавцам">
           Создание продуктов и лотов доступно только компании-поставщику.
         </Notice>
+      ) : session && (!session.companyId || !session.userId) ? (
+        <Notice tone="warning" title="Нет привязки к компании">
+          В профиле пустой company_id (старый аккаунт или сбой). Выйдите и зарегистрируйтесь снова — для новых пользователей без своей компании identity создаёт персональную организацию автоматически.
+        </Notice>
       ) : null}
 
       <div className="supply-builder">

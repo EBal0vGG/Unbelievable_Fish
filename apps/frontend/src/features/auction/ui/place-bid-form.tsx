@@ -47,8 +47,13 @@ export function PlaceBidForm({
   const { session } = useAuth();
   const queryClient = useQueryClient();
   const canBid = isBuyerSession(session);
-  const sessionError =
-    !session?.companyId ? "Войдите в профиль, чтобы делать ставки" : !session.userId ? "Войдите в профиль, чтобы делать ставки" : null;
+  const sessionError = !session
+    ? "Войдите в профиль, чтобы делать ставки"
+    : !session.userId
+      ? "Войдите в профиль, чтобы делать ставки"
+      : !session.companyId
+        ? "В профиле не указана компания — ставки привязаны к организации-покупателю. Зарегистрируйтесь с «Привязать компанию» или войдите под пользователем с компанией."
+        : null;
   const roleError = session && !canBid ? "Ставки доступны только покупателям" : null;
   const bidAccessError = getBidAccessError({
     actorCompanyId: session?.companyId,

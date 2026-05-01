@@ -117,10 +117,8 @@ func (uc *RegisterUser) resolveCompanyID(ctx context.Context, cmd RegisterUserCo
 
 	companyINN := strings.TrimSpace(cmd.CompanyINN)
 	companyOGRN := strings.TrimSpace(cmd.CompanyOGRN)
-	if companyINN == "" && companyOGRN == "" {
-		return "", nil
-	}
 	if companyINN == "" || companyOGRN == "" {
+		// No full requisites: create a shell company so the user always has company_id for B2B flows.
 		return uc.ensureDummyCompany(ctx, cmd)
 	}
 
@@ -141,7 +139,7 @@ func (uc *RegisterUser) ensureDummyCompany(ctx context.Context, cmd RegisterUser
 	}
 	seed := fmt.Sprintf("%d-%s", time.Now().UnixNano(), login)
 	inn, ogrn := buildValidRequisites(seed)
-	companyName := "Auto company for " + login
+	companyName := "Индивидуальный учёт (" + login + ")"
 	company, err := identity.NewCompany(uc.ids.NewCompanyID(), companyName, inn, ogrn, uc.clock.Now())
 	if err != nil {
 		return "", err

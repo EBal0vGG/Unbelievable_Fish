@@ -249,7 +249,7 @@ func TestRegisterUserHandlerSuccessWithBuyerSellerRole(t *testing.T) {
 func TestRegisterUserHandlerSuccessWithoutCompany(t *testing.T) {
 	companies := newFakeCompanyRepo()
 	users := newFakeUserRepo()
-	uc, err := identityapp.NewRegisterUser(users, companies, fakePasswordHasher{hashValue: "hashed:"}, fixedIDGenerator{userID: "user-2"}, fixedClock{now: time.Date(2024, time.April, 1, 10, 5, 0, 0, time.UTC)})
+	uc, err := identityapp.NewRegisterUser(users, companies, fakePasswordHasher{hashValue: "hashed:"}, fixedIDGenerator{companyID: "company-shell-bob", userID: "user-2"}, fixedClock{now: time.Date(2024, time.April, 1, 10, 5, 0, 0, time.UTC)})
 	if err != nil {
 		t.Fatalf("unexpected constructor error: %v", err)
 	}
@@ -275,8 +275,8 @@ func TestRegisterUserHandlerSuccessWithoutCompany(t *testing.T) {
 	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
 		t.Fatalf("decode response: %v", err)
 	}
-	if resp.CompanyID != "" {
-		t.Fatalf("expected empty company id, got %q", resp.CompanyID)
+	if resp.CompanyID != "company-shell-bob" {
+		t.Fatalf("expected shell company id company-shell-bob, got %q", resp.CompanyID)
 	}
 }
 

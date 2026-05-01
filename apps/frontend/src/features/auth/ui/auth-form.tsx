@@ -106,8 +106,11 @@ export function AuthForm({
   const continueWithoutCompany = () => {
     setAuthError(null);
     setCreatedCompany(null);
-    setCompanyMessage("Регистрация продолжится без компании.");
+    setCompanyMessage(
+      "Компания не заполнена — identity создаст персональную организацию для вашего аккаунта (для торгов и каталога).",
+    );
   };
+
   const submitUser = registerUserForm.handleSubmit(async (values) => {
     setAuthError(null);
     try {
@@ -226,7 +229,10 @@ export function AuthForm({
 
           <form className="stack-md" onSubmit={submitUser}>
             <Field label="Company ID (опционально)">
-              <Input disabled value={createdCompany?.id ?? "Будет создана служебная компания"} />
+              <Input
+                disabled
+                value={createdCompany?.id ?? "Персональная компания создаётся на сервере, если не привязали свою"}
+              />
             </Field>
 
             <Field label="Имя пользователя" error={registerUserForm.formState.errors.name?.message}>

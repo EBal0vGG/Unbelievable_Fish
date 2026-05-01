@@ -367,7 +367,14 @@ export async function listDeals(session: UserSession | null): Promise<ServiceRes
   }
 
   const auctionIds = Array.from(
-    new Set([...listAuctionsStore().map((auction) => auction.id), ...listDealsStore().map((deal) => deal.auctionId)]),
+    new Set([
+      ...listAuctionsStore()
+        .filter((auction) => auction.source !== "mock")
+        .map((auction) => auction.id),
+      ...listDealsStore()
+        .filter((deal) => canViewDeal(deal, session) && deal.source !== "mock")
+        .map((deal) => deal.auctionId),
+    ]),
   );
   let sawApi = false;
 

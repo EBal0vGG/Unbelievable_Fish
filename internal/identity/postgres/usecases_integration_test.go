@@ -221,7 +221,7 @@ func TestRegisterUserWithoutCompany(t *testing.T) {
 		userRepo,
 		companyRepo,
 		fakePasswordHasher{hashValue: "hashed:"},
-		fixedIDGenerator{userID: "user-3"},
+		fixedIDGenerator{companyID: "company-personal-carol", userID: "user-3"},
 		fixedClock{now: time.Date(2024, time.April, 1, 10, 15, 0, 0, time.UTC)},
 	)
 	if err != nil {
@@ -239,8 +239,8 @@ func TestRegisterUserWithoutCompany(t *testing.T) {
 	if err != nil {
 		t.Fatalf("register user error: %v", err)
 	}
-	if user.CompanyID != "" {
-		t.Fatalf("expected empty company id, got %q", user.CompanyID)
+	if user.CompanyID != "company-personal-carol" {
+		t.Fatalf("expected shell company id company-personal-carol, got %q", user.CompanyID)
 	}
 
 	login, err := identityapp.NewLogin(
@@ -258,8 +258,8 @@ func TestRegisterUserWithoutCompany(t *testing.T) {
 	if err != nil {
 		t.Fatalf("login error: %v", err)
 	}
-	if loginResult.User.CompanyID != "" {
-		t.Fatalf("expected empty company id in login result, got %q", loginResult.User.CompanyID)
+	if loginResult.User.CompanyID != "company-personal-carol" {
+		t.Fatalf("expected shell company id in login result, got %q", loginResult.User.CompanyID)
 	}
 }
 

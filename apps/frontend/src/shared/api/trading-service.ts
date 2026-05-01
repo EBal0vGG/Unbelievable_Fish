@@ -74,12 +74,20 @@ function deriveAuctionFromLot(lot: ReturnType<typeof listLotsStore>[number]): Au
 }
 
 function getMissingTradingSessionError(session: UserSession | null): ApiError | null {
-  if (!session?.companyId) {
-    return new ApiError("Войдите в профиль, чтобы продолжить", 400, "MISSING_COMPANY_ID");
+  if (!session) {
+    return new ApiError("Войдите в профиль, чтобы продолжить", 400, "MISSING_SESSION");
   }
 
   if (!session.userId) {
     return new ApiError("Войдите в профиль, чтобы продолжить", 400, "MISSING_USER_ID");
+  }
+
+  if (!session.companyId) {
+    return new ApiError(
+      "В профиле не указана компания — торги и каталог ожидают привязанную организацию. Зарегистрируйтесь с блоком «Привязать компанию».",
+      400,
+      "MISSING_COMPANY_ID",
+    );
   }
 
   return null;
