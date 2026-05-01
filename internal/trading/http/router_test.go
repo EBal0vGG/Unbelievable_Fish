@@ -114,14 +114,14 @@ func TestCommandFlowSmoke(t *testing.T) {
 		t.Fatalf("unexpected constructor error: %v", err)
 	}
 
-	router := httpapi.NewRouter(
-		http.NotFoundHandler(),
-		handler.NewPlaceBidHandler(placeBidUC),
-		http.NotFoundHandler(),
-		http.NotFoundHandler(),
-		http.NotFoundHandler(),
-		http.NotFoundHandler(),
-	)
+	router := httpapi.NewRouter(httpapi.Handlers{
+		PublishAuction: http.NotFoundHandler(),
+		PlaceBid:       handler.NewPlaceBidHandler(placeBidUC),
+		CloseAuction:   http.NotFoundHandler(),
+		CancelAuction:  http.NotFoundHandler(),
+		GetByID:        http.NotFoundHandler(),
+		GetByLot:       http.NotFoundHandler(),
+	})
 
 	body, _ := json.Marshal(httpapi.PlaceBidRequest{
 		Amount:   100,
@@ -151,14 +151,14 @@ func TestCommandFlowSmoke(t *testing.T) {
 }
 
 func TestCreateAuctionRouteIsNotExposed(t *testing.T) {
-	router := httpapi.NewRouter(
-		http.NotFoundHandler(),
-		http.NotFoundHandler(),
-		http.NotFoundHandler(),
-		http.NotFoundHandler(),
-		http.NotFoundHandler(),
-		http.NotFoundHandler(),
-	)
+	router := httpapi.NewRouter(httpapi.Handlers{
+		PublishAuction: http.NotFoundHandler(),
+		PlaceBid:       http.NotFoundHandler(),
+		CloseAuction:   http.NotFoundHandler(),
+		CancelAuction:  http.NotFoundHandler(),
+		GetByID:        http.NotFoundHandler(),
+		GetByLot:       http.NotFoundHandler(),
+	})
 
 	req := httptest.NewRequest(http.MethodPost, "/auctions", bytes.NewBufferString(`{}`))
 	rec := httptest.NewRecorder()

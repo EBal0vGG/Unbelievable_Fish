@@ -39,15 +39,14 @@ func main() {
 	)
 	authMiddleware := identityauth.NewMiddleware(tokenProvider, httpauth.JSONErrorHandler("catalog_auth_error"))
 
-	router := httpapi.NewRouter(
-		handler.NewListFishHandler(service),
-		handler.NewCreateFishHandler(service),
-		handler.NewCreateProductHandler(service),
-		handler.NewPublishProductHandler(service),
-		authMiddleware.RequireRole(identity.RoleSeller, handler.NewCreateLotHandler(service)),
-		authMiddleware.RequireRole(identity.RoleSeller, handler.NewPublishLotHandler(service)),
-		httplog.Middleware(logger),
-	)
+	router := httpapi.NewRouter(httpapi.Handlers{
+		ListFish:       handler.NewListFishHandler(service),
+		CreateFish:     handler.NewCreateFishHandler(service),
+		CreateProduct:  handler.NewCreateProductHandler(service),
+		PublishProduct: handler.NewPublishProductHandler(service),
+		CreateLot:      authMiddleware.RequireRole(identity.RoleSeller, handler.NewCreateLotHandler(service)),
+		PublishLot:     authMiddleware.RequireRole(identity.RoleSeller, handler.NewPublishLotHandler(service)),
+	}, httplog.Middleware(logger))
 
 	port := dbconfig.EnvOrDefault("CATALOG_PORT", "8081")
 	logger.Info("http_server_starting", "component", "http.server", "addr", ":"+port)

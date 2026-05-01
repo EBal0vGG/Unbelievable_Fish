@@ -64,22 +64,20 @@ func main() {
 	)
 
 	authMiddleware := identityauth.NewMiddleware(tokenProvider, httpauth.JSONErrorHandler("deals_auth_error"))
-	router := httpapi.NewRouter(
-		handler.NewGetProjectionByAuctionIDHandler(dealsapp.NewGetProjectionByAuctionID(projectionRepo)),
-		handler.NewGetDealByIDHandler(dealsapp.NewGetDealByID(dealRepo)),
-		handler.NewGetDealByAuctionIDHandler(dealsapp.NewGetDealByAuctionID(dealRepo)),
-		handler.NewGetDealConfirmationsHandler(dealsapp.NewGetDealConfirmations(dealRepo, confirmationRepo)),
-		handler.NewRequestDealConfirmationHandler(requestConfirmationUC),
-		handler.NewApproveDealConfirmationHandler(approveConfirmationUC),
-		handler.NewRejectDealConfirmationHandler(rejectConfirmationUC),
-		handler.NewPrepareContractHandler(prepareUC),
-		handler.NewSignContractHandler(signUC),
-		handler.NewRequestPaymentHandler(requestPaymentUC),
-		handler.NewRequestShipmentHandler(requestShipmentUC),
-		handler.NewUpdateDealPriceHandler(updatePriceUC),
-		httplog.Middleware(logger),
-		authMiddleware.Wrap,
-	)
+	router := httpapi.NewRouter(httpapi.Handlers{
+		GetDealProjection:   handler.NewGetProjectionByAuctionIDHandler(dealsapp.NewGetProjectionByAuctionID(projectionRepo)),
+		GetDealByAuction:    handler.NewGetDealByAuctionIDHandler(dealsapp.NewGetDealByAuctionID(dealRepo)),
+		GetDeal:             handler.NewGetDealByIDHandler(dealsapp.NewGetDealByID(dealRepo)),
+		GetConfirmations:    handler.NewGetDealConfirmationsHandler(dealsapp.NewGetDealConfirmations(dealRepo, confirmationRepo)),
+		RequestConfirmation: handler.NewRequestDealConfirmationHandler(requestConfirmationUC),
+		ApproveConfirmation: handler.NewApproveDealConfirmationHandler(approveConfirmationUC),
+		RejectConfirmation:  handler.NewRejectDealConfirmationHandler(rejectConfirmationUC),
+		PrepareContract:     handler.NewPrepareContractHandler(prepareUC),
+		SignContract:        handler.NewSignContractHandler(signUC),
+		RequestPayment:      handler.NewRequestPaymentHandler(requestPaymentUC),
+		RequestShipment:     handler.NewRequestShipmentHandler(requestShipmentUC),
+		UpdateDealPrice:     handler.NewUpdateDealPriceHandler(updatePriceUC),
+	}, httplog.Middleware(logger), authMiddleware.Wrap)
 
 	port := dbconfig.EnvOrDefault("DEALS_PORT", "8083")
 	logger.Info("http_server_starting", "component", "http.server", "addr", ":"+port)

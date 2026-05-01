@@ -6,22 +6,35 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-func NewRouter(
-	registerCompany http.Handler,
-	registerUser http.Handler,
-	listUsers http.Handler,
-	promoteUserAdmin http.Handler,
-	login http.Handler,
-	getCurrentUser http.Handler,
-	middlewares ...func(http.Handler) http.Handler,
-) chi.Router {
+// Handlers groups HTTP handlers for the identity service.
+type Handlers struct {
+	RegisterCompany  http.Handler
+	RegisterUser     http.Handler
+	ListUsers        http.Handler
+	PromoteUserAdmin http.Handler
+	Login            http.Handler
+	GetCurrentUser   http.Handler
+}
+
+// NewRouter registers identity routes. Variadic middlewares apply to all routes.
+func NewRouter(h Handlers, middlewares ...func(http.Handler) http.Handler) chi.Router {
 	r := chi.NewRouter()
 	r.Use(middlewares...)
-	r.Method(http.MethodPost, "/companies", registerCompany)
-	r.Method(http.MethodPost, "/users", registerUser)
-	r.Method(http.MethodGet, "/users", listUsers)
-	r.Method(http.MethodPost, "/users/{userID}/promote-admin", promoteUserAdmin)
-	r.Method(http.MethodPost, "/auth/login", login)
-	r.Method(http.MethodGet, "/users/me", getCurrentUser)
+
+	r.Route("/companies", func(r chi.Router) {
+		r.Method(http.MethodPost, "/", h.RegisterCompany)
+	})
+
+	r.Route("/auth", func(r chi.Router) {
+		r.Method(http.MethodPost, "/login", h.Login)
+	})
+
+	r.Route("/users", func(r chi.Router) {
+		r.Method(http.MethodGet, "/me", h.GetCurrentUser)
+		r.Method(http.MethodPost, "/", h.RegisterUser)
+		r.Method(http.MethodGet, "/", h.ListUsers)
+		r.Method(http.MethodPost, "/{userID}/promote-admin", h.PromoteUserAdmin)
+	})
+
 	return r
 }

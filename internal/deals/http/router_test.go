@@ -150,20 +150,20 @@ func TestCommandFlowSmoke(t *testing.T) {
 		t.Fatalf("unexpected constructor error: %v", err)
 	}
 
-	router := httpapi.NewRouter(
-		handler.NewGetProjectionByAuctionIDHandler(app.NewGetProjectionByAuctionID(projectionRepo)),
-		handler.NewGetDealByIDHandler(app.NewGetDealByID(dealRepo)),
-		handler.NewGetDealByAuctionIDHandler(app.NewGetDealByAuctionID(dealRepo)),
-		handler.NewGetDealConfirmationsHandler(app.NewGetDealConfirmations(dealRepo, confirmationRepo)),
-		handler.NewRequestDealConfirmationHandler(requestConfirmationUC),
-		handler.NewApproveDealConfirmationHandler(approveConfirmationUC),
-		handler.NewRejectDealConfirmationHandler(rejectConfirmationUC),
-		handler.NewPrepareContractHandler(mustNewPrepareContract(t, uow)),
-		handler.NewSignContractHandler(mustNewSignContract(t, uow)),
-		handler.NewRequestPaymentHandler(mustNewRequestPayment(t, uow)),
-		handler.NewRequestShipmentHandler(mustNewRequestShipment(t, uow)),
-		handler.NewUpdateDealPriceHandler(mustNewUpdateDealPrice(t, uow)),
-	)
+	router := httpapi.NewRouter(httpapi.Handlers{
+		GetDealProjection:   handler.NewGetProjectionByAuctionIDHandler(app.NewGetProjectionByAuctionID(projectionRepo)),
+		GetDealByAuction:    handler.NewGetDealByAuctionIDHandler(app.NewGetDealByAuctionID(dealRepo)),
+		GetDeal:             handler.NewGetDealByIDHandler(app.NewGetDealByID(dealRepo)),
+		GetConfirmations:    handler.NewGetDealConfirmationsHandler(app.NewGetDealConfirmations(dealRepo, confirmationRepo)),
+		RequestConfirmation: handler.NewRequestDealConfirmationHandler(requestConfirmationUC),
+		ApproveConfirmation: handler.NewApproveDealConfirmationHandler(approveConfirmationUC),
+		RejectConfirmation:  handler.NewRejectDealConfirmationHandler(rejectConfirmationUC),
+		PrepareContract:     handler.NewPrepareContractHandler(mustNewPrepareContract(t, uow)),
+		SignContract:        handler.NewSignContractHandler(mustNewSignContract(t, uow)),
+		RequestPayment:      handler.NewRequestPaymentHandler(mustNewRequestPayment(t, uow)),
+		RequestShipment:     handler.NewRequestShipmentHandler(mustNewRequestShipment(t, uow)),
+		UpdateDealPrice:     handler.NewUpdateDealPriceHandler(mustNewUpdateDealPrice(t, uow)),
+	})
 
 	req := httptest.NewRequest(
 		http.MethodPost,
@@ -196,20 +196,20 @@ func TestDirectStatusEndpointRemoved(t *testing.T) {
 	approveConfirmationUC, _ := app.NewApproveDealConfirmation(uow)
 	rejectConfirmationUC, _ := app.NewRejectDealConfirmation(uow)
 
-	router := httpapi.NewRouter(
-		handler.NewGetProjectionByAuctionIDHandler(app.NewGetProjectionByAuctionID(projectionRepo)),
-		handler.NewGetDealByIDHandler(app.NewGetDealByID(dealRepo)),
-		handler.NewGetDealByAuctionIDHandler(app.NewGetDealByAuctionID(dealRepo)),
-		handler.NewGetDealConfirmationsHandler(app.NewGetDealConfirmations(dealRepo, confirmationRepo)),
-		handler.NewRequestDealConfirmationHandler(requestConfirmationUC),
-		handler.NewApproveDealConfirmationHandler(approveConfirmationUC),
-		handler.NewRejectDealConfirmationHandler(rejectConfirmationUC),
-		handler.NewPrepareContractHandler(mustNewPrepareContract(t, uow)),
-		handler.NewSignContractHandler(mustNewSignContract(t, uow)),
-		handler.NewRequestPaymentHandler(mustNewRequestPayment(t, uow)),
-		handler.NewRequestShipmentHandler(mustNewRequestShipment(t, uow)),
-		handler.NewUpdateDealPriceHandler(mustNewUpdateDealPrice(t, uow)),
-	)
+	router := httpapi.NewRouter(httpapi.Handlers{
+		GetDealProjection:   handler.NewGetProjectionByAuctionIDHandler(app.NewGetProjectionByAuctionID(projectionRepo)),
+		GetDealByAuction:    handler.NewGetDealByAuctionIDHandler(app.NewGetDealByAuctionID(dealRepo)),
+		GetDeal:             handler.NewGetDealByIDHandler(app.NewGetDealByID(dealRepo)),
+		GetConfirmations:    handler.NewGetDealConfirmationsHandler(app.NewGetDealConfirmations(dealRepo, confirmationRepo)),
+		RequestConfirmation: handler.NewRequestDealConfirmationHandler(requestConfirmationUC),
+		ApproveConfirmation: handler.NewApproveDealConfirmationHandler(approveConfirmationUC),
+		RejectConfirmation:  handler.NewRejectDealConfirmationHandler(rejectConfirmationUC),
+		PrepareContract:     handler.NewPrepareContractHandler(mustNewPrepareContract(t, uow)),
+		SignContract:        handler.NewSignContractHandler(mustNewSignContract(t, uow)),
+		RequestPayment:      handler.NewRequestPaymentHandler(mustNewRequestPayment(t, uow)),
+		RequestShipment:     handler.NewRequestShipmentHandler(mustNewRequestShipment(t, uow)),
+		UpdateDealPrice:     handler.NewUpdateDealPriceHandler(mustNewUpdateDealPrice(t, uow)),
+	})
 
 	req := httptest.NewRequest(http.MethodPost, "/deals/"+dealRepo.deal.ID()+"/confirm", nil)
 	rec := httptest.NewRecorder()

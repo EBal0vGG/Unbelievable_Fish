@@ -54,15 +54,14 @@ func main() {
 	)
 	authMiddleware := identityauth.NewMiddleware(tokenProvider, httpauth.JSONErrorHandler("trading_auth_error"))
 
-	router := httpapi.NewRouter(
-		authMiddleware.RequireRole(identity.RoleSeller, handler.NewPublishAuctionHandler(publishAuctionUC)),
-		authMiddleware.RequireRole(identity.RoleBuyer, handler.NewPlaceBidHandler(placeBidUC)),
-		authMiddleware.RequireRole(identity.RoleSeller, handler.NewCloseAuctionHandler(closeAuctionUC)),
-		authMiddleware.RequireRole(identity.RoleSeller, handler.NewCancelAuctionHandler(cancelAuctionUC)),
-		authMiddleware.Wrap(handler.NewGetAuctionByIDHandler(getAuctionByIDUC)),
-		authMiddleware.Wrap(handler.NewGetAuctionByLotHandler(getAuctionByLotUC)),
-		httplog.Middleware(logger),
-	)
+	router := httpapi.NewRouter(httpapi.Handlers{
+		PublishAuction: authMiddleware.RequireRole(identity.RoleSeller, handler.NewPublishAuctionHandler(publishAuctionUC)),
+		PlaceBid:       authMiddleware.RequireRole(identity.RoleBuyer, handler.NewPlaceBidHandler(placeBidUC)),
+		CloseAuction:   authMiddleware.RequireRole(identity.RoleSeller, handler.NewCloseAuctionHandler(closeAuctionUC)),
+		CancelAuction:  authMiddleware.RequireRole(identity.RoleSeller, handler.NewCancelAuctionHandler(cancelAuctionUC)),
+		GetByID:        authMiddleware.Wrap(handler.NewGetAuctionByIDHandler(getAuctionByIDUC)),
+		GetByLot:       authMiddleware.Wrap(handler.NewGetAuctionByLotHandler(getAuctionByLotUC)),
+	}, httplog.Middleware(logger))
 
 	port := dbconfig.EnvOrDefault("TRADING_PORT", "8082")
 	logger.Info("http_server_starting", "component", "http.server", "addr", ":"+port)
