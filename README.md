@@ -98,7 +98,6 @@ go test ./...
 
 ### Trading
 
-- `POST /auctions`
 - `POST /auctions/{id}/publish`
 - `POST /auctions/{id}/bids`
 - `POST /auctions/{id}/close`
