@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"log"
@@ -25,8 +26,10 @@ func main() {
 	}
 	defer db.Close()
 
+	fishRepo := catalogpg.NewFishRepository(db)
+
 	service := catalogapp.NewCatalogService(
-		catalogpg.NewFishRepository(db),
+		fishRepo,
 		catalogpg.NewUnitRepository(db),
 		catalogpg.NewProcessingTypeRepository(db),
 		catalogpg.NewProductRepository(db),
@@ -40,6 +43,10 @@ func main() {
 		time.Duration(envDurationMinutes("IDENTITY_TOKEN_TTL_MINUTES", 24*60))*time.Minute,
 	)
 	authMiddleware := identityauth.NewMiddleware(tokenProvider, writeCatalogAuthError)
+
+	if err := ensureBootstrapFish(context.Background(), fishRepo); err != nil {
+		log.Fatalf("bootstrap_fish_failed err=%v", err)
+	}
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/fish", createFishHandler(service))
