@@ -98,6 +98,7 @@ go test ./...
 
 ### Trading
 
+- `GET /auctions`
 - `POST /auctions/{id}/publish`
 - `POST /auctions/{id}/bids`
 - `POST /auctions/{id}/close`

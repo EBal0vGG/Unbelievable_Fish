@@ -115,6 +115,7 @@ func TestCommandFlowSmoke(t *testing.T) {
 	}
 
 	router := httpapi.NewRouter(httpapi.Handlers{
+		ListAuctions:   http.NotFoundHandler(),
 		PublishAuction: http.NotFoundHandler(),
 		PlaceBid:       handler.NewPlaceBidHandler(placeBidUC),
 		CloseAuction:   http.NotFoundHandler(),
@@ -150,8 +151,9 @@ func TestCommandFlowSmoke(t *testing.T) {
 	}
 }
 
-func TestCreateAuctionRouteIsNotExposed(t *testing.T) {
+func TestCreateAuctionCommandRouteIsNotExposed(t *testing.T) {
 	router := httpapi.NewRouter(httpapi.Handlers{
+		ListAuctions:   http.NotFoundHandler(),
 		PublishAuction: http.NotFoundHandler(),
 		PlaceBid:       http.NotFoundHandler(),
 		CloseAuction:   http.NotFoundHandler(),
@@ -165,7 +167,7 @@ func TestCreateAuctionRouteIsNotExposed(t *testing.T) {
 
 	router.ServeHTTP(rec, req)
 
-	if rec.Code != http.StatusNotFound {
-		t.Fatalf("expected status %d, got %d", http.StatusNotFound, rec.Code)
+	if rec.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("expected status %d, got %d", http.StatusMethodNotAllowed, rec.Code)
 	}
 }

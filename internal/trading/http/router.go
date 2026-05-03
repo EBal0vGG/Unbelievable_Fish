@@ -8,6 +8,7 @@ import (
 
 // Handlers groups HTTP handlers for the trading service.
 type Handlers struct {
+	ListAuctions   http.Handler
 	PublishAuction http.Handler
 	PlaceBid       http.Handler
 	CloseAuction   http.Handler
@@ -22,6 +23,7 @@ func NewRouter(h Handlers, middlewares ...func(http.Handler) http.Handler) chi.R
 	r.Use(middlewares...)
 
 	r.Route("/auctions", func(r chi.Router) {
+		r.Method(http.MethodGet, "/", h.ListAuctions)
 		r.Method(http.MethodGet, "/by-lot/{lotID}", h.GetByLot)
 		r.Route("/{auctionID}", func(r chi.Router) {
 			r.Method(http.MethodGet, "/", h.GetByID)

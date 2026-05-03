@@ -1,4 +1,4 @@
-import type { AuctionRecord, BidRecord } from "@/shared/types/domain";
+import type { AuctionRecord, AuctionState, BidRecord } from "@/shared/types/domain";
 
 const AUCTION_EXTENSION_WINDOW_MS = 5 * 60 * 1000;
 const AUCTION_EXTENSION_DURATION_MS = 5 * 60 * 1000;
@@ -97,4 +97,37 @@ export function getAuctionEndAfterBid(
   }
 
   return new Date(currentEnd.getTime() + AUCTION_EXTENSION_DURATION_MS).toISOString();
+}
+
+export function getEffectiveAuctionState(
+  auction: Pick<AuctionRecord, "state" | "endsAt" | "leaderCompanyId" | "winnerCompanyId" | "finalPrice">,
+  now = new Date(),
+): AuctionState {
+  if (auction.state !== "PUBLISHED") {
+    return auction.state;
+  }
+
+  const endsAt = new Date(auction.endsAt);
+  if (Number.isNaN(endsAt.getTime()) || endsAt > now) {
+    return auction.state;
+  }
+
+  return auction.winnerCompanyId || auction.leaderCompanyId || auction.finalPrice ? "WON" : "CANCELLED";
+}
+
+export function withEffectiveAuctionState(auction: AuctionRecord, now = new Date()): AuctionRecord {
+  const state = getEffectiveAuctionState(auction, now);
+  if (state === auction.state) {
+    return auction;
+  }
+  return {
+    ...auction,
+    state,
+    finalPrice: state === "WON" ? auction.finalPrice ?? auction.currentPrice : auction.finalPrice,
+    winnerCompanyId: state === "WON" ? auction.winnerCompanyId ?? auction.leaderCompanyId : auction.winnerCompanyId,
+    statusNote:
+      state === "WON"
+        ? "Аукцион завершен по времени. Backend close job фиксирует финальное состояние в БД."
+        : "Аукцион завершен без ставок. Backend close job фиксирует отмену в БД.",
+  };
 }

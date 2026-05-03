@@ -6,6 +6,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/entities/session/model/auth-context";
 import { ApiError } from "@/shared/api/http-client";
 import { type DealActionInput, runDealAction } from "@/shared/api/deals-service";
+import { getDealParticipantSide, type DealParticipantSide } from "@/shared/lib/access";
 import { toDateTimeLocalValue } from "@/shared/lib/format";
 import { Button } from "@/shared/ui/button";
 import { Field } from "@/shared/ui/field";
@@ -14,10 +15,60 @@ import { Notice } from "@/shared/ui/notice";
 import { Textarea } from "@/shared/ui/textarea";
 import type { DealConfirmationRecord, DealConfirmationStage, DealRecord } from "@/shared/types/domain";
 
-function primaryActionTitle(status: DealRecord["status"]): string {
+function primaryActionTitle(status: DealRecord["status"], side: DealParticipantSide): string {
+  if (side === "customer") {
+    switch (status) {
+      case "pending":
+        return "Ожидаем подтверждение продавца";
+      case "confirmed":
+        return "Ожидаем контракт от продавца";
+      case "contract_prepared":
+        return "Подписать контракт";
+      case "contract_signed":
+        return "Ожидаем инвойс";
+      case "payment_requested":
+        return "Подтвердить оплату";
+      case "paid":
+        return "Ожидаем отгрузку";
+      case "shipment_requested":
+        return "Подтвердить отгрузку";
+      case "shipped":
+        return "Подтвердить получение";
+      case "completed":
+        return "Закупка завершена";
+      case "cancelled":
+        return "Сделка отменена";
+    }
+  }
+
+  if (side === "supplier") {
+    switch (status) {
+      case "pending":
+        return "Подтвердить победителя";
+      case "confirmed":
+        return "Подготовить контракт";
+      case "contract_prepared":
+        return "Ожидаем подпись покупателя";
+      case "contract_signed":
+        return "Запросить оплату";
+      case "payment_requested":
+        return "Ожидаем оплату покупателя";
+      case "paid":
+        return "Запросить отгрузку";
+      case "shipment_requested":
+        return "Подтвердить отгрузку";
+      case "shipped":
+        return "Закрыть поставку";
+      case "completed":
+        return "Продажа завершена";
+      case "cancelled":
+        return "Сделка отменена";
+    }
+  }
+
   switch (status) {
     case "pending":
-      return "Запросить подтверждение сделки";
+      return "Ожидает подтверждение сделки";
     case "confirmed":
       return "Подготовить контракт";
     case "contract_prepared":
@@ -36,6 +87,17 @@ function primaryActionTitle(status: DealRecord["status"]): string {
       return "Сделка завершена";
     case "cancelled":
       return "Сделка отменена";
+  }
+}
+
+function sideIntro(side: DealParticipantSide): string {
+  switch (side) {
+    case "supplier":
+      return "Вы продавец в этой сделке: доступны действия поставщика по контракту, оплате и отгрузке.";
+    case "customer":
+      return "Вы покупатель в этой сделке: доступны подпись контракта и подтверждения закупки.";
+    case "outsider":
+      return "Действия доступны только покупателю и продавцу этой сделки.";
   }
 }
 
@@ -88,8 +150,16 @@ function waitingCounterpartyLabel(deal: DealRecord, companyId: string | undefine
   switch (deal.status) {
     case "pending":
       return isCustomer ? "Ожидается запрос подтверждения от продавца." : null;
+    case "confirmed":
+      return isCustomer ? "Ожидается подготовка контракта продавцом." : null;
+    case "contract_prepared":
+      return isSupplier ? "Ожидается подпись контракта покупателем." : null;
+    case "contract_signed":
+      return isCustomer ? "Ожидается инвойс от продавца." : null;
     case "payment_requested":
       return isSupplier ? "Ожидается запрос подтверждения оплаты от покупателя." : null;
+    case "paid":
+      return isCustomer ? "Ожидается запрос отгрузки от продавца." : null;
     case "shipment_requested":
       return isCustomer ? "Ожидается запрос подтверждения отгрузки от продавца." : null;
     case "shipped":
@@ -141,9 +211,10 @@ export function DealActionPanel({
   });
 
   const currentCompanyId = session?.companyId;
+  const side = getDealParticipantSide(deal, session);
   const isFinal = deal.status === "completed" || deal.status === "cancelled";
-  const isSupplier = currentCompanyId === deal.supplierId;
-  const isCustomer = currentCompanyId === deal.customerId;
+  const isSupplier = side === "supplier";
+  const isCustomer = side === "customer";
   const canUpdatePrice = deal.status === "pending" && isSupplier;
   const canCancel = !isFinal;
   const nextStage = nextConfirmationRequestStage(deal, currentCompanyId);
@@ -160,9 +231,9 @@ export function DealActionPanel({
   return (
     <div className="deal-actions stack-lg">
       <div>
-        <p className="eyebrow">Lifecycle</p>
-        <h2>{primaryActionTitle(deal.status)}</h2>
-        <p className="muted">Ключевые переходы сделки теперь проходят через запрос подтверждения и approve контрагентом.</p>
+        <p className="eyebrow">{isSupplier ? "Интерфейс продавца" : isCustomer ? "Интерфейс покупателя" : "Lifecycle"}</p>
+        <h2>{primaryActionTitle(deal.status, side)}</h2>
+        <p className="muted">{sideIntro(side)}</p>
       </div>
 
       {error ? (
@@ -267,7 +338,7 @@ export function DealActionPanel({
         </form>
       ) : null}
 
-      {deal.status === "contract_prepared" ? (
+      {deal.status === "contract_prepared" && isCustomer ? (
         <form
           className="stack-md"
           onSubmit={(event) => {

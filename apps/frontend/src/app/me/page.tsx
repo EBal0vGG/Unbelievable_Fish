@@ -29,7 +29,7 @@ export default function MyProfilePage() {
   const [promotePending, setPromotePending] = useState(false);
   const productsQuery = useProductsQuery();
   const lotsQuery = useLotsQuery();
-  const auctionsQuery = useAuctionsQuery();
+  const auctionsQuery = useAuctionsQuery(session);
 
   const activities = useMemo(() => listActivitiesStore(session), [session]);
   const visibleProducts = useMemo(

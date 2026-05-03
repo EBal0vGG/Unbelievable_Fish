@@ -4,7 +4,7 @@ export const roleLabels: Record<UserRole, string> = {
   admin: "администратор",
   seller: "продавец",
   buyer: "покупатель",
-  buyer_seller: "покупатель-продавец",
+  buyer_seller: "без роли",
 };
 
 export const productStatusLabels: Record<ProductStatus, string> = {

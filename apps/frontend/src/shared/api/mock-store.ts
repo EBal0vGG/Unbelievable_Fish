@@ -15,6 +15,7 @@ import type {
 } from "@/shared/types/domain";
 
 const STORE_KEY = "uf:frontend-store";
+const junkFishNames = new Set(["asdasd", "q3123123", "stressfish", "demo fish", "live demo fish", "щука"]);
 
 const seedFish: FishRecord[] = [
   {
@@ -33,6 +34,156 @@ const seedFish: FishRecord[] = [
     id: "fish-herring-north",
     name: "Сельдь северная",
     description: "Сырье для переработки и HoReCa.",
+    source: "mock",
+  },
+  {
+    id: "fish-cod-atlantic",
+    name: "Атлантическая треска",
+    description: "Белая рыба для охлажденных и замороженных поставок.",
+    source: "mock",
+  },
+  {
+    id: "fish-mackerel-atlantic",
+    name: "Атлантическая скумбрия",
+    description: "Жирная морская рыба для заморозки и переработки.",
+    source: "mock",
+  },
+  {
+    id: "fish-haddock",
+    name: "Пикша",
+    description: "Белая рыба для филе, блоков и HoReCa.",
+    source: "mock",
+  },
+  {
+    id: "fish-trout-rainbow",
+    name: "Форель радужная",
+    description: "Аквакультура для охлажденных поставок и филе.",
+    source: "mock",
+  },
+  {
+    id: "fish-halibut-greenland",
+    name: "Палтус черный",
+    description: "Премиальная позиция для заморозки и филе.",
+    source: "mock",
+  },
+  {
+    id: "fish-pike",
+    name: "Щука",
+    description: "Пресноводная рыба для охлажденных партий и переработки.",
+    source: "mock",
+  },
+  {
+    id: "fish-zander",
+    name: "Судак",
+    description: "Пресноводная белая рыба для филе и HoReCa.",
+    source: "mock",
+  },
+  {
+    id: "fish-perch",
+    name: "Окунь",
+    description: "Пресноводная рыба для заморозки и переработки.",
+    source: "mock",
+  },
+  {
+    id: "fish-bream",
+    name: "Лещ",
+    description: "Речная рыба для охлажденных и вяленых поставок.",
+    source: "mock",
+  },
+  {
+    id: "fish-carp",
+    name: "Карп",
+    description: "Аквакультура для живых и охлажденных поставок.",
+    source: "mock",
+  },
+  {
+    id: "fish-catfish",
+    name: "Сом",
+    description: "Пресноводная рыба для филе и охлажденных партий.",
+    source: "mock",
+  },
+  {
+    id: "fish-sturgeon",
+    name: "Осетр",
+    description: "Премиальная аквакультура для охлажденных поставок.",
+    source: "mock",
+  },
+  {
+    id: "fish-tuna-yellowfin",
+    name: "Желтоперый тунец",
+    description: "Океаническая рыба для стейков и заморозки.",
+    source: "mock",
+  },
+  {
+    id: "fish-sardine",
+    name: "Сардина",
+    description: "Мелкая морская рыба для консервирования и заморозки.",
+    source: "mock",
+  },
+  {
+    id: "fish-anchovy",
+    name: "Анчоус",
+    description: "Мелкая морская рыба для переработки.",
+    source: "mock",
+  },
+  {
+    id: "fish-capelin",
+    name: "Мойва",
+    description: "Массовая морская рыба для заморозки и переработки.",
+    source: "mock",
+  },
+  {
+    id: "fish-flounder",
+    name: "Камбала",
+    description: "Донная рыба для замороженных партий.",
+    source: "mock",
+  },
+  {
+    id: "fish-seabass",
+    name: "Сибас",
+    description: "Аквакультура и импортные охлажденные партии.",
+    source: "mock",
+  },
+  {
+    id: "fish-dorado",
+    name: "Дорадо",
+    description: "Охлажденная морская рыба для HoReCa.",
+    source: "mock",
+  },
+  {
+    id: "fish-hake",
+    name: "Хек",
+    description: "Белая рыба для филе, блоков и заморозки.",
+    source: "mock",
+  },
+  {
+    id: "fish-pink-salmon",
+    name: "Горбуша",
+    description: "Дальневосточная красная рыба для заморозки и переработки.",
+    source: "mock",
+  },
+  {
+    id: "fish-chum-salmon",
+    name: "Кета",
+    description: "Красная рыба для замороженных и охлажденных партий.",
+    source: "mock",
+  },
+  {
+    id: "fish-coho-salmon",
+    name: "Кижуч",
+    description: "Премиальная красная рыба для филе и стейков.",
+    source: "mock",
+  },
+  {
+    id: "fish-char",
+    name: "Голец",
+    description: "Красная рыба для охлажденных поставок.",
+    source: "mock",
+  },
+  {
+    id: "fish-smelt",
+    name: "Корюшка",
+    description: "Мелкая рыба для заморозки и региональных поставок.",
     source: "mock",
   },
 ];
@@ -267,9 +418,30 @@ function cloneStore(store: FrontendStore): FrontendStore {
   return JSON.parse(JSON.stringify(store)) as FrontendStore;
 }
 
+function normalizedFishName(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+function isUsefulFish(fish: FishRecord): boolean {
+  const normalized = normalizedFishName(fish.name);
+  return Boolean(normalized) && !junkFishNames.has(normalized);
+}
+
+function normalizeFishCatalog(fish: FishRecord[]): FishRecord[] {
+  const byName = new Map<string, FishRecord>();
+  for (const item of fish.filter(isUsefulFish)) {
+    const normalized = normalizedFishName(item.name);
+    if (!byName.has(normalized) || item.source !== "mock") {
+      byName.set(normalized, item);
+    }
+  }
+  return Array.from(byName.values()).sort((left, right) => left.name.localeCompare(right.name, "ru"));
+}
+
 function migrateStore(store: FrontendStore): FrontendStore {
   return {
     ...store,
+    fish: normalizeFishCatalog(mergeSeedById(store.fish ?? [], seedFish)),
     products: store.products.map((product) => ({
       ...product,
       ownerCompanyId: product.ownerCompanyId ?? "legacy-company",
@@ -324,6 +496,11 @@ function upsertById<T extends { id: string }>(items: T[], nextItem: T): T[] {
   const copy = [...items];
   copy[existingIndex] = nextItem;
   return copy;
+}
+
+function mergeSeedById<T extends { id: string }>(items: T[], seeds: T[]): T[] {
+  const known = new Set(items.map((item) => item.id));
+  return [...items, ...seeds.filter((item) => !known.has(item.id))];
 }
 
 export function getFrontendStore(): FrontendStore {
