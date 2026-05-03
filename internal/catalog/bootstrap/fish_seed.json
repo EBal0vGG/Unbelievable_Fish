@@ -1,0 +1,1362 @@
+[
+  {
+    "id": "fish-baltiyskaya-seld",
+    "name": "Балтийская сельдь",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-tikhookeanskaya-seld",
+    "name": "Тихоокеанская сельдь",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-atlanticheskaya-seld",
+    "name": "Атлантическая сельдь",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-seld",
+    "name": "Сельдь",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-file-seldi",
+    "name": "Филе сельди",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-seld-tikhookeanskaya",
+    "name": "Сельдь тихоокеанская",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-seld-olyutorskaya",
+    "name": "Сельдь олюторская",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-seld-kaspiyskaya",
+    "name": "Сельдь каспийская",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-kaspiysko-chernomorskaya-seld",
+    "name": "Каспийско-черноморская сельдь",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-tunets-yuzhnyy-goluboy",
+    "name": "Тунец южный голубой",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-tunets-polosatyy",
+    "name": "Тунец полосатый",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-tunets-zheltoperyy",
+    "name": "Тунец желтоперый",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-tunets-goluboy-tikhookeanskiy",
+    "name": "Тунец голубой тихоокеанский",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-tunets-goluboy-atlanticheskiy",
+    "name": "Тунец голубой атлантический",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-tunets-bolsheglazyy",
+    "name": "Тунец большеглазый",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-tunets-albakor",
+    "name": "Тунец альбакор",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-ryba-luna",
+    "name": "Рыба-луна",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-ryba-mech",
+    "name": "Рыба меч",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-parusnik",
+    "name": "Парусник",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-marlin-goluboy",
+    "name": "Марлин голубой",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-file-parusnika",
+    "name": "Филе парусника",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-file-marlina-golubogo",
+    "name": "Филе марлина голубого",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-file-tuntsa-bolsheglazogo",
+    "name": "Филе тунца большеглазого",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-file-tuntsa-albakora",
+    "name": "Филе тунца альбакора",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-file-tuntsa-zheltoperogo",
+    "name": "Филе тунца желтоперого",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-file-ryby-mech",
+    "name": "Филе рыбы-меч",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-file-kheka-merluza",
+    "name": "Филе хека (Мерлуза)",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-khek",
+    "name": "Хек",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-merluza",
+    "name": "Мерлуза",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-file-khoki",
+    "name": "Филе хоки",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-khoki",
+    "name": "Хоки",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-sardina-tikhookeanskaya",
+    "name": "Сардина тихоокеанская",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-sardina-kruglaya",
+    "name": "Сардина круглая",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-sardina-evropeyskaya",
+    "name": "Сардина европейская",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-anchoveta-peruanskaya",
+    "name": "Анчовета перуанская",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-anchous-avstraliyskiy",
+    "name": "Анчоус австралийский",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-anchous-evropeyskiy",
+    "name": "Анчоус европейский",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-anchous-kapskiy",
+    "name": "Анчоус капский",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-anchous-novozelandskiy",
+    "name": "Анчоус новозеландский",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-anchous-yaponskiy",
+    "name": "Анчоус японский",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-kilka-anchousovidnaya",
+    "name": "Килька анчоусовидная",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-sardina-brazilskaya",
+    "name": "Сардина бразильская",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-sayra-yaponskaya",
+    "name": "Сайра японская",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-sayra",
+    "name": "Сайра",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-sayka-polyarnaya",
+    "name": "Сайка полярная",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-sayka",
+    "name": "Сайка",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-sayda",
+    "name": "Сайда",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-morskoy-okun-zolotistyy",
+    "name": "Морской окунь золотистый",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-moyva",
+    "name": "Мойва",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-koryushka",
+    "name": "Корюшка",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-koryushka-aziatskaya-zubastaya",
+    "name": "Корюшка азиатская (зубастая)",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-koryushka-aziatskaya",
+    "name": "Корюшка азиатская",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-korvina-belaya",
+    "name": "Корвина белая",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-kilka-evropeyskaya",
+    "name": "Килька европейская",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-sardina-yaponskaya",
+    "name": "Сардина японская",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-sardinella-kruglaya",
+    "name": "Сардинелла круглая",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-sardinella-ploskaya",
+    "name": "Сардинелла плоская",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-skumbriya-atlanticheskaya",
+    "name": "Скумбрия атлантическая",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-skumbriya-yaponskaya",
+    "name": "Скумбрия японская",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-stavrida-evropeyskaya",
+    "name": "Ставрида европейская",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-stavrida-kapskaya",
+    "name": "Ставрида капская",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-stavrida-chiliyskaya",
+    "name": "Ставрида чилийская",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-stavrida-yaponskaya",
+    "name": "Ставрида японская",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-sardina-yuzhnoafrikanskaya",
+    "name": "Сардина южноафриканская",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-sardina-pilchard",
+    "name": "Сардина пилчард",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-skat-kolyuchiy",
+    "name": "Скат колючий",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-plavniki-skata",
+    "name": "Плавники ската",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-akula",
+    "name": "Акула",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-akula-katran",
+    "name": "Акула катран",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-akula-sinyaya",
+    "name": "Акула синяя",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-kambala-zheltobryukhaya",
+    "name": "Камбала желтобрюхая",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-brill",
+    "name": "Брилль",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-kambala-amerikanskaya",
+    "name": "Камбала американская",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-kambala-belobryukhaya",
+    "name": "Камбала белобрюхая",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-kambala-dlinnorylaya",
+    "name": "Камбала длиннорылая",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-kambala-evropeyskaya",
+    "name": "Камбала европейская",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-kambala-zheltoperaya",
+    "name": "Камбала желтоперая",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-kambala-zheltokhvostaya",
+    "name": "Камбала желтохвостая",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-kambala-zvezdchataya",
+    "name": "Камбала звездчатая",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-kambala-kamchatskaya",
+    "name": "Камбала камчатская",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-kambala-letnyaya",
+    "name": "Камбала летняя",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-kambala-paltusovidnaya",
+    "name": "Камбала палтусовидная",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-kambala-shershavobryukhaya",
+    "name": "Камбала шершавобрюхая",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-morskoy-yazyk",
+    "name": "Морской язык",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-morskoy-yazyk-senegalskiy",
+    "name": "Морской язык сенегальский",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-paltus-atlanticheskiy",
+    "name": "Палтус атлантический",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-paltus-sinekoryy",
+    "name": "Палтус синекорый",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-paltus-strelozubyy",
+    "name": "Палтус стрелозубый",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-paltus-tikhookeanskiy",
+    "name": "Палтус тихоокеанский",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-paltus-chernyy",
+    "name": "Палтус черный",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-tyurbo",
+    "name": "Тюрбо",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-file-paltusa-atlanticheskogo",
+    "name": "Филе палтуса атлантического",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-file-paltusa-tikhookeanskogo",
+    "name": "Филе палтуса тихоокеанского",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-file-paltusa-chernogo",
+    "name": "Филе палтуса черного",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-file-paltusa-strelozubogo",
+    "name": "Филе палтуса стрелозубого",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-file-morskogo-yazyka",
+    "name": "Филе морского языка",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-file-morskogo-yazyka-senegalskogo",
+    "name": "Филе морского языка сенегальского",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-file-tyurbo",
+    "name": "Филе тюрбо",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-file-brillya",
+    "name": "Филе брилля",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-file-kambaly-amerikanskoy",
+    "name": "Филе камбалы американской",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-file-kambaly-zheltobryukhoy",
+    "name": "Филе камбалы желтобрюхой",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-file-kambaly-zheltoperoy",
+    "name": "Филе камбалы желтоперой",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-file-kambaly-zvezdchatoy",
+    "name": "Филе камбалы звездчатой",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-file-kambaly-kamchatskoy",
+    "name": "Филе камбалы камчатской",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-file-kambaly-letney",
+    "name": "Филе камбалы летней",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-file-kambaly-paltusovidnoy",
+    "name": "Филе камбалы палтусовидной",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-file-kambaly-dlinnoryloy",
+    "name": "Филе камбалы длиннорылой",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-file-kambaly-evropeyskoy",
+    "name": "Филе камбалы европейской",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-file-kambaly-zheltokhvostoy",
+    "name": "Филе камбалы желтохвостой",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-file-kambaly-belobryukhoy",
+    "name": "Филе камбалы белобрюхой",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-file-kambaly-shershavobryukhoy",
+    "name": "Филе камбалы шершавобрюхой",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-forel",
+    "name": "Форель",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-forel-ruchevaya",
+    "name": "Форель ручьевая",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-forel-raduzhnaya",
+    "name": "Форель радужная",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-forel-mramornaya",
+    "name": "Форель мраморная",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-skumbriya",
+    "name": "Скумбрия",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-skumbriya-pyatnistaya",
+    "name": "Скумбрия пятнистая",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-skumbriya-korolevskaya",
+    "name": "Скумбрия королевская",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-skumbriya-ispanskaya",
+    "name": "Скумбрия испанская",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-sibrim",
+    "name": "Сибрим",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-semga",
+    "name": "Семга",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-nerka",
+    "name": "Нерка",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-lutsian-krasnyy-tikhookeanskiy",
+    "name": "Луциан красный тихоокеанский",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-lutsian-krasnyy-aziatskiy",
+    "name": "Луциан красный азиатский",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-lutsian-zheltokhvostyy",
+    "name": "Луциан желтохвостый",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-file-goltsa-ozernogo",
+    "name": "Филе гольца озерного",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-file-chavychi",
+    "name": "Филе чавычи",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-file-gorbushi",
+    "name": "Филе горбуши",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-file-goltsa-arkticheskogo",
+    "name": "Филе гольца арктического",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-file-goltsa",
+    "name": "Филе гольца",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-file-nerki",
+    "name": "Филе нерки",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-file-kety",
+    "name": "Филе кеты",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-file-kizhucha",
+    "name": "Филе кижуча",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-file-foreli-mramornoy",
+    "name": "Филе форели мраморной",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-file-foreli-ruchevoy",
+    "name": "Филе форели ручьевой",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-file-foreli-raduzhnoy",
+    "name": "Филе форели радужной",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-file-lososya-atlanticheskogo-semga",
+    "name": "Филе лосося атлантического (Семга)",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-lufar",
+    "name": "Луфарь",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-losos-kizhuch",
+    "name": "Лосось кижуч",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-losos-dunayskiy",
+    "name": "Лосось дунайский",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-losos-atlanticheskiy",
+    "name": "Лосось атлантический",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-ling",
+    "name": "Линг",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-kizhuch",
+    "name": "Кижуч",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-keta",
+    "name": "Кета",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-gorbyl-serebryanyy",
+    "name": "Горбыль серебряный",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-gorbusha",
+    "name": "Горбуша",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-goluboy-ling",
+    "name": "Голубой линг",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-golets-ozernyy",
+    "name": "Голец озерный",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-golets-arkticheskiy",
+    "name": "Голец арктический",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-golets",
+    "name": "Голец",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-chavycha",
+    "name": "Чавыча",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-merlan",
+    "name": "Мерлан",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-brosme",
+    "name": "Бросме",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-menkhaden-atlanticheskiy",
+    "name": "Менхаден атлантический",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-menkhaden-zalivnyy",
+    "name": "Менхаден заливный",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-merlang",
+    "name": "Мерланг",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-mintay",
+    "name": "Минтай",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-mintay-alyaskinskiy",
+    "name": "Минтай аляскинский",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-navaga",
+    "name": "Навага",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-navaga-severnaya",
+    "name": "Навага северная",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-piksha",
+    "name": "Пикша",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-pilchard",
+    "name": "Пилчард",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-pollak-evropeyskiy",
+    "name": "Поллак европейский",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-putassu",
+    "name": "Путассу",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-tomkod",
+    "name": "Томкод",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-treska",
+    "name": "Треска",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-treska-atlanticheskaya",
+    "name": "Треска атлантическая",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-treska-grenlandskaya",
+    "name": "Треска гренландская",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-treska-tikhookeanskaya",
+    "name": "Треска тихоокеанская",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-khek-novozelandskiy",
+    "name": "Хек новозеландский",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-khek-senegalskiy",
+    "name": "Хек сенегальский",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-file-mintaya",
+    "name": "Филе минтая",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-file-pikshi",
+    "name": "Филе пикши",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-file-treski",
+    "name": "Филе трески",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-file-treski-atlanticheskoy",
+    "name": "Филе трески атлантической",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-file-treski-tikhookeanskoy",
+    "name": "Филе трески тихоокеанской",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-file-treski-grenlandskoy",
+    "name": "Филе трески гренландской",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-file-kheka",
+    "name": "Филе хека",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-file-kheka-novozelandskogo-khoki",
+    "name": "Филе хека новозеландского (Хоки)",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-file-kheka-senegalskogo",
+    "name": "Филе хека сенегальского",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-file-merlanga",
+    "name": "Филе мерланга",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-file-putassu",
+    "name": "Филе путассу",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-file-saydy",
+    "name": "Филе сайды",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-file-navagi",
+    "name": "Филе наваги",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-file-navagi-severnoy",
+    "name": "Филе наваги северной",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-file-menkhadena",
+    "name": "Филе менхадена",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-file-merlana",
+    "name": "Филе мерлана",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-file-pollaka-evropeyskogo",
+    "name": "Филе поллака европейского",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-file-tomkoda",
+    "name": "Филе томкода",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-file-brosme",
+    "name": "Филе бросме",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-yashcherogolov",
+    "name": "Ящероголов",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-khamachi",
+    "name": "Хамачи",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-ugor-yaponskiy",
+    "name": "Угорь японский",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-ugor-evropeyskiy",
+    "name": "Угорь европейский",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-serdtsevidka-sedobnaya",
+    "name": "Сердцевидка съедобная",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-patagonskiy-klykach",
+    "name": "Патагонский клыкач",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-niteper",
+    "name": "Нитепёр",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-makrurus",
+    "name": "Макрурус",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-file-yashcherogolova",
+    "name": "Филе ящероголова",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-file-khamachi",
+    "name": "Филе хамачи",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-file-ugrya-yaponskogo",
+    "name": "Филе угря японского",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-file-ugrya-evropeyskogo",
+    "name": "Филе угря европейского",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-file-patagonskogo-klykacha",
+    "name": "Филе патагонского клыкача",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-file-nitepera",
+    "name": "Филе нитепёра",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-file-makrurusa",
+    "name": "Филе макруруса",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-file-zubatki-polosatoy",
+    "name": "Филе зубатки полосатой",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-file-dorady-dorado",
+    "name": "Филе дорады (Дорадо)",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-file-sibasa-chernogo",
+    "name": "Филе сибаса черного",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-file-sibasa",
+    "name": "Филе сибаса",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-gruper-belyy",
+    "name": "Групер белый",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-gruper-pyatnistyy",
+    "name": "Групер пятнистый",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-dorada",
+    "name": "Дорада",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-dorado",
+    "name": "Дорадо",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-zheltokhvost",
+    "name": "Желтохвост",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-zubatka-polosataya",
+    "name": "Зубатка полосатая",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-zubatka-pyatnistaya",
+    "name": "Зубатка пятнистая",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-zubatka",
+    "name": "Зубатка",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-zubatka-sinyaya",
+    "name": "Зубатка синяя",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-snepper-imperatorskiy",
+    "name": "Снэппер императорский",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-sibas-chernyy",
+    "name": "Сибас черный",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-sibas",
+    "name": "Сибас",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-lutsian-mangrovyy",
+    "name": "Луциан мангровый",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-file-zheltokhvosta",
+    "name": "Филе желтохвоста",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-file-sneppera-imperatorskogo",
+    "name": "Филе снэппера императорского",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-file-lutsiana-mangrovogo",
+    "name": "Филе луциана мангрового",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-file-lutsiana-krasnogo-tikhookeanskogo",
+    "name": "Филе луциана красного тихоокеанского",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-file-lutsiana-krasnogo-aziatskogo",
+    "name": "Филе луциана красного азиатского",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-file-lutsiana-zheltokhvostogo",
+    "name": "Филе луциана желтохвостого",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-file-grupera-pyatnistogo",
+    "name": "Филе групера пятнистого",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-file-grupera-belogo",
+    "name": "Филе групера белого",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-file-zubatki-siney",
+    "name": "Филе зубатки синей",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-file-zubatki-pyatnistoy",
+    "name": "Филе зубатки пятнистой",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-beluga-osetrovaya",
+    "name": "Белуга осетровая",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-terpug",
+    "name": "Терпуг",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-terpug-yaponskiy",
+    "name": "Терпуг японский",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-terpug-severnyy",
+    "name": "Терпуг северный",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-sudak-amerikanskiy",
+    "name": "Судак американский",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-sterlyad",
+    "name": "Стерлядь",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-sevryuga",
+    "name": "Севрюга",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-osetr-sibirskiy",
+    "name": "Осетр сибирский",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-osetr-russkiy",
+    "name": "Осетр русский",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-osetr-belyy",
+    "name": "Осетр белый",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-file-soma-afrikanskogo",
+    "name": "Филе сома африканского",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-file-soma",
+    "name": "Филе сома",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-file-tilapii-mozambikskoy",
+    "name": "Филе тилапии мозамбикской",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-file-tilapii-goluboy",
+    "name": "Филе тилапии голубой",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-file-tilapii",
+    "name": "Филе тилапии",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-file-basa",
+    "name": "Филе баса",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-file-pangasiusa",
+    "name": "Филе пангасиуса",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-tolstolobik-pestryy",
+    "name": "Толстолобик пёстрый",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-tolstolobik-pestryy-2",
+    "name": "Толстолобик пестрый",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-okun-rechnoy",
+    "name": "Окунь речной",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-leshch",
+    "name": "Лещ",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-belyy-amur",
+    "name": "Белый амур",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-basa",
+    "name": "Баса",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-amur-belyy",
+    "name": "Амур белый",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-tolstolobik-belyy",
+    "name": "Толстолобик белый",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-tilapiya-mozambikskaya",
+    "name": "Тилапия мозамбикская",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-tilapiya-golubaya",
+    "name": "Тилапия голубая",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-tilapiya",
+    "name": "Тилапия",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-som-klarievyy",
+    "name": "Сом клариевый",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-som-evropeyskiy",
+    "name": "Сом европейский",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-som-afrikanskiy",
+    "name": "Сом африканский",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-som",
+    "name": "Сом",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-plotva",
+    "name": "Плотва",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-pangasius",
+    "name": "Пангасиус",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-okun",
+    "name": "Окунь",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-file-tolstolobika-pestrogo",
+    "name": "Филе толстолобика пестрого",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-file-tolstolobika-belogo",
+    "name": "Филе толстолобика белого",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-file-amura-belogo",
+    "name": "Филе амура белого",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-file-soma-evropeyskogo",
+    "name": "Филе сома европейского",
+    "description": "Вид рыбы из стартового справочника платформы"
+  },
+  {
+    "id": "fish-file-soma-klarievogo",
+    "name": "Филе сома клариевого",
+    "description": "Вид рыбы из стартового справочника платформы"
+  }
+]

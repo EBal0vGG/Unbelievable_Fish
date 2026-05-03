@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"net/http"
 
 	catalogapp "github.com/EBal0vGG/Unbelievable_Fish/internal/catalog/app"
@@ -23,8 +24,10 @@ func main() {
 	}
 	defer db.Close()
 
+	fishRepo := catalogpg.NewFishRepository(db)
+
 	service := catalogapp.NewCatalogService(
-		catalogpg.NewFishRepository(db),
+		fishRepo,
 		catalogpg.NewUnitRepository(db),
 		catalogpg.NewProcessingTypeRepository(db),
 		catalogpg.NewProductRepository(db),
@@ -38,6 +41,10 @@ func main() {
 		dbconfig.EnvDurationMinutes("IDENTITY_TOKEN_TTL_MINUTES", 24*60),
 	)
 	authMiddleware := identityauth.NewMiddleware(tokenProvider, httpauth.JSONErrorHandler("catalog_auth_error"))
+
+	if err := ensureBootstrapFish(context.Background(), fishRepo); err != nil {
+		logging.Fatal(logger, "bootstrap_fish_failed", "component", "bootstrap", "error", err)
+	}
 
 	router := httpapi.NewRouter(httpapi.Handlers{
 		ListFish:       handler.NewListFishHandler(service),
