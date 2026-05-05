@@ -34,12 +34,22 @@ function dealTone(status: DealRecord["status"]) {
   }
 }
 
-export function DealCard({ deal }: { deal: DealRecord }) {
+function dealSideLabel(deal: DealRecord, viewerCompanyId?: string): string {
+  if (viewerCompanyId === deal.supplierId) {
+    return "Продажа";
+  }
+  if (viewerCompanyId === deal.customerId) {
+    return "Покупка";
+  }
+  return "Сделка";
+}
+
+export function DealCard({ deal, viewerCompanyId }: { deal: DealRecord; viewerCompanyId?: string }) {
   return (
     <Card className="entity-card deal-card">
       <div className="entity-card-header">
         <div>
-          <p className="eyebrow">Сделка</p>
+          <p className="eyebrow">{dealSideLabel(deal, viewerCompanyId)}</p>
           <h3>{deal.productSnapshot.name || `Сделка ${shortId(deal.id)}`}</h3>
           <p className="muted">#{shortId(deal.id)} · аукцион {shortId(deal.auctionId)}</p>
         </div>

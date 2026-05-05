@@ -111,7 +111,7 @@ export default function DealsPage() {
       {items.length ? (
         <div className="card-grid card-grid-3">
           {items.map((item) => (
-            <DealCard key={item.id} deal={item} />
+            <DealCard key={item.id} deal={item} viewerCompanyId={session?.companyId} />
           ))}
         </div>
       ) : !session ? (

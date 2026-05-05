@@ -15,6 +15,7 @@ import {
   getBidAccessError,
   getAuctionEndAfterBid,
   getBidValidationError,
+  withEffectiveAuctionState,
 } from "@/shared/lib/trading-domain";
 import type {
   AuctionRecord,
@@ -48,6 +49,19 @@ interface AuctionDetails {
   deal: DealRecord | null;
 }
 
+interface AuctionSummaryDTO {
+  auction_id: string;
+  lot_id: string;
+  state: AuctionRecord["state"];
+  starts_at: string;
+  ends_at: string;
+  current_price?: number | null;
+  min_bid_step?: number | null;
+  leader_company_id?: string | null;
+  winner_company_id?: string | null;
+  final_price?: number | null;
+}
+
 function getAuctionFallbackNote(): string {
   return "Trading query endpoints for auction list/details are not exposed in the current backend build, using local auction mirror.";
 }
@@ -58,7 +72,7 @@ function deriveAuctionFromLot(lot: ReturnType<typeof listLotsStore>[number]): Au
   const endsAt = Number.isNaN(startTs)
     ? new Date().toISOString()
     : new Date(startTs + lot.auctionDurationMinutes * 60_000).toISOString();
-  return {
+  return withEffectiveAuctionState({
     id: lot.auctionId ?? makeClientId("auction"),
     lotId: lot.id,
     sellerCompanyId: lot.sellerCompanyId,
@@ -70,7 +84,24 @@ function deriveAuctionFromLot(lot: ReturnType<typeof listLotsStore>[number]): Au
     finalPrice: lot.finalPrice,
     source: "mixed",
     statusNote: "Собрано из Catalog lot read-model до появления Trading query endpoint.",
-  };
+  });
+}
+
+function mapAuctionSummary(summary: AuctionSummaryDTO, existing?: AuctionRecord): AuctionRecord {
+  return withEffectiveAuctionState({
+    id: summary.auction_id,
+    lotId: summary.lot_id ?? existing?.lotId ?? "unknown-lot",
+    sellerCompanyId: existing?.sellerCompanyId,
+    state: summary.state,
+    startsAt: summary.starts_at ?? existing?.startsAt ?? new Date().toISOString(),
+    endsAt: summary.ends_at ?? existing?.endsAt ?? new Date().toISOString(),
+    currentPrice: summary.current_price ?? existing?.currentPrice,
+    minBidStep: summary.min_bid_step ?? existing?.minBidStep ?? 1,
+    finalPrice: summary.final_price ?? existing?.finalPrice,
+    winnerCompanyId: summary.winner_company_id ?? existing?.winnerCompanyId ?? undefined,
+    leaderCompanyId: summary.leader_company_id ?? existing?.leaderCompanyId,
+    source: existing ? "mixed" : "api",
+  });
 }
 
 function getMissingTradingSessionError(session: UserSession | null): ApiError | null {
@@ -104,9 +135,38 @@ function isCreateAuctionCompatibilityGap(error: unknown, session: UserSession): 
   return isSellerSession(session) && error instanceof ApiError && error.status === 403 && error.code === "FORBIDDEN";
 }
 
-export async function listAuctions(): Promise<ServiceResult<AuctionRecord[]>> {
-  // TODO: replace local list once GET /auctions read-model endpoint exists in Trading.
-  const existing = listAuctionsStore().filter((item) => (canFallbackCommand() ? true : item.source !== "mock"));
+export async function listAuctions(session: UserSession | null): Promise<ServiceResult<AuctionRecord[]>> {
+  const localAuctions = listAuctionsStore()
+    .filter((item) => (canFallbackCommand() ? true : item.source !== "mock"))
+    .map((item) => withEffectiveAuctionState(item));
+
+  try {
+    const summaries = await apiRequest<AuctionSummaryDTO[]>("trading", "/auctions", { session });
+    const byId = new Map(localAuctions.map((item) => [item.id, item]));
+    const apiAuctions = summaries.map((summary) => {
+      const mapped = mapAuctionSummary(summary, byId.get(summary.auction_id));
+      upsertAuctionStore(mapped);
+      byId.set(mapped.id, mapped);
+      return mapped;
+    });
+    const apiIds = new Set(apiAuctions.map((item) => item.id));
+    const fallbackAuctions = canFallbackCommand()
+      ? localAuctions.filter((item) => item.source === "mock" && !apiIds.has(item.id))
+      : [];
+
+    return {
+      data: [...apiAuctions, ...fallbackAuctions].sort((left, right) => right.startsAt.localeCompare(left.startsAt)),
+      meta: fallbackAuctions.length
+        ? mixedMeta("Список торгов получен из backend и дополнен локальными демо-записями.")
+        : { source: "api" },
+    };
+  } catch (error) {
+    if (!isRecoverableApiGap(error) && !(error instanceof ApiError && error.status === 401)) {
+      throw error;
+    }
+  }
+
+  const existing = localAuctions;
   const knownIDs = new Set(existing.map((item) => item.id));
   const derived = listLotsStore()
     .filter((lot) => lot.status === "PUBLISHED" || lot.status === "CLOSED" || lot.status === "CANCELLED")
@@ -115,7 +175,7 @@ export async function listAuctions(): Promise<ServiceResult<AuctionRecord[]>> {
     .map((lot) => deriveAuctionFromLot(lot));
 
   return {
-    data: [...derived, ...existing],
+    data: [...derived, ...existing].sort((left, right) => right.startsAt.localeCompare(left.startsAt)),
     meta: canFallbackCommand() ? mockMeta(getAuctionFallbackNote()) : mixedMeta("Список строится только по данным backend."),
   };
 }
@@ -215,36 +275,19 @@ export async function getAuctionDetails(
 ): Promise<ServiceResult<AuctionDetails>> {
   let meta: ServiceMeta = mockMeta(getAuctionFallbackNote());
   let auction = listAuctionsStore().find((item) => item.id === auctionId) ?? null;
+  if (!auction) {
+    const lot = listLotsStore().find((item) => item.auctionId === auctionId);
+    auction = lot ? deriveAuctionFromLot(lot) : null;
+  }
+  if (auction) {
+    auction = upsertAuctionStore(withEffectiveAuctionState(auction));
+  }
 
   try {
-    const summary = await apiRequest<{
-      auction_id: string;
-      lot_id: string;
-      state: AuctionRecord["state"];
-      starts_at: string;
-      ends_at: string;
-      current_price?: number | null;
-      min_bid_step?: number | null;
-      leader_company_id?: string | null;
-      winner_company_id?: string | null;
-      final_price?: number | null;
-    }>("trading", `/auctions/${auctionId}`, { session });
+    const summary = await apiRequest<AuctionSummaryDTO>("trading", `/auctions/${auctionId}`, { session });
 
     const existing = listAuctionsStore().find((item) => item.id === summary.auction_id);
-    auction = {
-      id: summary.auction_id,
-      lotId: summary.lot_id ?? existing?.lotId ?? "unknown-lot",
-      sellerCompanyId: existing?.sellerCompanyId,
-      state: summary.state,
-      startsAt: summary.starts_at ?? existing?.startsAt ?? new Date().toISOString(),
-      endsAt: summary.ends_at ?? existing?.endsAt ?? new Date().toISOString(),
-      currentPrice: summary.current_price ?? existing?.currentPrice,
-      minBidStep: summary.min_bid_step ?? existing?.minBidStep ?? 1,
-      finalPrice: summary.final_price ?? existing?.finalPrice,
-      winnerCompanyId: summary.winner_company_id ?? existing?.winnerCompanyId ?? undefined,
-      leaderCompanyId: summary.leader_company_id ?? existing?.leaderCompanyId,
-      source: existing ? "mixed" : "api",
-    };
+    auction = mapAuctionSummary(summary, existing);
     upsertAuctionStore(auction);
     meta = { source: existing ? "mixed" : "api" };
   } catch (error) {

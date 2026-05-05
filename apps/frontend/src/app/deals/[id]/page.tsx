@@ -7,6 +7,7 @@ import { useDealConfirmationsQuery, useDealDetailsQuery } from "@/entities/deal/
 import { dealStatusLabels } from "@/entities/deal/ui/deal-card";
 import { useAuth } from "@/entities/session/model/auth-context";
 import { DealActionPanel } from "@/features/deal/ui/deal-action-panel";
+import { getDealParticipantSide } from "@/shared/lib/access";
 import { formatDateTime, formatMoney, shortId } from "@/shared/lib/format";
 import { buttonStyles } from "@/shared/ui/button";
 import { Card } from "@/shared/ui/card";
@@ -84,15 +85,24 @@ export default function DealDetailsPage() {
     );
   }
 
+  const side = getDealParticipantSide(deal, session);
+  const sideLabel = side === "supplier" ? "вы продавец" : side === "customer" ? "вы покупатель" : "просмотр";
+  const heroCopy =
+    side === "supplier"
+      ? `Вы продаете ${deal.customerId}. Статус продажи: ${dealStatusLabels[deal.status]}.`
+      : side === "customer"
+        ? `Вы покупаете у ${deal.supplierId}. Статус закупки: ${dealStatusLabels[deal.status]}.`
+        : `${deal.supplierId} поставляет ${deal.customerId}. Статус: ${dealStatusLabels[deal.status]}.`;
+  const amountLabel = side === "supplier" ? "Выручка" : side === "customer" ? "Стоимость закупки" : "Сумма";
+  const priceLabel = side === "supplier" ? "Цена продажи" : side === "customer" ? "Цена закупки" : "Цена";
+
   return (
     <div className="page-stack">
       <section className="page-hero compact-hero">
         <div>
           <p className="eyebrow">Сделка {shortId(deal.id)}</p>
           <h1>{deal.productSnapshot.name || "Контрактная поставка"}</h1>
-          <p className="hero-copy">
-            {deal.supplierId} поставляет {deal.customerId}. Статус: {dealStatusLabels[deal.status]}.
-          </p>
+          <p className="hero-copy">{heroCopy}</p>
         </div>
         <div className="hero-actions">
           <Link className={buttonStyles({ variant: "secondary" })} href={`/auctions/${deal.auctionId}`}>
@@ -133,15 +143,16 @@ export default function DealDetailsPage() {
           <div className="stack-md">
             <div>
               <p className="eyebrow">Экономика</p>
-              <h2>Финансовая сводка</h2>
+              <h2>{side === "supplier" ? "Финансы продажи" : side === "customer" ? "Финансы закупки" : "Финансовая сводка"}</h2>
+              <p className="muted">{sideLabel}</p>
             </div>
             <div className="metric-grid">
               <div>
-                <span>Сумма</span>
+                <span>{amountLabel}</span>
                 <strong>{formatMoney(deal.totalAmount)}</strong>
               </div>
               <div>
-                <span>Цена</span>
+                <span>{priceLabel}</span>
                 <strong>{formatMoney(deal.unitPrice)}</strong>
               </div>
               <div>

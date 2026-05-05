@@ -51,6 +51,26 @@ interface TradingAuctionByLotResponse {
   state?: string;
 }
 
+const junkFishNames = new Set(["asdasd", "q3123123", "stressfish", "demo fish", "live demo fish", "щука"]);
+
+function normalizedFishName(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+function normalizeFishList(items: FishRecord[]): FishRecord[] {
+  const byName = new Map<string, FishRecord>();
+  for (const item of items) {
+    const normalized = normalizedFishName(item.name);
+    if (!normalized || junkFishNames.has(normalized)) {
+      continue;
+    }
+    if (!byName.has(normalized) || item.source !== "mock") {
+      byName.set(normalized, item);
+    }
+  }
+  return Array.from(byName.values()).sort((left, right) => left.name.localeCompare(right.name, "ru"));
+}
+
 async function waitAuctionIDByLot(
   lotId: string,
   session: UserSession | null,
@@ -88,9 +108,9 @@ export async function listFish(session: UserSession | null): Promise<ServiceResu
         source: "api" as const,
       }));
     },
-    () => listFishStore(),
+    () => normalizeFishList(listFishStore()),
     "Catalog list query is not wired in the current backend build, using local fish catalog fallback.",
-  );
+  ).then((result) => ({ ...result, data: normalizeFishList(result.data) }));
 }
 
 export async function listProducts(): Promise<ServiceResult<ProductRecord[]>> {

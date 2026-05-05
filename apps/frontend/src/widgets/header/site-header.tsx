@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 import { useAuth } from "@/entities/session/model/auth-context";
-import { isAdminSession, isSellerSession } from "@/shared/lib/access";
+import { getMainInterfaceMode, isAdminSession, isSellerSession } from "@/shared/lib/access";
 import { cn } from "@/shared/lib/cn";
 import { roleLabels } from "@/shared/lib/labels";
 import { buttonStyles } from "@/shared/ui/button";
@@ -24,9 +24,13 @@ const navItems = [
 export function SiteHeader() {
   const pathname = usePathname();
   const { session, logout } = useAuth();
+  const interfaceMode = getMainInterfaceMode(session);
   const canManageFish = isAdminSession(session);
   const canCreateSupply = isSellerSession(session);
   const visibleNavItems = navItems.filter((item) => {
+    if (interfaceMode === "buyer" && (item.href === "/products" || item.href === "/lots")) {
+      return false;
+    }
     if (item.href === "/deals" && !session?.companyId) {
       return false;
     }

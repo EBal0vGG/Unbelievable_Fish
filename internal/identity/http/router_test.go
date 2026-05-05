@@ -157,14 +157,14 @@ func TestCommandFlowSmoke(t *testing.T) {
 		t.Fatalf("unexpected constructor error: %v", err)
 	}
 
-	router := httpapi.NewRouter(
-		handler.NewRegisterCompanyHandler(registerCompanyUC),
-		handler.NewRegisterUserHandler(registerUserUC),
-		http.NotFoundHandler(),
-		http.NotFoundHandler(),
-		handler.NewLoginHandler(loginUC),
-		handler.NewAuthMiddleware(tokenProvider).Wrap(handler.NewGetCurrentUserHandler(getCurrentUserUC)),
-	)
+	router := httpapi.NewRouter(httpapi.Handlers{
+		RegisterCompany:  handler.NewRegisterCompanyHandler(registerCompanyUC),
+		RegisterUser:     handler.NewRegisterUserHandler(registerUserUC),
+		ListUsers:        http.NotFoundHandler(),
+		PromoteUserAdmin: http.NotFoundHandler(),
+		Login:            handler.NewLoginHandler(loginUC),
+		GetCurrentUser:   handler.NewAuthMiddleware(tokenProvider).Wrap(handler.NewGetCurrentUserHandler(getCurrentUserUC)),
+	})
 
 	companyBody, _ := json.Marshal(httpapi.RegisterCompanyRequest{
 		Name: "Acme Fish",
@@ -240,14 +240,14 @@ func TestCommandFlowSmokeWithoutCompany(t *testing.T) {
 		t.Fatalf("unexpected constructor error: %v", err)
 	}
 
-	router := httpapi.NewRouter(
-		handler.NewRegisterCompanyHandler(registerCompanyUC),
-		handler.NewRegisterUserHandler(registerUserUC),
-		http.NotFoundHandler(),
-		http.NotFoundHandler(),
-		handler.NewLoginHandler(loginUC),
-		handler.NewAuthMiddleware(tokenProvider).Wrap(handler.NewGetCurrentUserHandler(getCurrentUserUC)),
-	)
+	router := httpapi.NewRouter(httpapi.Handlers{
+		RegisterCompany:  handler.NewRegisterCompanyHandler(registerCompanyUC),
+		RegisterUser:     handler.NewRegisterUserHandler(registerUserUC),
+		ListUsers:        http.NotFoundHandler(),
+		PromoteUserAdmin: http.NotFoundHandler(),
+		Login:            handler.NewLoginHandler(loginUC),
+		GetCurrentUser:   handler.NewAuthMiddleware(tokenProvider).Wrap(handler.NewGetCurrentUserHandler(getCurrentUserUC)),
+	})
 
 	userBody, _ := json.Marshal(httpapi.RegisterUserRequest{
 		Name:          "Bob",
@@ -305,14 +305,14 @@ func TestCommandFlowSmokeBuyerSellerRole(t *testing.T) {
 		t.Fatalf("unexpected constructor error: %v", err)
 	}
 
-	router := httpapi.NewRouter(
-		handler.NewRegisterCompanyHandler(registerCompanyUC),
-		handler.NewRegisterUserHandler(registerUserUC),
-		http.NotFoundHandler(),
-		http.NotFoundHandler(),
-		handler.NewLoginHandler(loginUC),
-		handler.NewAuthMiddleware(tokenProvider).Wrap(handler.NewGetCurrentUserHandler(getCurrentUserUC)),
-	)
+	router := httpapi.NewRouter(httpapi.Handlers{
+		RegisterCompany:  handler.NewRegisterCompanyHandler(registerCompanyUC),
+		RegisterUser:     handler.NewRegisterUserHandler(registerUserUC),
+		ListUsers:        http.NotFoundHandler(),
+		PromoteUserAdmin: http.NotFoundHandler(),
+		Login:            handler.NewLoginHandler(loginUC),
+		GetCurrentUser:   handler.NewAuthMiddleware(tokenProvider).Wrap(handler.NewGetCurrentUserHandler(getCurrentUserUC)),
+	})
 
 	userBody, _ := json.Marshal(httpapi.RegisterUserRequest{
 		Name:          "Dana",

@@ -28,14 +28,5 @@ func (h *GetAuctionByIDHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 	}
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	_ = json.NewEncoder(w).Encode(map[string]any{
-		"auction_id":        result.AuctionID,
-		"lot_id":            result.LotID,
-		"state":             result.State,
-		"starts_at":         result.StartsAt,
-		"ends_at":           result.EndsAt,
-		"current_price":     result.CurrentPrice,
-		"min_bid_step":      result.MinBidStep,
-		"leader_company_id": result.LeaderCompanyID,
-	})
+	_ = json.NewEncoder(w).Encode(auctionSummaryResponse(result))
 }

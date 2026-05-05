@@ -60,15 +60,14 @@ func main() {
 	}
 	authMiddleware := handler.NewAuthMiddleware(tokenProvider)
 
-	router := httpapi.NewRouter(
-		handler.NewRegisterCompanyHandler(registerCompanyUC),
-		handler.NewRegisterUserHandler(registerUserUC),
-		authMiddleware.RequireRole(identity.RoleAdmin, handler.NewListUsersHandler(listUsersUC)),
-		authMiddleware.RequireRole(identity.RoleAdmin, handler.NewPromoteUserAdminHandler(promoteUserAdminUC)),
-		handler.NewLoginHandler(loginUC),
-		authMiddleware.Wrap(handler.NewGetCurrentUserHandler(getCurrentUserUC)),
-		httplog.Middleware(logger),
-	)
+	router := httpapi.NewRouter(httpapi.Handlers{
+		RegisterCompany:  handler.NewRegisterCompanyHandler(registerCompanyUC),
+		RegisterUser:     handler.NewRegisterUserHandler(registerUserUC),
+		ListUsers:        authMiddleware.RequireRole(identity.RoleAdmin, handler.NewListUsersHandler(listUsersUC)),
+		PromoteUserAdmin: authMiddleware.RequireRole(identity.RoleAdmin, handler.NewPromoteUserAdminHandler(promoteUserAdminUC)),
+		Login:            handler.NewLoginHandler(loginUC),
+		GetCurrentUser:   authMiddleware.Wrap(handler.NewGetCurrentUserHandler(getCurrentUserUC)),
+	}, httplog.Middleware(logger))
 
 	if err := ensureBootstrapAdmin(context.Background(), companyRepo, userRepo, passwordHasher); err != nil {
 		logging.Fatal(logger, "bootstrap_admin_failed", "component", "bootstrap", "error", err)

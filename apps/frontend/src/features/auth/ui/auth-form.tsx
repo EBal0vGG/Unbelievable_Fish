@@ -243,7 +243,7 @@ export function AuthForm({
               <Select {...registerUserForm.register("role")}>
                 <option value="seller">Продавец</option>
                 <option value="buyer">Покупатель</option>
-                <option value="buyer_seller">Покупатель-продавец</option>
+                <option value="buyer_seller">Без роли</option>
               </Select>
             </Field>
 

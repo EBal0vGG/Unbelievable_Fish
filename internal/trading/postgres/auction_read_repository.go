@@ -17,6 +17,34 @@ func NewAuctionReadRepository(db *sql.DB) *AuctionReadRepository {
 
 var _ app.AuctionReadRepository = (*AuctionReadRepository)(nil)
 
+func (r *AuctionReadRepository) List(ctx context.Context) ([]*app.AuctionSummary, error) {
+	const query = `
+SELECT auction_id, lot_id, state, starts_at, ends_at, current_price, min_bid_step, leader_company_id
+FROM trading_auctions
+WHERE state <> 'DRAFT'
+ORDER BY starts_at DESC, auction_id DESC
+`
+	dbtx := DBTXFromContext(ctx, r.db)
+	rows, err := dbtx.QueryContext(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []*app.AuctionSummary
+	for rows.Next() {
+		var item app.AuctionSummary
+		if err := rows.Scan(&item.AuctionID, &item.LotID, &item.State, &item.StartsAt, &item.EndsAt, &item.CurrentPrice, &item.MinBidStep, &item.LeaderCompanyID); err != nil {
+			return nil, err
+		}
+		out = append(out, &item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (r *AuctionReadRepository) GetByLotID(ctx context.Context, lotID string) (*app.AuctionSummary, error) {
 	const query = `
 SELECT auction_id, lot_id, state, starts_at, ends_at, current_price, min_bid_step, leader_company_id

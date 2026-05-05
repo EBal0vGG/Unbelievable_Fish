@@ -17,8 +17,24 @@ type AuctionSummary struct {
 }
 
 type AuctionReadRepository interface {
+	List(ctx context.Context) ([]*AuctionSummary, error)
 	GetByLotID(ctx context.Context, lotID string) (*AuctionSummary, error)
 	GetByID(ctx context.Context, id AuctionID) (*AuctionSummary, error)
+}
+
+type ListAuctions struct {
+	repo AuctionReadRepository
+}
+
+func NewListAuctions(repo AuctionReadRepository) (*ListAuctions, error) {
+	if repo == nil {
+		return nil, ErrNilAuctionQueryRepository
+	}
+	return &ListAuctions{repo: repo}, nil
+}
+
+func (uc *ListAuctions) Execute(ctx context.Context) ([]*AuctionSummary, error) {
+	return uc.repo.List(ctx)
 }
 
 type GetAuctionByLot struct {

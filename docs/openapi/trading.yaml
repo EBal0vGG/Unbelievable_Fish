@@ -121,6 +121,25 @@ tags:
     description: Read-only operations (read).
 
 paths:
+  /auctions:
+    get:
+      tags: [Queries]
+      summary: ListAuctions
+      operationId: ListAuctions
+      parameters:
+        - $ref: '#/components/parameters/XCompanyID'
+        - $ref: '#/components/parameters/XUserID'
+        - $ref: '#/components/parameters/XCorrelationID'
+        - $ref: '#/components/parameters/XCausationID'
+      responses:
+        '200':
+          description: Auction summaries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AuctionSummary'
   /auctions/{id}/publish:
     post:
       tags: [Commands]

@@ -6,34 +6,46 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-func NewRouter(
-	getProjection http.Handler,
-	getDeal http.Handler,
-	getDealByAuction http.Handler,
-	getConfirmations http.Handler,
-	requestConfirmation http.Handler,
-	approveConfirmation http.Handler,
-	rejectConfirmation http.Handler,
-	prepareContract http.Handler,
-	signContract http.Handler,
-	requestPayment http.Handler,
-	requestShipment http.Handler,
-	updateDealPrice http.Handler,
-	middlewares ...func(http.Handler) http.Handler,
-) chi.Router {
+// Handlers groups HTTP handlers for the deals service (one field per route).
+type Handlers struct {
+	GetDealProjection   http.Handler
+	GetDealByAuction    http.Handler
+	GetDeal             http.Handler
+	GetConfirmations    http.Handler
+	RequestConfirmation http.Handler
+	ApproveConfirmation http.Handler
+	RejectConfirmation  http.Handler
+	PrepareContract     http.Handler
+	SignContract        http.Handler
+	RequestPayment      http.Handler
+	RequestShipment     http.Handler
+	UpdateDealPrice     http.Handler
+}
+
+// NewRouter registers deals routes. Variadic middlewares apply to all routes (e.g. logging, auth).
+func NewRouter(h Handlers, middlewares ...func(http.Handler) http.Handler) chi.Router {
 	r := chi.NewRouter()
 	r.Use(middlewares...)
-	r.Method(http.MethodGet, "/deal-projections/{auctionID}", getProjection)
-	r.Method(http.MethodGet, "/deals/by-auction/{auctionID}", getDealByAuction)
-	r.Method(http.MethodGet, "/deals/{dealID}/confirmations", getConfirmations)
-	r.Method(http.MethodGet, "/deals/{dealID}", getDeal)
-	r.Method(http.MethodPost, "/deals/{dealID}/confirmations", requestConfirmation)
-	r.Method(http.MethodPost, "/deals/{dealID}/confirmations/{confirmationID}/approve", approveConfirmation)
-	r.Method(http.MethodPost, "/deals/{dealID}/confirmations/{confirmationID}/reject", rejectConfirmation)
-	r.Method(http.MethodPost, "/deals/{dealID}/contract/prepare", prepareContract)
-	r.Method(http.MethodPost, "/deals/{dealID}/contract/sign", signContract)
-	r.Method(http.MethodPost, "/deals/{dealID}/payment/request", requestPayment)
-	r.Method(http.MethodPost, "/deals/{dealID}/shipment/request", requestShipment)
-	r.Method(http.MethodPost, "/deals/{dealID}/price", updateDealPrice)
+
+	r.Route("/deal-projections", func(r chi.Router) {
+		r.Method(http.MethodGet, "/{auctionID}", h.GetDealProjection)
+	})
+
+	r.Route("/deals", func(r chi.Router) {
+		r.Method(http.MethodGet, "/by-auction/{auctionID}", h.GetDealByAuction)
+		r.Route("/{dealID}", func(r chi.Router) {
+			r.Method(http.MethodGet, "/", h.GetDeal)
+			r.Method(http.MethodGet, "/confirmations", h.GetConfirmations)
+			r.Method(http.MethodPost, "/confirmations", h.RequestConfirmation)
+			r.Method(http.MethodPost, "/confirmations/{confirmationID}/approve", h.ApproveConfirmation)
+			r.Method(http.MethodPost, "/confirmations/{confirmationID}/reject", h.RejectConfirmation)
+			r.Method(http.MethodPost, "/contract/prepare", h.PrepareContract)
+			r.Method(http.MethodPost, "/contract/sign", h.SignContract)
+			r.Method(http.MethodPost, "/payment/request", h.RequestPayment)
+			r.Method(http.MethodPost, "/shipment/request", h.RequestShipment)
+			r.Method(http.MethodPost, "/price", h.UpdateDealPrice)
+		})
+	})
+
 	return r
 }
