@@ -6,6 +6,7 @@ import (
 	"database/sql/driver"
 	"errors"
 	"io"
+	"sort"
 	"strings"
 	"sync"
 	"testing"
@@ -481,12 +482,29 @@ func (c *integrationConn) lookupDealByID(id string) (integrationDealRecord, bool
 func (c *integrationConn) lookupDealByAuctionID(auctionID string) (integrationDealRecord, bool) {
 	c.store.mu.Lock()
 	defer c.store.mu.Unlock()
+	candidates := make([]integrationDealRecord, 0)
 	for _, record := range c.store.deals {
 		if record.auctionID == auctionID {
-			return record, true
+			candidates = append(candidates, record)
 		}
 	}
-	return integrationDealRecord{}, false
+	if len(candidates) == 0 {
+		return integrationDealRecord{}, false
+	}
+
+	sort.Slice(candidates, func(i, j int) bool {
+		iCancelled := candidates[i].status == "cancelled"
+		jCancelled := candidates[j].status == "cancelled"
+		if iCancelled != jCancelled {
+			return !iCancelled
+		}
+		if !candidates[i].createdAt.Equal(candidates[j].createdAt) {
+			return candidates[i].createdAt.After(candidates[j].createdAt)
+		}
+		return candidates[i].dealID > candidates[j].dealID
+	})
+
+	return candidates[0], true
 }
 
 func (c *integrationConn) lookupProjection(auctionID string) (integrationProjectionRecord, bool) {

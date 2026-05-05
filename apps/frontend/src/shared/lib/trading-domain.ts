@@ -23,7 +23,6 @@ export function getBidAccessError(input: {
   const actorCompanyId = normalizeCompanyId(input.actorCompanyId);
   const sellerCompanyId = normalizeCompanyId(input.sellerCompanyId);
   const leaderCompanyId = normalizeCompanyId(input.leaderCompanyId);
-  const bids = input.bids ?? [];
 
   if (!actorCompanyId) {
     return null;
@@ -34,10 +33,6 @@ export function getBidAccessError(input: {
   }
 
   if (leaderCompanyId && actorCompanyId === leaderCompanyId) {
-    return "нельзя перебивать свою же ставку";
-  }
-
-  if (bids.some((bid) => normalizeCompanyId(bid.bidderCompanyId) === actorCompanyId)) {
     return "нельзя перебивать свою же ставку";
   }
 

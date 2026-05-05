@@ -38,6 +38,72 @@ func TestDealRepositorySaveAndLoad(t *testing.T) {
 	}
 }
 
+func TestDealRepositoryGetByAuctionIDPrefersActiveDeal(t *testing.T) {
+	db := openIntegrationDB(t, "deal-repo-by-auction")
+	repo := NewDealRepository(db)
+	ctx := context.Background()
+	createdAt := time.Now().UTC()
+
+	cancelledDeal, err := deal.Rehydrate(deal.RehydrateParams{
+		ID:         "deal-cancelled",
+		CustomerID: "buyer-old",
+		SupplierID: "sup-1",
+		AuctionID:  "auc-shared",
+		Quantity:   1,
+		UnitPrice:  100,
+		Status:     deal.DealStatusCancelled,
+		TypeName:   deal.DealTypeAuction,
+		CreatedAt:  createdAt,
+		ProductSnapshot: deal.ProductSnapshot{
+			ProductID:   "prod-1",
+			Name:        "Fish",
+			Description: "Desc",
+			Category:    "cat",
+		},
+	})
+	if err != nil {
+		t.Fatalf("rehydrate cancelled deal error: %v", err)
+	}
+	if err := repo.Save(ctx, cancelledDeal); err != nil {
+		t.Fatalf("save cancelled deal error: %v", err)
+	}
+
+	pendingDeal, err := deal.Rehydrate(deal.RehydrateParams{
+		ID:         "deal-pending",
+		CustomerID: "buyer-next",
+		SupplierID: "sup-1",
+		AuctionID:  "auc-shared",
+		Quantity:   1,
+		UnitPrice:  100,
+		Status:     deal.DealStatusPending,
+		TypeName:   deal.DealTypeAuction,
+		CreatedAt:  createdAt,
+		ProductSnapshot: deal.ProductSnapshot{
+			ProductID:   "prod-1",
+			Name:        "Fish",
+			Description: "Desc",
+			Category:    "cat",
+		},
+	})
+	if err != nil {
+		t.Fatalf("rehydrate pending deal error: %v", err)
+	}
+	if err := repo.Save(ctx, pendingDeal); err != nil {
+		t.Fatalf("save pending deal error: %v", err)
+	}
+
+	loaded, err := repo.GetByAuctionID(ctx, "auc-shared")
+	if err != nil {
+		t.Fatalf("get by auction error: %v", err)
+	}
+	if loaded.ID() != "deal-pending" {
+		t.Fatalf("expected pending deal to be selected, got %s", loaded.ID())
+	}
+	if loaded.Status() != deal.DealStatusPending {
+		t.Fatalf("expected status pending, got %s", loaded.Status())
+	}
+}
+
 func TestProjectionRepositorySaveAndLoad(t *testing.T) {
 	db := openIntegrationDB(t, "projection-repo")
 	repo := NewProjectionRepository(db)

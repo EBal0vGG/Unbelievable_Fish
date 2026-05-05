@@ -163,6 +163,8 @@ SELECT deal_id, customer_id, supplier_id, auction_id, quantity, unit_price, stat
        product_unit, product_size, product_processing_type, product_volume, product_origin_country
 FROM deals
 WHERE auction_id = $1
+ORDER BY (status = 'cancelled') ASC, created_at DESC, deal_id DESC
+LIMIT 1
 `
 	return r.getOne(ctx, query, auctionID)
 }
