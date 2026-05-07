@@ -184,7 +184,7 @@ func TestRegisterCompanySuccess(t *testing.T) {
 	companies := newFakeCompanyRepo()
 	now := time.Date(2024, time.March, 1, 10, 0, 0, 0, time.UTC)
 
-	uc, err := NewRegisterCompany(companies, fakeIDGenerator{companyID: "company-1"}, fixedClock{now: now})
+	uc, err := NewRegisterCompany(companies, fakeIDGenerator{companyID: "company-1"}, fixedClock{now: now}, nil, nil)
 	if err != nil {
 		t.Fatalf("unexpected constructor error: %v", err)
 	}
@@ -227,7 +227,7 @@ func TestRegisterCompanyReturnsExistingCompanyByRequisites(t *testing.T) {
 	companies.byID[existing.ID()] = existing
 	companies.byKey[existing.INN()+"|"+existing.OGRN()] = existing
 
-	uc, err := NewRegisterCompany(companies, fakeIDGenerator{companyID: "company-new"}, fixedClock{now: time.Date(2024, time.April, 1, 10, 0, 0, 0, time.UTC)})
+	uc, err := NewRegisterCompany(companies, fakeIDGenerator{companyID: "company-new"}, fixedClock{now: time.Date(2024, time.April, 1, 10, 0, 0, 0, time.UTC)}, nil, nil)
 	if err != nil {
 		t.Fatalf("unexpected constructor error: %v", err)
 	}
@@ -261,7 +261,7 @@ func TestRegisterUserSuccess(t *testing.T) {
 	hasher := &fakePasswordHasher{hashValue: "hashed-password"}
 	acceptedAt := time.Date(2024, time.April, 1, 11, 30, 0, 0, time.UTC)
 
-	uc, err := NewRegisterUser(users, companies, hasher, fakeIDGenerator{userID: "user-1"}, fixedClock{now: acceptedAt})
+	uc, err := NewRegisterUser(users, companies, hasher, fakeIDGenerator{userID: "user-1"}, fixedClock{now: acceptedAt}, nil, nil)
 	if err != nil {
 		t.Fatalf("unexpected constructor error: %v", err)
 	}
@@ -314,7 +314,7 @@ func TestRegisterUserSuccessWithBuyerSellerRole(t *testing.T) {
 	users := newFakeUserRepo()
 	hasher := &fakePasswordHasher{hashValue: "hashed-password"}
 
-	uc, err := NewRegisterUser(users, companies, hasher, fakeIDGenerator{userID: "user-1b"}, fixedClock{now: time.Date(2024, time.April, 1, 11, 35, 0, 0, time.UTC)})
+	uc, err := NewRegisterUser(users, companies, hasher, fakeIDGenerator{userID: "user-1b"}, fixedClock{now: time.Date(2024, time.April, 1, 11, 35, 0, 0, time.UTC)}, nil, nil)
 	if err != nil {
 		t.Fatalf("unexpected constructor error: %v", err)
 	}
@@ -347,7 +347,7 @@ func TestRegisterUserSuccessByCompanyRequisites(t *testing.T) {
 	users := newFakeUserRepo()
 	hasher := &fakePasswordHasher{hashValue: "hashed-password"}
 
-	uc, err := NewRegisterUser(users, companies, hasher, fakeIDGenerator{userID: "user-2"}, fixedClock{now: time.Date(2024, time.April, 2, 10, 0, 0, 0, time.UTC)})
+	uc, err := NewRegisterUser(users, companies, hasher, fakeIDGenerator{userID: "user-2"}, fixedClock{now: time.Date(2024, time.April, 2, 10, 0, 0, 0, time.UTC)}, nil, nil)
 	if err != nil {
 		t.Fatalf("unexpected constructor error: %v", err)
 	}
@@ -379,7 +379,7 @@ func TestRegisterUserWithoutCompanyCreatesShellCompany(t *testing.T) {
 	companies := newFakeCompanyRepo()
 	hasher := &fakePasswordHasher{hashValue: "hashed-password"}
 
-	uc, err := NewRegisterUser(users, companies, hasher, fakeIDGenerator{companyID: "company-auto", userID: "user-auto"}, fixedClock{now: time.Date(2024, time.April, 1, 10, 0, 0, 0, time.UTC)})
+	uc, err := NewRegisterUser(users, companies, hasher, fakeIDGenerator{companyID: "company-auto", userID: "user-auto"}, fixedClock{now: time.Date(2024, time.April, 1, 10, 0, 0, 0, time.UTC)}, nil, nil)
 	if err != nil {
 		t.Fatalf("unexpected constructor error: %v", err)
 	}
@@ -413,7 +413,7 @@ func TestRegisterUserRejectsAdminRole(t *testing.T) {
 	companies.byID[company.ID()] = company
 	companies.byKey[company.INN()+"|"+company.OGRN()] = company
 
-	uc, err := NewRegisterUser(users, companies, &fakePasswordHasher{hashValue: "hash"}, fakeIDGenerator{userID: "user-1"}, fixedClock{now: time.Now()})
+	uc, err := NewRegisterUser(users, companies, &fakePasswordHasher{hashValue: "hash"}, fakeIDGenerator{userID: "user-1"}, fixedClock{now: time.Now()}, nil, nil)
 	if err != nil {
 		t.Fatalf("unexpected constructor error: %v", err)
 	}
@@ -437,7 +437,7 @@ func TestRegisterUserFailsWhenCompanyNotFound(t *testing.T) {
 	companies := newFakeCompanyRepo()
 	hasher := &fakePasswordHasher{}
 
-	uc, err := NewRegisterUser(users, companies, hasher, fakeIDGenerator{userID: "user-1"}, fixedClock{now: time.Date(2024, time.April, 1, 10, 0, 0, 0, time.UTC)})
+	uc, err := NewRegisterUser(users, companies, hasher, fakeIDGenerator{userID: "user-1"}, fixedClock{now: time.Date(2024, time.April, 1, 10, 0, 0, 0, time.UTC)}, nil, nil)
 	if err != nil {
 		t.Fatalf("unexpected constructor error: %v", err)
 	}
@@ -473,7 +473,7 @@ func TestRegisterUserFailsWhenLoginAlreadyUsed(t *testing.T) {
 	users.byID[existing.ID()] = existing
 	users.byLogin[existing.Login()] = existing
 
-	uc, err := NewRegisterUser(users, companies, &fakePasswordHasher{}, fakeIDGenerator{userID: "user-1"}, fixedClock{now: time.Date(2024, time.April, 1, 10, 0, 0, 0, time.UTC)})
+	uc, err := NewRegisterUser(users, companies, &fakePasswordHasher{}, fakeIDGenerator{userID: "user-1"}, fixedClock{now: time.Date(2024, time.April, 1, 10, 0, 0, 0, time.UTC)}, nil, nil)
 	if err != nil {
 		t.Fatalf("unexpected constructor error: %v", err)
 	}
@@ -497,7 +497,7 @@ func TestRegisterUserFailsWhenPasswordEmpty(t *testing.T) {
 	companies := newFakeCompanyRepo()
 	hasher := &fakePasswordHasher{}
 
-	uc, err := NewRegisterUser(users, companies, hasher, fakeIDGenerator{userID: "user-1"}, fixedClock{now: time.Date(2024, time.April, 1, 10, 0, 0, 0, time.UTC)})
+	uc, err := NewRegisterUser(users, companies, hasher, fakeIDGenerator{userID: "user-1"}, fixedClock{now: time.Date(2024, time.April, 1, 10, 0, 0, 0, time.UTC)}, nil, nil)
 	if err != nil {
 		t.Fatalf("unexpected constructor error: %v", err)
 	}
@@ -521,7 +521,7 @@ func TestRegisterUserFailsWhenTermsNotAccepted(t *testing.T) {
 	companies := newFakeCompanyRepo()
 	hasher := &fakePasswordHasher{}
 
-	uc, err := NewRegisterUser(users, companies, hasher, fakeIDGenerator{userID: "user-1"}, fixedClock{now: time.Date(2024, time.April, 1, 10, 0, 0, 0, time.UTC)})
+	uc, err := NewRegisterUser(users, companies, hasher, fakeIDGenerator{userID: "user-1"}, fixedClock{now: time.Date(2024, time.April, 1, 10, 0, 0, 0, time.UTC)}, nil, nil)
 	if err != nil {
 		t.Fatalf("unexpected constructor error: %v", err)
 	}
@@ -545,7 +545,7 @@ func TestRegisterUserFailsWhenTermsVersionEmpty(t *testing.T) {
 	companies := newFakeCompanyRepo()
 	hasher := &fakePasswordHasher{}
 
-	uc, err := NewRegisterUser(users, companies, hasher, fakeIDGenerator{userID: "user-1"}, fixedClock{now: time.Date(2024, time.April, 1, 10, 0, 0, 0, time.UTC)})
+	uc, err := NewRegisterUser(users, companies, hasher, fakeIDGenerator{userID: "user-1"}, fixedClock{now: time.Date(2024, time.April, 1, 10, 0, 0, 0, time.UTC)}, nil, nil)
 	if err != nil {
 		t.Fatalf("unexpected constructor error: %v", err)
 	}

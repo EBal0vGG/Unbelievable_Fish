@@ -136,7 +136,7 @@ func (c fixedClock) Now() time.Time { return c.now }
 
 func TestRegisterCompanyHandlerSuccess(t *testing.T) {
 	companies := newFakeCompanyRepo()
-	uc, err := identityapp.NewRegisterCompany(companies, fixedIDGenerator{companyID: "company-1"}, fixedClock{now: time.Date(2024, time.April, 1, 10, 0, 0, 0, time.UTC)})
+	uc, err := identityapp.NewRegisterCompany(companies, fixedIDGenerator{companyID: "company-1"}, fixedClock{now: time.Date(2024, time.April, 1, 10, 0, 0, 0, time.UTC)}, nil, nil)
 	if err != nil {
 		t.Fatalf("unexpected constructor error: %v", err)
 	}
@@ -173,7 +173,7 @@ func TestRegisterUserHandlerSuccess(t *testing.T) {
 	companies.byID[company.ID()] = company
 
 	users := newFakeUserRepo()
-	uc, err := identityapp.NewRegisterUser(users, companies, fakePasswordHasher{hashValue: "hashed:"}, fixedIDGenerator{userID: "user-1"}, fixedClock{now: time.Date(2024, time.April, 1, 10, 5, 0, 0, time.UTC)})
+	uc, err := identityapp.NewRegisterUser(users, companies, fakePasswordHasher{hashValue: "hashed:"}, fixedIDGenerator{userID: "user-1"}, fixedClock{now: time.Date(2024, time.April, 1, 10, 5, 0, 0, time.UTC)}, nil, nil)
 	if err != nil {
 		t.Fatalf("unexpected constructor error: %v", err)
 	}
@@ -214,7 +214,7 @@ func TestRegisterUserHandlerSuccessWithBuyerSellerRole(t *testing.T) {
 	companies.byID[company.ID()] = company
 
 	users := newFakeUserRepo()
-	uc, err := identityapp.NewRegisterUser(users, companies, fakePasswordHasher{hashValue: "hashed:"}, fixedIDGenerator{userID: "user-1b"}, fixedClock{now: time.Date(2024, time.April, 1, 10, 6, 0, 0, time.UTC)})
+	uc, err := identityapp.NewRegisterUser(users, companies, fakePasswordHasher{hashValue: "hashed:"}, fixedIDGenerator{userID: "user-1b"}, fixedClock{now: time.Date(2024, time.April, 1, 10, 6, 0, 0, time.UTC)}, nil, nil)
 	if err != nil {
 		t.Fatalf("unexpected constructor error: %v", err)
 	}
@@ -249,7 +249,7 @@ func TestRegisterUserHandlerSuccessWithBuyerSellerRole(t *testing.T) {
 func TestRegisterUserHandlerSuccessWithoutCompany(t *testing.T) {
 	companies := newFakeCompanyRepo()
 	users := newFakeUserRepo()
-	uc, err := identityapp.NewRegisterUser(users, companies, fakePasswordHasher{hashValue: "hashed:"}, fixedIDGenerator{companyID: "company-shell-bob", userID: "user-2"}, fixedClock{now: time.Date(2024, time.April, 1, 10, 5, 0, 0, time.UTC)})
+	uc, err := identityapp.NewRegisterUser(users, companies, fakePasswordHasher{hashValue: "hashed:"}, fixedIDGenerator{companyID: "company-shell-bob", userID: "user-2"}, fixedClock{now: time.Date(2024, time.April, 1, 10, 5, 0, 0, time.UTC)}, nil, nil)
 	if err != nil {
 		t.Fatalf("unexpected constructor error: %v", err)
 	}
@@ -289,7 +289,7 @@ func TestRegisterUserHandlerRequiresTermsAcceptance(t *testing.T) {
 	companies.byID[company.ID()] = company
 
 	users := newFakeUserRepo()
-	uc, err := identityapp.NewRegisterUser(users, companies, fakePasswordHasher{hashValue: "hashed:"}, fixedIDGenerator{userID: "user-1"}, fixedClock{now: time.Date(2024, time.April, 1, 10, 5, 0, 0, time.UTC)})
+	uc, err := identityapp.NewRegisterUser(users, companies, fakePasswordHasher{hashValue: "hashed:"}, fixedIDGenerator{userID: "user-1"}, fixedClock{now: time.Date(2024, time.April, 1, 10, 5, 0, 0, time.UTC)}, nil, nil)
 	if err != nil {
 		t.Fatalf("unexpected constructor error: %v", err)
 	}

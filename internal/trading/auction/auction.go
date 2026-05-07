@@ -37,6 +37,7 @@ type Auction struct {
 	startsAt time.Time
 	endsAt   time.Time
 
+	startPrice   int64
 	currentPrice int64
 	minBidStep   int64
 
@@ -78,6 +79,7 @@ func NewAuctionWithPricing(id, lotID string, startsAt, endsAt time.Time, startPr
 		state:             StateDraft,
 		startsAt:          startsAt,
 		endsAt:            endsAt,
+		startPrice:        startPrice,
 		currentPrice:      startPrice,
 		minBidStep:        minBidStep,
 		extensionWindow:   defaultExtensionWindow,
@@ -193,6 +195,10 @@ func (a *Auction) EndsAt() time.Time {
 
 func (a *Auction) CurrentPrice() int64 {
 	return a.currentPrice
+}
+
+func (a *Auction) StartPrice() int64 {
+	return a.startPrice
 }
 
 func (a *Auction) MinBidStep() int64 {

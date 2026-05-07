@@ -139,11 +139,11 @@ func TestCommandFlowSmoke(t *testing.T) {
 	companies := newFakeCompanyRepo()
 	users := newFakeUserRepo()
 
-	registerCompanyUC, err := identityapp.NewRegisterCompany(companies, fixedIDGenerator{companyID: "company-1"}, fixedClock{now: time.Date(2024, time.April, 1, 10, 0, 0, 0, time.UTC)})
+	registerCompanyUC, err := identityapp.NewRegisterCompany(companies, fixedIDGenerator{companyID: "company-1"}, fixedClock{now: time.Date(2024, time.April, 1, 10, 0, 0, 0, time.UTC)}, nil, nil)
 	if err != nil {
 		t.Fatalf("unexpected constructor error: %v", err)
 	}
-	registerUserUC, err := identityapp.NewRegisterUser(users, companies, fakePasswordHasher{hashValue: "hashed:"}, fixedIDGenerator{userID: "user-1"}, fixedClock{now: time.Date(2024, time.April, 1, 10, 5, 0, 0, time.UTC)})
+	registerUserUC, err := identityapp.NewRegisterUser(users, companies, fakePasswordHasher{hashValue: "hashed:"}, fixedIDGenerator{userID: "user-1"}, fixedClock{now: time.Date(2024, time.April, 1, 10, 5, 0, 0, time.UTC)}, nil, nil)
 	if err != nil {
 		t.Fatalf("unexpected constructor error: %v", err)
 	}
@@ -222,11 +222,11 @@ func TestCommandFlowSmokeWithoutCompany(t *testing.T) {
 	companies := newFakeCompanyRepo()
 	users := newFakeUserRepo()
 
-	registerCompanyUC, err := identityapp.NewRegisterCompany(companies, fixedIDGenerator{companyID: "company-1"}, fixedClock{now: time.Date(2024, time.April, 1, 10, 0, 0, 0, time.UTC)})
+	registerCompanyUC, err := identityapp.NewRegisterCompany(companies, fixedIDGenerator{companyID: "company-1"}, fixedClock{now: time.Date(2024, time.April, 1, 10, 0, 0, 0, time.UTC)}, nil, nil)
 	if err != nil {
 		t.Fatalf("unexpected constructor error: %v", err)
 	}
-	registerUserUC, err := identityapp.NewRegisterUser(users, companies, fakePasswordHasher{hashValue: "hashed:"}, fixedIDGenerator{companyID: "company-shell-bob", userID: "user-2"}, fixedClock{now: time.Date(2024, time.April, 1, 10, 5, 0, 0, time.UTC)})
+	registerUserUC, err := identityapp.NewRegisterUser(users, companies, fakePasswordHasher{hashValue: "hashed:"}, fixedIDGenerator{companyID: "company-shell-bob", userID: "user-2"}, fixedClock{now: time.Date(2024, time.April, 1, 10, 5, 0, 0, time.UTC)}, nil, nil)
 	if err != nil {
 		t.Fatalf("unexpected constructor error: %v", err)
 	}
@@ -287,11 +287,11 @@ func TestCommandFlowSmokeBuyerSellerRole(t *testing.T) {
 	companies := newFakeCompanyRepo()
 	users := newFakeUserRepo()
 
-	registerCompanyUC, err := identityapp.NewRegisterCompany(companies, fixedIDGenerator{companyID: "company-1"}, fixedClock{now: time.Date(2024, time.April, 1, 10, 0, 0, 0, time.UTC)})
+	registerCompanyUC, err := identityapp.NewRegisterCompany(companies, fixedIDGenerator{companyID: "company-1"}, fixedClock{now: time.Date(2024, time.April, 1, 10, 0, 0, 0, time.UTC)}, nil, nil)
 	if err != nil {
 		t.Fatalf("unexpected constructor error: %v", err)
 	}
-	registerUserUC, err := identityapp.NewRegisterUser(users, companies, fakePasswordHasher{hashValue: "hashed:"}, fixedIDGenerator{companyID: "company-shell-dana", userID: "user-3"}, fixedClock{now: time.Date(2024, time.April, 1, 10, 5, 0, 0, time.UTC)})
+	registerUserUC, err := identityapp.NewRegisterUser(users, companies, fakePasswordHasher{hashValue: "hashed:"}, fixedIDGenerator{companyID: "company-shell-dana", userID: "user-3"}, fixedClock{now: time.Date(2024, time.April, 1, 10, 5, 0, 0, time.UTC)}, nil, nil)
 	if err != nil {
 		t.Fatalf("unexpected constructor error: %v", err)
 	}

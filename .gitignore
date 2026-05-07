@@ -82,3 +82,10 @@ apps/frontend/.next/
 apps/frontend/node_modules/
 apps/frontend/.env.local
 apps/frontend/tsconfig.tsbuildinfo
+
+############################
+# Documentation
+############################
+docs/project/
+docs/project/*/
+docs/project/*/*.typ

@@ -6,6 +6,8 @@ import (
 	"strconv"
 	"time"
 
+	billingapp "github.com/EBal0vGG/Unbelievable_Fish/internal/billing/app"
+	billingpg "github.com/EBal0vGG/Unbelievable_Fish/internal/billing/postgres"
 	catalogapp "github.com/EBal0vGG/Unbelievable_Fish/internal/catalog/app"
 	catalogpg "github.com/EBal0vGG/Unbelievable_Fish/internal/catalog/postgres"
 	dealspg "github.com/EBal0vGG/Unbelievable_Fish/internal/deals/postgres"
@@ -40,6 +42,12 @@ func main() {
 	dealLister := dealspg.NewDealDeadlineLister(db)
 	auctionLister := tradingpg.NewAuctionLister(db)
 
+	billingAccounts := billingpg.NewAccountRepository(db)
+	createBillingAccount, err := billingapp.NewCreateAccount(billingAccounts, billingapp.RandomHexID{})
+	if err != nil {
+		logging.Fatal(logger, "billing_create_account_init_failed", "error", err)
+	}
+
 	runtime, err := integration.New(db, integration.Dependencies{
 		Catalog:        catalogService,
 		TradingUOW:     tradingUOW,
@@ -47,6 +55,7 @@ func main() {
 		ProjectionRepo: projectionRepo,
 		AuctionLister:  auctionLister,
 		DealLister:     dealLister,
+		CreateAccount:  createBillingAccount,
 	})
 	if err != nil {
 		logging.Fatal(logger, "integration_runtime_init_failed", "error", err)

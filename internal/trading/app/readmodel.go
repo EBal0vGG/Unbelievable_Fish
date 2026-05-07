@@ -11,6 +11,7 @@ type AuctionSummary struct {
 	State           string
 	StartsAt        time.Time
 	EndsAt          time.Time
+	StartPrice      int64
 	CurrentPrice    int64
 	MinBidStep      int64
 	LeaderCompanyID string

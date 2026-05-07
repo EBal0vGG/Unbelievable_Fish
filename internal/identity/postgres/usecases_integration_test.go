@@ -56,11 +56,15 @@ func TestIdentityUseCasesWithPostgresRepositories(t *testing.T) {
 	db := openIntegrationDB(t, "identity-usecases")
 	companyRepo := NewCompanyRepository(db)
 	userRepo := NewUserRepository(db)
+	txm := NewTransactionManager(db, nil)
+	outbox := NewOutboxRepository(db)
 
 	registerCompany, err := identityapp.NewRegisterCompany(
 		companyRepo,
 		fixedIDGenerator{companyID: "company-1"},
 		fixedClock{now: time.Date(2024, time.April, 1, 10, 0, 0, 0, time.UTC)},
+		txm,
+		outbox,
 	)
 	if err != nil {
 		t.Fatalf("unexpected constructor error: %v", err)
@@ -81,6 +85,8 @@ func TestIdentityUseCasesWithPostgresRepositories(t *testing.T) {
 		fakePasswordHasher{hashValue: "hashed:"},
 		fixedIDGenerator{userID: "user-1"},
 		fixedClock{now: time.Date(2024, time.April, 1, 10, 5, 0, 0, time.UTC)},
+		txm,
+		outbox,
 	)
 	if err != nil {
 		t.Fatalf("unexpected constructor error: %v", err)
@@ -152,11 +158,15 @@ func TestRegisterUserWithExistingCompanyByRequisites(t *testing.T) {
 	db := openIntegrationDB(t, "identity-existing-company")
 	companyRepo := NewCompanyRepository(db)
 	userRepo := NewUserRepository(db)
+	txm := NewTransactionManager(db, nil)
+	outbox := NewOutboxRepository(db)
 
 	registerCompany, err := identityapp.NewRegisterCompany(
 		companyRepo,
 		fixedIDGenerator{companyID: "company-1"},
 		fixedClock{now: time.Date(2024, time.April, 1, 10, 0, 0, 0, time.UTC)},
+		txm,
+		outbox,
 	)
 	if err != nil {
 		t.Fatalf("unexpected constructor error: %v", err)
@@ -189,6 +199,8 @@ func TestRegisterUserWithExistingCompanyByRequisites(t *testing.T) {
 		fakePasswordHasher{hashValue: "hashed:"},
 		fixedIDGenerator{userID: "user-2"},
 		fixedClock{now: time.Date(2024, time.April, 1, 10, 10, 0, 0, time.UTC)},
+		txm,
+		outbox,
 	)
 	if err != nil {
 		t.Fatalf("unexpected constructor error: %v", err)
@@ -216,6 +228,8 @@ func TestRegisterUserWithoutCompany(t *testing.T) {
 	db := openIntegrationDB(t, "identity-no-company")
 	companyRepo := NewCompanyRepository(db)
 	userRepo := NewUserRepository(db)
+	txm := NewTransactionManager(db, nil)
+	outbox := NewOutboxRepository(db)
 
 	registerUser, err := identityapp.NewRegisterUser(
 		userRepo,
@@ -223,6 +237,8 @@ func TestRegisterUserWithoutCompany(t *testing.T) {
 		fakePasswordHasher{hashValue: "hashed:"},
 		fixedIDGenerator{companyID: "company-personal-carol", userID: "user-3"},
 		fixedClock{now: time.Date(2024, time.April, 1, 10, 15, 0, 0, time.UTC)},
+		txm,
+		outbox,
 	)
 	if err != nil {
 		t.Fatalf("unexpected constructor error: %v", err)
@@ -267,11 +283,15 @@ func TestRegisterUserWithBuyerSellerRole(t *testing.T) {
 	db := openIntegrationDB(t, "identity-buyer-seller-role")
 	companyRepo := NewCompanyRepository(db)
 	userRepo := NewUserRepository(db)
+	txm := NewTransactionManager(db, nil)
+	outbox := NewOutboxRepository(db)
 
 	registerCompany, err := identityapp.NewRegisterCompany(
 		companyRepo,
 		fixedIDGenerator{companyID: "company-10"},
 		fixedClock{now: time.Date(2024, time.April, 1, 9, 0, 0, 0, time.UTC)},
+		txm,
+		outbox,
 	)
 	if err != nil {
 		t.Fatalf("unexpected constructor error: %v", err)
@@ -291,6 +311,8 @@ func TestRegisterUserWithBuyerSellerRole(t *testing.T) {
 		fakePasswordHasher{hashValue: "hashed:"},
 		fixedIDGenerator{userID: "user-10"},
 		fixedClock{now: time.Date(2024, time.April, 1, 9, 5, 0, 0, time.UTC)},
+		txm,
+		outbox,
 	)
 	if err != nil {
 		t.Fatalf("unexpected constructor error: %v", err)

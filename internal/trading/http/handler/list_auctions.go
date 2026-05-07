@@ -37,6 +37,7 @@ func auctionSummaryResponse(result *app.AuctionSummary) map[string]any {
 		"state":             result.State,
 		"starts_at":         result.StartsAt,
 		"ends_at":           result.EndsAt,
+		"start_price":       result.StartPrice,
 		"current_price":     result.CurrentPrice,
 		"min_bid_step":      result.MinBidStep,
 		"leader_company_id": result.LeaderCompanyID,

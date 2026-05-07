@@ -1,0 +1,24 @@
+package httpapi
+
+import (
+	"net/http"
+
+	"github.com/go-chi/chi/v5"
+)
+
+type Handlers struct {
+	GetBalance http.Handler
+	TestTopUp  http.Handler
+	GetLedger  http.Handler
+}
+
+func NewRouter(h Handlers, middlewares ...func(http.Handler) http.Handler) chi.Router {
+	r := chi.NewRouter()
+	r.Use(middlewares...)
+	r.Route("/accounts/me", func(r chi.Router) {
+		r.Method(http.MethodGet, "/", h.GetBalance)
+		r.Method(http.MethodPost, "/top-up/test", h.TestTopUp)
+		r.Method(http.MethodGet, "/ledger", h.GetLedger)
+	})
+	return r
+}

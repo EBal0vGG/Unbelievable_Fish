@@ -77,6 +77,8 @@ func (c *integrationConn) ExecContext(_ context.Context, query string, args []dr
 		return c.execCompanyInsert(args)
 	case strings.Contains(query, "INSERT INTO identity_users"):
 		return c.execUserInsert(args)
+	case strings.Contains(query, "INSERT INTO outbox_messages"):
+		return driver.RowsAffected(1), nil
 	default:
 		return nil, errors.New("unsupported exec query")
 	}

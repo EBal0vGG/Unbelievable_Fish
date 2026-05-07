@@ -256,6 +256,10 @@ func truncateAll(t *testing.T, db *sql.DB) error {
 	_, err := db.Exec(`
 TRUNCATE TABLE
     outbox_messages,
+    billing_processed_top_ups,
+    billing_ledger_entries,
+    billing_auction_deposits,
+    billing_accounts,
     trading_auction_winners,
     trading_bids,
     trading_auctions,

@@ -226,6 +226,7 @@ func TestDealCancelledEventMovesToNextWinner(t *testing.T) {
 		nil,
 		createSelection,
 		handleDeclined,
+		nil,
 	)
 
 	if err := bus.Publish(ctx, events.Envelope{

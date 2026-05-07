@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"time"
 
+	billingapp "github.com/EBal0vGG/Unbelievable_Fish/internal/billing/app"
 	catalogapp "github.com/EBal0vGG/Unbelievable_Fish/internal/catalog/app"
 	catalog "github.com/EBal0vGG/Unbelievable_Fish/internal/catalog/domain"
 	dealsapp "github.com/EBal0vGG/Unbelievable_Fish/internal/deals/app"
@@ -14,6 +15,7 @@ import (
 	"github.com/EBal0vGG/Unbelievable_Fish/internal/infra/eventbus/inmemory"
 	outbox "github.com/EBal0vGG/Unbelievable_Fish/internal/infra/outbox"
 	outboxpg "github.com/EBal0vGG/Unbelievable_Fish/internal/infra/outbox/postgres"
+	identity "github.com/EBal0vGG/Unbelievable_Fish/internal/identity/domain"
 	"github.com/EBal0vGG/Unbelievable_Fish/internal/shared/events"
 	tradingapp "github.com/EBal0vGG/Unbelievable_Fish/internal/trading/app"
 	auction "github.com/EBal0vGG/Unbelievable_Fish/internal/trading/auction"
@@ -26,6 +28,7 @@ type Dependencies struct {
 	ProjectionRepo dealsapp.ProjectionRepository
 	AuctionLister  ExpiredAuctionLister
 	DealLister     ExpiredDealLister
+	CreateAccount  *billingapp.CreateAccount
 }
 
 type Runtime struct {
@@ -78,7 +81,7 @@ func New(db *sql.DB, deps Dependencies) (*Runtime, error) {
 		return nil, err
 	}
 
-	subscribeHandlers(bus, deps, publishAuctionUC, createProjectionUC, createSelectionUC, handleDealDeclinedUC)
+	subscribeHandlers(bus, deps, publishAuctionUC, createProjectionUC, createSelectionUC, handleDealDeclinedUC, deps.CreateAccount) // CreateAccount optional for tests
 
 	return &Runtime{
 		Bus:           bus,
@@ -145,6 +148,7 @@ func subscribeHandlers(
 	createProjection *dealsapp.CreateProjection,
 	createSelection *dealsapp.CreateDealSelectionFromAuctionWon,
 	handleDealDeclined *dealsapp.HandleDealDeclined,
+	createAccount *billingapp.CreateAccount,
 ) {
 	bus.Subscribe("catalog.LotPublished", func(ctx context.Context, envelope events.Envelope) error {
 		evt, ok := envelope.Payload.(catalog.LotPublished)
@@ -289,6 +293,17 @@ func subscribeHandlers(
 		}
 		return nil
 	})
+
+	if createAccount != nil {
+		bus.Subscribe("identity.CompanyCreated", func(ctx context.Context, envelope events.Envelope) error {
+			evt, ok := envelope.Payload.(identity.CompanyCreated)
+			if !ok {
+				return errors.New("unexpected payload for CompanyCreated")
+			}
+			slog.InfoContext(ctx, "integration_company_created", "component", "integration.runtime", "company_id", evt.CompanyID)
+			return createAccount.Execute(ctx, evt.CompanyID)
+		})
+	}
 }
 
 func DefaultDecoders() map[string]outbox.Decoder {
@@ -322,6 +337,7 @@ func DefaultDecoders() map[string]outbox.Decoder {
 		"deals.DealCompleted":             outbox.JSONDecoder[deal.DealCompleted](),
 		"deals.DealCancelled":             outbox.JSONDecoder[deal.DealCancelled](),
 		"deals.PriceUpdated":              outbox.JSONDecoder[deal.PriceUpdated](),
+		"identity.CompanyCreated":         outbox.JSONDecoder[identity.CompanyCreated](),
 	}
 }
 

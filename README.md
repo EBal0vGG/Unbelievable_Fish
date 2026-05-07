@@ -9,9 +9,11 @@
 - `catalog` (`:8081`) — рыба, продукты, лоты, публикация лотов.
 - `trading` (`:8082`) — аукционы, ставки, чтение аукциона по id/лоту.
 - `deals` (`:8083`) — сделка после выигрыша аукциона, lifecycle контракта и оплаты.
+- `billing` (`:8085`) — кошелёк компании (баланс, тестовый top-up, ledger); JWT как у `catalog`.
 - `integration` — relay outbox-событий и фоновые джобы:
   - автозакрытие просроченных аукционов;
-  - отмена просроченных сделок и fallback на следующего кандидата.
+  - отмена просроченных сделок и fallback на следующего кандидата;
+  - создание счёта в `billing` по событию `identity.CompanyCreated` из outbox.
 - `frontend` (`:3000`) — Next.js UI, проксирует запросы в backend.
 
 ## Быстрый старт
@@ -106,6 +108,12 @@ go test ./...
 - `GET /auctions/{id}`
 - `GET /auctions/by-lot/{lotId}`
 
+### Billing
+
+- `GET /billing/accounts/me` — баланс (`available`, `held`, `total`).
+- `POST /billing/accounts/me/top-up/test` — тело `{"amount": <int64>}` (тестовое зачисление).
+- `GET /billing/accounts/me/ledger` — последние записи ledger (до 100).
+
 ### Deals
 
 - `GET /deal-projections/{auctionId}`
@@ -130,6 +138,10 @@ go test ./...
 - `IDENTITY_TOKEN_SECRET`
 - `IDENTITY_TOKEN_TTL_MINUTES`
 
+Billing:
+
+- `BILLING_PORT` (по умолчанию в compose: `8085`)
+
 Integration:
 
 - `AUCTION_CLOSE_INTERVAL_SEC`
@@ -149,5 +161,6 @@ Frontend:
 - `NEXT_PUBLIC_TRADING_API_URL`
 - `NEXT_PUBLIC_DEALS_API_URL`
 - `NEXT_PUBLIC_IDENTITY_API_URL`
+- `NEXT_PUBLIC_BILLING_API_URL` (опционально, для следующего этапа UI)
 
 Детали по frontend: `apps/frontend/README.md`.

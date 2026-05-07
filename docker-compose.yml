@@ -132,6 +132,31 @@ services:
       identity:
         condition: service_started
 
+  billing:
+    build:
+      context: .
+      args:
+        SERVICE: billing
+    environment:
+      PGHOST: postgres
+      PGUSER: fish
+      PGPASSWORD: fish
+      PGDATABASE: fish
+      PGPORT: "5432"
+      PGSSLMODE: disable
+      BILLING_PORT: "8085"
+      IDENTITY_TOKEN_SECRET: dev-secret
+      IDENTITY_TOKEN_TTL_MINUTES: "120"
+    ports:
+      - "8085:8085"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+      identity:
+        condition: service_started
+
   integration:
     build:
       context: .

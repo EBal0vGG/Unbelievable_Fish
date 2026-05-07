@@ -8,6 +8,7 @@ func RehydrateAuction(
 	state State,
 	startsAt time.Time,
 	endsAt time.Time,
+	startPrice int64,
 	currentPrice int64,
 	minBidStep int64,
 	leaderCompanyID string,
@@ -27,12 +28,16 @@ func RehydrateAuction(
 	if minBidStep <= 0 {
 		return nil, ErrInvalidMinBidStep
 	}
+	if startPrice < 0 {
+		return nil, ErrInvalidStartPrice
+	}
 	return &Auction{
 		ID:                id,
 		LotID:             lotID,
 		state:             state,
 		startsAt:          startsAt,
 		endsAt:            endsAt,
+		startPrice:        startPrice,
 		currentPrice:      currentPrice,
 		minBidStep:        minBidStep,
 		leaderCompanyID:   leaderCompanyID,

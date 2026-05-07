@@ -34,11 +34,14 @@ func main() {
 		dbconfig.EnvDurationMinutes("IDENTITY_TOKEN_TTL_MINUTES", 24*60),
 	)
 
-	registerCompanyUC, err := identityapp.NewRegisterCompany(companyRepo, identityapp.NewRandomIDGenerator(), nil)
+	txManager := identitypg.NewTransactionManager(db, nil)
+	outboxRepo := identitypg.NewOutboxRepository(db)
+
+	registerCompanyUC, err := identityapp.NewRegisterCompany(companyRepo, identityapp.NewRandomIDGenerator(), nil, txManager, outboxRepo)
 	if err != nil {
 		logging.Fatal(logger, "register_company_usecase_init_failed", "error", err)
 	}
-	registerUserUC, err := identityapp.NewRegisterUser(userRepo, companyRepo, passwordHasher, identityapp.NewRandomIDGenerator(), nil)
+	registerUserUC, err := identityapp.NewRegisterUser(userRepo, companyRepo, passwordHasher, identityapp.NewRandomIDGenerator(), nil, txManager, outboxRepo)
 	if err != nil {
 		logging.Fatal(logger, "register_user_usecase_init_failed", "error", err)
 	}
@@ -69,7 +72,7 @@ func main() {
 		GetCurrentUser:   authMiddleware.Wrap(handler.NewGetCurrentUserHandler(getCurrentUserUC)),
 	}, httplog.Middleware(logger))
 
-	if err := ensureBootstrapAdmin(context.Background(), companyRepo, userRepo, passwordHasher); err != nil {
+	if err := ensureBootstrapAdmin(context.Background(), companyRepo, userRepo, passwordHasher, txManager, outboxRepo); err != nil {
 		logging.Fatal(logger, "bootstrap_admin_failed", "component", "bootstrap", "error", err)
 	}
 
@@ -85,6 +88,8 @@ func ensureBootstrapAdmin(
 	companyRepo *identitypg.CompanyRepository,
 	userRepo *identitypg.UserRepository,
 	hasher identityauth.PasswordHasher,
+	txManager *identitypg.TransactionManager,
+	outboxRepo *identitypg.OutboxRepository,
 ) error {
 	enabled := dbconfig.EnvOrDefault("IDENTITY_BOOTSTRAP_ADMIN_ENABLED", "true") != "false"
 	if !enabled {
@@ -119,7 +124,12 @@ func ensureBootstrapAdmin(
 		if err != nil {
 			return err
 		}
-		if err := companyRepo.Save(ctx, company); err != nil {
+		if err := txManager.WithinTx(ctx, func(txCtx context.Context) error {
+			if err := companyRepo.Save(txCtx, company); err != nil {
+				return err
+			}
+			return outboxRepo.PublishCompanyCreated(txCtx, company.ID())
+		}); err != nil {
 			return err
 		}
 	}

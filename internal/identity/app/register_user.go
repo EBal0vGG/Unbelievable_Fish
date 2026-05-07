@@ -17,6 +17,8 @@ type RegisterUser struct {
 	hasher    PasswordHasher
 	ids       IDGenerator
 	clock     Clock
+	uow       UnitOfWork
+	publisher CompanyCreatedPublisher
 }
 
 func NewRegisterUser(
@@ -25,6 +27,8 @@ func NewRegisterUser(
 	hasher PasswordHasher,
 	ids IDGenerator,
 	clock Clock,
+	uow UnitOfWork,
+	publisher CompanyCreatedPublisher,
 ) (*RegisterUser, error) {
 	if users == nil {
 		return nil, ErrNilUserRepository
@@ -47,6 +51,8 @@ func NewRegisterUser(
 		hasher:    hasher,
 		ids:       ids,
 		clock:     clock,
+		uow:       uow,
+		publisher: publisher,
 	}, nil
 }
 
@@ -144,8 +150,19 @@ func (uc *RegisterUser) ensureDummyCompany(ctx context.Context, cmd RegisterUser
 	if err != nil {
 		return "", err
 	}
-	if err := uc.companies.Save(ctx, company); err != nil {
-		return "", err
+	if uc.uow != nil && uc.publisher != nil {
+		if err := uc.uow.WithinTx(ctx, func(txCtx context.Context) error {
+			if err := uc.companies.Save(txCtx, company); err != nil {
+				return err
+			}
+			return uc.publisher.PublishCompanyCreated(txCtx, company.ID())
+		}); err != nil {
+			return "", err
+		}
+	} else {
+		if err := uc.companies.Save(ctx, company); err != nil {
+			return "", err
+		}
 	}
 	return company.ID(), nil
 }
