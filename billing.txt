@@ -1,0 +1,1918 @@
+===== ./internal/billing/app/create_account.go =====
+package app
+
+import (
+	"context"
+
+	"github.com/EBal0vGG/Unbelievable_Fish/internal/billing/wallet"
+)
+
+type CreateAccount struct {
+	accounts AccountRepository
+	ids      IDGenerator
+}
+
+func NewCreateAccount(accounts AccountRepository, ids IDGenerator) (*CreateAccount, error) {
+	if accounts == nil {
+		return nil, ErrNilDependency
+	}
+	if ids == nil {
+		ids = RandomHexID{}
+	}
+	return &CreateAccount{accounts: accounts, ids: ids}, nil
+}
+
+func (uc *CreateAccount) Execute(ctx context.Context, companyID string) error {
+	if isBlank(companyID) {
+		return wallet.ErrInvalidIdentifier
+	}
+	ok, err := uc.accounts.ExistsByCompany(ctx, companyID)
+	if err != nil {
+		return err
+	}
+	if ok {
+		return nil
+	}
+	acc, err := wallet.NewAccount(uc.ids.NewID(), companyID, wallet.CurrencyRUB)
+	if err != nil {
+		return err
+	}
+	return uc.accounts.Create(ctx, acc)
+}
+
+===== ./internal/billing/app/confirm_top_up.go =====
+package app
+
+import (
+	"context"
+	"time"
+
+	"github.com/EBal0vGG/Unbelievable_Fish/internal/billing/wallet"
+)
+
+type ConfirmTopUp struct {
+	accounts   AccountRepository
+	ledger     LedgerRepository
+	processed  ProcessedTopUpRepository
+	ids        IDGenerator
+	clock      Clock
+}
+
+func NewConfirmTopUp(accounts AccountRepository, ledger LedgerRepository, processed ProcessedTopUpRepository, ids IDGenerator, clock Clock) (*ConfirmTopUp, error) {
+	if accounts == nil || ledger == nil || processed == nil {
+		return nil, ErrNilDependency
+	}
+	if ids == nil {
+		ids = RandomHexID{}
+	}
+	if clock == nil {
+		clock = systemClock{}
+	}
+	return &ConfirmTopUp{
+		accounts:  accounts,
+		ledger:    ledger,
+		processed: processed,
+		ids:       ids,
+		clock:     clock,
+	}, nil
+}
+
+func (uc *ConfirmTopUp) Execute(ctx context.Context, companyID string, amount int64, externalPaymentID string) error {
+	if isBlank(companyID) || isBlank(externalPaymentID) {
+		return wallet.ErrInvalidIdentifier
+	}
+	if amount <= 0 {
+		return wallet.ErrInvalidAmount
+	}
+	acc, err := uc.accounts.LoadByCompanyForUpdate(ctx, companyID)
+	if err != nil {
+		return err
+	}
+	inserted, err := uc.processed.InsertIfNew(ctx, externalPaymentID, companyID, acc.ID(), amount)
+	if err != nil {
+		return err
+	}
+	if !inserted {
+		return nil
+	}
+	if err := acc.Deposit(amount); err != nil {
+		return err
+	}
+	if err := uc.accounts.Save(ctx, acc); err != nil {
+		return err
+	}
+	entry := wallet.LedgerEntry{
+		ID:            uc.ids.NewID(),
+		AccountID:     acc.ID(),
+		CompanyID:     companyID,
+		Currency:      wallet.CurrencyRUB,
+		Amount:        amount,
+		EntryType:     wallet.LedgerTopUpConfirmed,
+		ReferenceType: "external_payment",
+		ReferenceID:   externalPaymentID,
+		CreatedAt:     uc.clock.Now().UTC(),
+	}
+	return uc.ledger.Append(ctx, entry)
+}
+
+type systemClock struct{}
+
+func (systemClock) Now() time.Time { return time.Now().UTC() }
+
+===== ./internal/billing/app/errors.go =====
+package app
+
+import "errors"
+
+var (
+	ErrInsufficientFundsForDeposit = errors.New("insufficient funds for auction deposit")
+	ErrDepositNotHeld              = errors.New("auction deposit is not in HELD state")
+	ErrDepositNotFound             = errors.New("auction deposit not found")
+	ErrAccountNotFound             = errors.New("billing account not found")
+)
+
+===== ./internal/billing/app/capture_platform_fee_from_deposit.go =====
+package app
+
+import (
+	"context"
+
+	"github.com/EBal0vGG/Unbelievable_Fish/internal/billing/wallet"
+)
+
+type CapturePlatformFeeFromDeposit struct {
+	accounts AccountRepository
+	deposits AuctionDepositRepository
+	ledger   LedgerRepository
+	ids      IDGenerator
+	clock    Clock
+}
+
+func NewCapturePlatformFeeFromDeposit(accounts AccountRepository, deposits AuctionDepositRepository, ledger LedgerRepository, ids IDGenerator, clock Clock) (*CapturePlatformFeeFromDeposit, error) {
+	if accounts == nil || deposits == nil || ledger == nil {
+		return nil, ErrNilDependency
+	}
+	if ids == nil {
+		ids = RandomHexID{}
+	}
+	if clock == nil {
+		clock = systemClock{}
+	}
+	return &CapturePlatformFeeFromDeposit{accounts: accounts, deposits: deposits, ledger: ledger, ids: ids, clock: clock}, nil
+}
+
+func (uc *CapturePlatformFeeFromDeposit) Execute(ctx context.Context, companyID, auctionID string, finalPrice int64) error {
+	if isBlank(companyID) || isBlank(auctionID) {
+		return wallet.ErrInvalidIdentifier
+	}
+	if finalPrice < 0 {
+		return wallet.ErrInvalidAmount
+	}
+	now := uc.clock.Now().UTC()
+	settlementRef := platformFeeSettlementRef(auctionID, companyID)
+
+	done, err := uc.settlementAlreadyRecorded(ctx, companyID, settlementRef)
+	if err != nil {
+		return err
+	}
+	if done {
+		return nil
+	}
+
+	acc, err := uc.accounts.LoadByCompanyForUpdate(ctx, companyID)
+	if err != nil {
+		return err
+	}
+	dep, err := uc.deposits.Find(ctx, auctionID, companyID)
+	if err != nil {
+		return err
+	}
+	if dep == nil {
+		return ErrDepositNotFound
+	}
+	if dep.Status != wallet.DepositHeld {
+		return ErrDepositNotHeld
+	}
+
+	fee := platformFeeFromFinalPrice(finalPrice)
+	d := dep.Amount
+
+	if fee <= 0 {
+		if err := acc.Release(d); err != nil {
+			return err
+		}
+		dep.MarkReleased(now)
+		if err := uc.deposits.Save(ctx, dep); err != nil {
+			return err
+		}
+		if err := uc.accounts.Save(ctx, acc); err != nil {
+			return err
+		}
+		return uc.ledger.Append(ctx, wallet.LedgerEntry{
+			ID:            uc.ids.NewID(),
+			AccountID:     acc.ID(),
+			CompanyID:     companyID,
+			Currency:      dep.Currency,
+			Amount:        d,
+			EntryType:     wallet.LedgerBidDepositReleased,
+			ReferenceType: "platform_fee_from_deposit_zero",
+			ReferenceID:   settlementRef,
+			CreatedAt:     now,
+		})
+	}
+
+	if d >= fee {
+		if err := acc.Capture(fee); err != nil {
+			return err
+		}
+		remainder := d - fee
+		if remainder > 0 {
+			if err := acc.Release(remainder); err != nil {
+				return err
+			}
+		}
+		dep.MarkReleased(now)
+		if err := uc.deposits.Save(ctx, dep); err != nil {
+			return err
+		}
+		if err := uc.accounts.Save(ctx, acc); err != nil {
+			return err
+		}
+		if err := uc.ledger.Append(ctx, wallet.LedgerEntry{
+			ID:            uc.ids.NewID(),
+			AccountID:     acc.ID(),
+			CompanyID:     companyID,
+			Currency:      dep.Currency,
+			Amount:        fee,
+			EntryType:     wallet.LedgerPlatformFeeCaptured,
+			ReferenceType: "platform_fee_from_deposit",
+			ReferenceID:   settlementRef,
+			CreatedAt:     now,
+		}); err != nil {
+			return err
+		}
+		if remainder > 0 {
+			return uc.ledger.Append(ctx, wallet.LedgerEntry{
+				ID:            uc.ids.NewID(),
+				AccountID:     acc.ID(),
+				CompanyID:     companyID,
+				Currency:      dep.Currency,
+				Amount:        remainder,
+				EntryType:     wallet.LedgerBidDepositReleased,
+				ReferenceType: "platform_fee_deposit_remainder",
+				ReferenceID:   settlementRef + ":remainder",
+				CreatedAt:     now,
+			})
+		}
+		return nil
+	}
+
+	if err := acc.Capture(d); err != nil {
+		return err
+	}
+	dep.MarkCaptured(now)
+	if err := uc.deposits.Save(ctx, dep); err != nil {
+		return err
+	}
+	if err := uc.accounts.Save(ctx, acc); err != nil {
+		return err
+	}
+	if err := uc.ledger.Append(ctx, wallet.LedgerEntry{
+		ID:            uc.ids.NewID(),
+		AccountID:     acc.ID(),
+		CompanyID:     companyID,
+		Currency:      dep.Currency,
+		Amount:        d,
+		EntryType:     wallet.LedgerPlatformFeeCaptured,
+		ReferenceType: "platform_fee_from_deposit",
+		ReferenceID:   settlementRef,
+		CreatedAt:     now,
+	}); err != nil {
+		return err
+	}
+	due := fee - d
+	if due <= 0 {
+		return nil
+	}
+	return uc.ledger.Append(ctx, wallet.LedgerEntry{
+		ID:            uc.ids.NewID(),
+		AccountID:     acc.ID(),
+		CompanyID:     companyID,
+		Currency:      dep.Currency,
+		Amount:        due,
+		EntryType:     wallet.LedgerPlatformFeeDue,
+		ReferenceType: "platform_fee_due",
+		ReferenceID:   settlementRef + ":due",
+		CreatedAt:     now,
+	})
+}
+
+func (uc *CapturePlatformFeeFromDeposit) settlementAlreadyRecorded(ctx context.Context, companyID, settlementRef string) (bool, error) {
+	ok, err := uc.ledger.ExistsByReference(ctx, companyID, "platform_fee_from_deposit", settlementRef, wallet.LedgerPlatformFeeCaptured)
+	if err != nil || ok {
+		return ok, err
+	}
+	return uc.ledger.ExistsByReference(ctx, companyID, "platform_fee_from_deposit_zero", settlementRef, wallet.LedgerBidDepositReleased)
+}
+
+===== ./internal/billing/app/helpers.go =====
+package app
+
+import (
+	"crypto/rand"
+	"encoding/hex"
+	"errors"
+)
+
+var ErrNilDependency = errors.New("billing app: nil dependency")
+
+func isBlank(s string) bool {
+	for _, r := range s {
+		if r != ' ' && r != '\t' && r != '\n' && r != '\r' {
+			return false
+		}
+	}
+	return true
+}
+
+func auctionDepositLedgerRef(auctionID, companyID string) string {
+	return "auction:" + auctionID + ":company:" + companyID
+}
+
+func platformFeeSettlementRef(auctionID, companyID string) string {
+	return "auction:" + auctionID + ":company:" + companyID
+}
+
+func depositFromStartPrice(startPrice int64) int64 {
+	d := startPrice * 5 / 100
+	if d < 1 && startPrice > 0 {
+		return 1
+	}
+	return d
+}
+
+func platformFeeFromFinalPrice(finalPrice int64) int64 {
+	if finalPrice <= 0 {
+		return 0
+	}
+	return finalPrice * 3 / 100
+}
+
+type RandomHexID struct{}
+
+func (RandomHexID) NewID() string {
+	var b [16]byte
+	if _, err := rand.Read(b[:]); err != nil {
+		panic(err)
+	}
+	return hex.EncodeToString(b[:])
+}
+
+===== ./internal/billing/app/reserve_auction_deposit.go =====
+package app
+
+import (
+	"context"
+	"errors"
+
+	"github.com/EBal0vGG/Unbelievable_Fish/internal/billing/wallet"
+)
+
+type ReserveAuctionDeposit struct {
+	accounts  AccountRepository
+	deposits  AuctionDepositRepository
+	ledger    LedgerRepository
+	ids       IDGenerator
+	clock     Clock
+}
+
+func NewReserveAuctionDeposit(accounts AccountRepository, deposits AuctionDepositRepository, ledger LedgerRepository, ids IDGenerator, clock Clock) (*ReserveAuctionDeposit, error) {
+	if accounts == nil || deposits == nil || ledger == nil {
+		return nil, ErrNilDependency
+	}
+	if ids == nil {
+		ids = RandomHexID{}
+	}
+	if clock == nil {
+		clock = systemClock{}
+	}
+	return &ReserveAuctionDeposit{
+		accounts: accounts,
+		deposits: deposits,
+		ledger:   ledger,
+		ids:      ids,
+		clock:    clock,
+	}, nil
+}
+
+func (uc *ReserveAuctionDeposit) Execute(
+	ctx context.Context,
+	companyID string,
+	auctionID string,
+	startPrice int64,
+	currency wallet.Currency,
+) error {
+	if isBlank(companyID) || isBlank(auctionID) {
+		return wallet.ErrInvalidIdentifier
+	}
+	if currency != wallet.CurrencyRUB {
+		return wallet.ErrUnsupportedCurrency
+	}
+	now := uc.clock.Now().UTC()
+
+	acc, err := uc.accounts.LoadByCompanyForUpdate(ctx, companyID)
+	if err != nil {
+		return err
+	}
+	if acc.Currency() != currency {
+		return wallet.ErrUnsupportedCurrency
+	}
+
+	existing, err := uc.deposits.Find(ctx, auctionID, companyID)
+	if err != nil {
+		return err
+	}
+	if existing != nil {
+		if existing.Status == wallet.DepositHeld {
+			return nil
+		}
+		return ErrDepositNotHeld
+	}
+
+	amount := depositFromStartPrice(startPrice)
+	if amount <= 0 {
+		return wallet.ErrInvalidAmount
+	}
+	if err := acc.Reserve(amount); err != nil {
+		if errors.Is(err, wallet.ErrInsufficientFunds) {
+			return ErrInsufficientFundsForDeposit
+		}
+		return err
+	}
+
+	dep, err := wallet.NewAuctionDeposit(auctionID, companyID, acc.ID(), amount, currency, now)
+	if err != nil {
+		return err
+	}
+	if err := uc.deposits.Create(ctx, dep); err != nil {
+		return err
+	}
+	if err := uc.accounts.Save(ctx, acc); err != nil {
+		return err
+	}
+
+	ref := auctionDepositLedgerRef(auctionID, companyID)
+	exists, err := uc.ledger.ExistsByReference(ctx, companyID, "auction_deposit", ref, wallet.LedgerBidDepositReserved)
+	if err != nil {
+		return err
+	}
+	if exists {
+		return nil
+	}
+	entry := wallet.LedgerEntry{
+		ID:            uc.ids.NewID(),
+		AccountID:     acc.ID(),
+		CompanyID:     companyID,
+		Currency:      currency,
+		Amount:        amount,
+		EntryType:     wallet.LedgerBidDepositReserved,
+		ReferenceType: "auction_deposit",
+		ReferenceID:   ref,
+		CreatedAt:     now,
+	}
+	return uc.ledger.Append(ctx, entry)
+}
+
+===== ./internal/billing/app/usecases_test.go =====
+package app
+
+import (
+	"context"
+	"testing"
+	"time"
+
+	"github.com/EBal0vGG/Unbelievable_Fish/internal/billing/wallet"
+)
+
+type memAccountRepo struct {
+	accounts map[string]*wallet.Account
+}
+
+func (m *memAccountRepo) Create(ctx context.Context, account *wallet.Account) error {
+	m.accounts[account.CompanyID()] = account
+	return nil
+}
+
+func (m *memAccountRepo) LoadByCompany(ctx context.Context, companyID string) (*wallet.Account, error) {
+	a, ok := m.accounts[companyID]
+	if !ok {
+		return nil, ErrAccountNotFound
+	}
+	return a, nil
+}
+
+func (m *memAccountRepo) LoadByCompanyForUpdate(ctx context.Context, companyID string) (*wallet.Account, error) {
+	return m.LoadByCompany(ctx, companyID)
+}
+
+func (m *memAccountRepo) Save(ctx context.Context, account *wallet.Account) error {
+	m.accounts[account.CompanyID()] = account
+	return nil
+}
+
+func (m *memAccountRepo) ExistsByCompany(ctx context.Context, companyID string) (bool, error) {
+	_, ok := m.accounts[companyID]
+	return ok, nil
+}
+
+type memDepositRepo struct {
+	deposits map[string]*wallet.AuctionDeposit
+}
+
+func depKey(auctionID, companyID string) string { return auctionID + "|" + companyID }
+
+func (m *memDepositRepo) Find(ctx context.Context, auctionID, companyID string) (*wallet.AuctionDeposit, error) {
+	d, ok := m.deposits[depKey(auctionID, companyID)]
+	if !ok {
+		return nil, nil
+	}
+	return d, nil
+}
+
+func (m *memDepositRepo) Create(ctx context.Context, deposit *wallet.AuctionDeposit) error {
+	m.deposits[depKey(deposit.AuctionID, deposit.CompanyID)] = deposit
+	return nil
+}
+
+func (m *memDepositRepo) Save(ctx context.Context, deposit *wallet.AuctionDeposit) error {
+	m.deposits[depKey(deposit.AuctionID, deposit.CompanyID)] = deposit
+	return nil
+}
+
+func (m *memDepositRepo) ListByAuction(ctx context.Context, auctionID string) ([]*wallet.AuctionDeposit, error) {
+	return nil, nil
+}
+
+type memLedgerRepo struct {
+	entries []wallet.LedgerEntry
+}
+
+func (m *memLedgerRepo) Append(ctx context.Context, entry wallet.LedgerEntry) error {
+	m.entries = append(m.entries, entry)
+	return nil
+}
+
+func (m *memLedgerRepo) ExistsByReference(ctx context.Context, companyID, referenceType, referenceID string, typ wallet.LedgerEntryType) (bool, error) {
+	for _, e := range m.entries {
+		if e.CompanyID == companyID && e.ReferenceType == referenceType && e.ReferenceID == referenceID && e.EntryType == typ {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+type memProcessedTopUp struct {
+	ids map[string]struct{}
+}
+
+func (m *memProcessedTopUp) InsertIfNew(ctx context.Context, externalPaymentID, companyID, accountID string, amount int64) (bool, error) {
+	if _, ok := m.ids[externalPaymentID]; ok {
+		return false, nil
+	}
+	m.ids[externalPaymentID] = struct{}{}
+	return true, nil
+}
+
+func TestCreateAccountIdempotent(t *testing.T) {
+	ar := &memAccountRepo{accounts: map[string]*wallet.Account{}}
+	uc, _ := NewCreateAccount(ar, RandomHexID{})
+	if err := uc.Execute(context.Background(), "c1"); err != nil {
+		t.Fatal(err)
+	}
+	if err := uc.Execute(context.Background(), "c1"); err != nil {
+		t.Fatal(err)
+	}
+	if len(ar.accounts) != 1 {
+		t.Fatalf("expected 1 account, got %d", len(ar.accounts))
+	}
+}
+
+func TestConfirmTopUpIdempotent(t *testing.T) {
+	ar := &memAccountRepo{accounts: map[string]*wallet.Account{}}
+	acc, _ := wallet.NewAccount("a1", "c1", wallet.CurrencyRUB)
+	ar.accounts["c1"] = acc
+	ledger := &memLedgerRepo{}
+	pt := &memProcessedTopUp{ids: map[string]struct{}{}}
+	uc, _ := NewConfirmTopUp(ar, ledger, pt, RandomHexID{}, fixedClock{t: time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)})
+	ext := "pay-1"
+	if err := uc.Execute(context.Background(), "c1", 1000, ext); err != nil {
+		t.Fatal(err)
+	}
+	if err := uc.Execute(context.Background(), "c1", 1000, ext); err != nil {
+		t.Fatal(err)
+	}
+	if ar.accounts["c1"].Available() != 1000 {
+		t.Fatalf("balance=%d", ar.accounts["c1"].Available())
+	}
+}
+
+func TestReserveAuctionDepositTwiceNoOp(t *testing.T) {
+	ar := &memAccountRepo{accounts: map[string]*wallet.Account{}}
+	acc, _ := wallet.NewAccount("a1", "c1", wallet.CurrencyRUB)
+	_ = acc.Deposit(100_000)
+	ar.accounts["c1"] = acc
+	dr := &memDepositRepo{deposits: map[string]*wallet.AuctionDeposit{}}
+	lr := &memLedgerRepo{}
+	uc, _ := NewReserveAuctionDeposit(ar, dr, lr, RandomHexID{}, fixedClock{t: time.Now()})
+	if err := uc.Execute(context.Background(), "c1", "auc1", 100_000, wallet.CurrencyRUB); err != nil {
+		t.Fatal(err)
+	}
+	if err := uc.Execute(context.Background(), "c1", "auc1", 100_000, wallet.CurrencyRUB); err != nil {
+		t.Fatal(err)
+	}
+	if acc.Available() != 100_000-5_000 || acc.Held() != 5_000 {
+		t.Fatalf("avail=%d held=%d", acc.Available(), acc.Held())
+	}
+}
+
+func TestReleaseCaptureDepositIdempotent(t *testing.T) {
+	clk := fixedClock{t: time.Date(2025, 3, 1, 12, 0, 0, 0, time.UTC)}
+
+	ar := &memAccountRepo{accounts: map[string]*wallet.Account{}}
+	acc, _ := wallet.NewAccount("a1", "c1", wallet.CurrencyRUB)
+	_ = acc.Deposit(10_000)
+	_ = acc.Reserve(2_000)
+	ar.accounts["c1"] = acc
+	dep, _ := wallet.NewAuctionDeposit("auc1", "c1", "a1", 2000, wallet.CurrencyRUB, clk.t)
+	dr := &memDepositRepo{deposits: map[string]*wallet.AuctionDeposit{depKey("auc1", "c1"): dep}}
+	lr := &memLedgerRepo{}
+
+	rel, _ := NewReleaseAuctionDeposit(ar, dr, lr, RandomHexID{}, clk)
+	if err := rel.Execute(context.Background(), "c1", "auc1", "r"); err != nil {
+		t.Fatal(err)
+	}
+	if acc.Available() != 10_000 || acc.Held() != 0 {
+		t.Fatalf("after release: avail=%d held=%d", acc.Available(), acc.Held())
+	}
+	if err := rel.Execute(context.Background(), "c1", "auc1", "r"); err != nil {
+		t.Fatal(err)
+	}
+
+	ar2 := &memAccountRepo{accounts: map[string]*wallet.Account{}}
+	acc2, _ := wallet.NewAccount("a2", "c2", wallet.CurrencyRUB)
+	_ = acc2.Deposit(10_000)
+	_ = acc2.Reserve(3000)
+	ar2.accounts["c2"] = acc2
+	dep2, _ := wallet.NewAuctionDeposit("auc2", "c2", "a2", 3000, wallet.CurrencyRUB, clk.t)
+	dr2 := &memDepositRepo{deposits: map[string]*wallet.AuctionDeposit{depKey("auc2", "c2"): dep2}}
+	lr2 := &memLedgerRepo{}
+	cap, _ := NewCaptureAuctionDeposit(ar2, dr2, lr2, RandomHexID{}, clk)
+	if err := cap.Execute(context.Background(), "c2", "auc2", "penalty"); err != nil {
+		t.Fatal(err)
+	}
+	if acc2.Available() != 7_000 || acc2.Held() != 0 {
+		t.Fatalf("after capture: avail=%d held=%d", acc2.Available(), acc2.Held())
+	}
+	if err := cap.Execute(context.Background(), "c2", "auc2", "penalty"); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestCapturePlatformFeeFromDeposit(t *testing.T) {
+	clk := fixedClock{t: time.Date(2025, 3, 2, 0, 0, 0, 0, time.UTC)}
+	ar := &memAccountRepo{accounts: map[string]*wallet.Account{}}
+	acc, _ := wallet.NewAccount("a1", "c1", wallet.CurrencyRUB)
+	_ = acc.Deposit(20_000)
+	_ = acc.Reserve(5_000)
+	ar.accounts["c1"] = acc
+	dep, _ := wallet.NewAuctionDeposit("auc1", "c1", "a1", 5000, wallet.CurrencyRUB, clk.t)
+	dr := &memDepositRepo{deposits: map[string]*wallet.AuctionDeposit{depKey("auc1", "c1"): dep}}
+	lr := &memLedgerRepo{}
+	uc, _ := NewCapturePlatformFeeFromDeposit(ar, dr, lr, RandomHexID{}, clk)
+	// fee = 3% of 100_000 = 3000, deposit 5000 -> capture 3000, release remainder 2000
+	if err := uc.Execute(context.Background(), "c1", "auc1", 100_000); err != nil {
+		t.Fatal(err)
+	}
+	if acc.Held() != 0 || acc.Available() != 17_000 {
+		t.Fatalf("avail=%d held=%d", acc.Available(), acc.Held())
+	}
+	if err := uc.Execute(context.Background(), "c1", "auc1", 100_000); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestCapturePlatformFeeDepositLessThanFeeRecordsDue(t *testing.T) {
+	clk := fixedClock{t: time.Date(2025, 3, 3, 0, 0, 0, 0, time.UTC)}
+	ar := &memAccountRepo{accounts: map[string]*wallet.Account{}}
+	acc, _ := wallet.NewAccount("a1", "c1", wallet.CurrencyRUB)
+	_ = acc.Deposit(10_000)
+	_ = acc.Reserve(2_000)
+	ar.accounts["c1"] = acc
+	dep, _ := wallet.NewAuctionDeposit("auc1", "c1", "a1", 2000, wallet.CurrencyRUB, clk.t)
+	dr := &memDepositRepo{deposits: map[string]*wallet.AuctionDeposit{depKey("auc1", "c1"): dep}}
+	lr := &memLedgerRepo{}
+	uc, _ := NewCapturePlatformFeeFromDeposit(ar, dr, lr, RandomHexID{}, clk)
+	// fee 3% of 100_000 = 3000 > deposit 2000 -> full capture + PLATFORM_FEE_DUE 1000
+	if err := uc.Execute(context.Background(), "c1", "auc1", 100_000); err != nil {
+		t.Fatal(err)
+	}
+	if acc.Available() != 8_000 || acc.Held() != 0 {
+		t.Fatalf("avail=%d held=%d", acc.Available(), acc.Held())
+	}
+	if dep.Status != wallet.DepositCaptured {
+		t.Fatalf("deposit status=%s", dep.Status)
+	}
+	var dueFound bool
+	for _, e := range lr.entries {
+		if e.EntryType == wallet.LedgerPlatformFeeDue {
+			dueFound = true
+			if e.Amount != 1000 {
+				t.Fatalf("due amount=%d", e.Amount)
+			}
+		}
+	}
+	if !dueFound {
+		t.Fatal("expected PLATFORM_FEE_DUE ledger entry")
+	}
+}
+
+type fixedClock struct {
+	t time.Time
+}
+
+func (f fixedClock) Now() time.Time { return f.t }
+
+===== ./internal/billing/app/release_auction_deposit.go =====
+package app
+
+import (
+	"context"
+
+	"github.com/EBal0vGG/Unbelievable_Fish/internal/billing/wallet"
+)
+
+type ReleaseAuctionDeposit struct {
+	accounts AccountRepository
+	deposits AuctionDepositRepository
+	ledger   LedgerRepository
+	ids      IDGenerator
+	clock    Clock
+}
+
+func NewReleaseAuctionDeposit(accounts AccountRepository, deposits AuctionDepositRepository, ledger LedgerRepository, ids IDGenerator, clock Clock) (*ReleaseAuctionDeposit, error) {
+	if accounts == nil || deposits == nil || ledger == nil {
+		return nil, ErrNilDependency
+	}
+	if ids == nil {
+		ids = RandomHexID{}
+	}
+	if clock == nil {
+		clock = systemClock{}
+	}
+	return &ReleaseAuctionDeposit{accounts: accounts, deposits: deposits, ledger: ledger, ids: ids, clock: clock}, nil
+}
+
+func (uc *ReleaseAuctionDeposit) Execute(ctx context.Context, companyID, auctionID, reason string) error {
+	if isBlank(companyID) || isBlank(auctionID) {
+		return wallet.ErrInvalidIdentifier
+	}
+	now := uc.clock.Now().UTC()
+	refLedger := auctionDepositLedgerRef(auctionID, companyID)
+
+	acc, err := uc.accounts.LoadByCompanyForUpdate(ctx, companyID)
+	if err != nil {
+		return err
+	}
+	dep, err := uc.deposits.Find(ctx, auctionID, companyID)
+	if err != nil {
+		return err
+	}
+	if dep == nil {
+		return ErrDepositNotFound
+	}
+	if dep.Status == wallet.DepositReleased {
+		return nil
+	}
+	if dep.Status != wallet.DepositHeld {
+		return ErrDepositNotHeld
+	}
+	exists, err := uc.ledger.ExistsByReference(ctx, companyID, "auction_deposit_release", refLedger, wallet.LedgerBidDepositReleased)
+	if err != nil {
+		return err
+	}
+	if exists {
+		return nil
+	}
+
+	if err := acc.Release(dep.Amount); err != nil {
+		return err
+	}
+	dep.MarkReleased(now)
+	if err := uc.deposits.Save(ctx, dep); err != nil {
+		return err
+	}
+	if err := uc.accounts.Save(ctx, acc); err != nil {
+		return err
+	}
+	entry := wallet.LedgerEntry{
+		ID:            uc.ids.NewID(),
+		AccountID:     acc.ID(),
+		CompanyID:     companyID,
+		Currency:      dep.Currency,
+		Amount:        dep.Amount,
+		EntryType:     wallet.LedgerBidDepositReleased,
+		ReferenceType: "auction_deposit_release",
+		ReferenceID:   refLedger,
+		CreatedAt:     now,
+	}
+	_ = reason // reserved for future audit / events
+	return uc.ledger.Append(ctx, entry)
+}
+
+===== ./internal/billing/app/capture_auction_deposit.go =====
+package app
+
+import (
+	"context"
+
+	"github.com/EBal0vGG/Unbelievable_Fish/internal/billing/wallet"
+)
+
+type CaptureAuctionDeposit struct {
+	accounts AccountRepository
+	deposits AuctionDepositRepository
+	ledger   LedgerRepository
+	ids      IDGenerator
+	clock    Clock
+}
+
+func NewCaptureAuctionDeposit(accounts AccountRepository, deposits AuctionDepositRepository, ledger LedgerRepository, ids IDGenerator, clock Clock) (*CaptureAuctionDeposit, error) {
+	if accounts == nil || deposits == nil || ledger == nil {
+		return nil, ErrNilDependency
+	}
+	if ids == nil {
+		ids = RandomHexID{}
+	}
+	if clock == nil {
+		clock = systemClock{}
+	}
+	return &CaptureAuctionDeposit{accounts: accounts, deposits: deposits, ledger: ledger, ids: ids, clock: clock}, nil
+}
+
+func (uc *CaptureAuctionDeposit) Execute(ctx context.Context, companyID, auctionID, reason string) error {
+	if isBlank(companyID) || isBlank(auctionID) {
+		return wallet.ErrInvalidIdentifier
+	}
+	now := uc.clock.Now().UTC()
+	refLedger := auctionDepositLedgerRef(auctionID, companyID)
+
+	acc, err := uc.accounts.LoadByCompanyForUpdate(ctx, companyID)
+	if err != nil {
+		return err
+	}
+	dep, err := uc.deposits.Find(ctx, auctionID, companyID)
+	if err != nil {
+		return err
+	}
+	if dep == nil {
+		return ErrDepositNotFound
+	}
+	if dep.Status == wallet.DepositCaptured {
+		return nil
+	}
+	if dep.Status != wallet.DepositHeld {
+		return ErrDepositNotHeld
+	}
+	exists, err := uc.ledger.ExistsByReference(ctx, companyID, "auction_deposit_capture", refLedger, wallet.LedgerBidDepositCaptured)
+	if err != nil {
+		return err
+	}
+	if exists {
+		return nil
+	}
+
+	if err := acc.Capture(dep.Amount); err != nil {
+		return err
+	}
+	dep.MarkCaptured(now)
+	if err := uc.deposits.Save(ctx, dep); err != nil {
+		return err
+	}
+	if err := uc.accounts.Save(ctx, acc); err != nil {
+		return err
+	}
+	entry := wallet.LedgerEntry{
+		ID:            uc.ids.NewID(),
+		AccountID:     acc.ID(),
+		CompanyID:     companyID,
+		Currency:      dep.Currency,
+		Amount:        dep.Amount,
+		EntryType:     wallet.LedgerBidDepositCaptured,
+		ReferenceType: "auction_deposit_capture",
+		ReferenceID:   refLedger,
+		CreatedAt:     now,
+	}
+	_ = reason
+	return uc.ledger.Append(ctx, entry)
+}
+
+===== ./internal/billing/app/ports.go =====
+package app
+
+import (
+	"context"
+	"time"
+
+	"github.com/EBal0vGG/Unbelievable_Fish/internal/billing/wallet"
+)
+
+type AccountRepository interface {
+	Create(ctx context.Context, account *wallet.Account) error
+	LoadByCompany(ctx context.Context, companyID string) (*wallet.Account, error)
+	LoadByCompanyForUpdate(ctx context.Context, companyID string) (*wallet.Account, error)
+	Save(ctx context.Context, account *wallet.Account) error
+	ExistsByCompany(ctx context.Context, companyID string) (bool, error)
+}
+
+type AuctionDepositRepository interface {
+	Find(ctx context.Context, auctionID, companyID string) (*wallet.AuctionDeposit, error)
+	Create(ctx context.Context, deposit *wallet.AuctionDeposit) error
+	Save(ctx context.Context, deposit *wallet.AuctionDeposit) error
+	ListByAuction(ctx context.Context, auctionID string) ([]*wallet.AuctionDeposit, error)
+}
+
+type LedgerRepository interface {
+	Append(ctx context.Context, entry wallet.LedgerEntry) error
+	ExistsByReference(ctx context.Context, companyID, referenceType, referenceID string, typ wallet.LedgerEntryType) (bool, error)
+}
+
+// LedgerQuery read-side for HTTP (implemented by postgres.LedgerLister).
+type LedgerQuery interface {
+	ListByCompany(ctx context.Context, companyID string, limit int) ([]wallet.LedgerEntry, error)
+}
+
+type ProcessedTopUpRepository interface {
+	InsertIfNew(ctx context.Context, externalPaymentID, companyID, accountID string, amount int64) (inserted bool, err error)
+}
+
+type IDGenerator interface {
+	NewID() string
+}
+
+type Clock interface {
+	Now() time.Time
+}
+
+===== ./internal/billing/postgres/account_repository.go =====
+package postgres
+
+import (
+	"context"
+	"database/sql"
+	"errors"
+	"time"
+
+	billingapp "github.com/EBal0vGG/Unbelievable_Fish/internal/billing/app"
+	"github.com/EBal0vGG/Unbelievable_Fish/internal/billing/wallet"
+)
+
+type AccountRepository struct {
+	db *sql.DB
+}
+
+func NewAccountRepository(db *sql.DB) *AccountRepository {
+	return &AccountRepository{db: db}
+}
+
+var _ billingapp.AccountRepository = (*AccountRepository)(nil)
+
+func (r *AccountRepository) Create(ctx context.Context, account *wallet.Account) error {
+	const q = `
+INSERT INTO billing_accounts (id, company_id, currency, available_amount, held_amount, created_at, updated_at)
+VALUES ($1, $2, $3, $4, $5, now(), now())
+`
+	dbtx := DBTXFromContext(ctx, r.db)
+	_, err := dbtx.ExecContext(ctx, q,
+		account.ID(),
+		account.CompanyID(),
+		string(account.Currency()),
+		account.Available(),
+		account.Held(),
+	)
+	return err
+}
+
+func (r *AccountRepository) ExistsByCompany(ctx context.Context, companyID string) (bool, error) {
+	const q = `SELECT 1 FROM billing_accounts WHERE company_id = $1`
+	dbtx := DBTXFromContext(ctx, r.db)
+	row := dbtx.QueryRowContext(ctx, q, companyID)
+	var one int
+	if err := row.Scan(&one); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
+}
+
+func (r *AccountRepository) LoadByCompany(ctx context.Context, companyID string) (*wallet.Account, error) {
+	return r.loadByCompany(ctx, companyID, false)
+}
+
+func (r *AccountRepository) LoadByCompanyForUpdate(ctx context.Context, companyID string) (*wallet.Account, error) {
+	return r.loadByCompany(ctx, companyID, true)
+}
+
+func (r *AccountRepository) loadByCompany(ctx context.Context, companyID string, forUpdate bool) (*wallet.Account, error) {
+	q := `
+SELECT id, company_id, currency, available_amount, held_amount
+FROM billing_accounts
+WHERE company_id = $1
+`
+	if forUpdate {
+		q += " FOR UPDATE"
+	}
+	dbtx := DBTXFromContext(ctx, r.db)
+	row := dbtx.QueryRowContext(ctx, q, companyID)
+	var (
+		id, cid, cur string
+		avail, held   int64
+	)
+	if err := row.Scan(&id, &cid, &cur, &avail, &held); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, billingapp.ErrAccountNotFound
+		}
+		return nil, err
+	}
+	return wallet.RehydrateAccount(id, cid, wallet.Currency(cur), avail, held)
+}
+
+func (r *AccountRepository) Save(ctx context.Context, account *wallet.Account) error {
+	const q = `
+UPDATE billing_accounts
+SET available_amount = $2, held_amount = $3, updated_at = $4
+WHERE id = $1
+`
+	dbtx := DBTXFromContext(ctx, r.db)
+	res, err := dbtx.ExecContext(ctx, q, account.ID(), account.Available(), account.Held(), time.Now().UTC())
+	if err != nil {
+		return err
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		return billingapp.ErrAccountNotFound
+	}
+	return nil
+}
+
+===== ./internal/billing/postgres/processed_top_up_repository.go =====
+package postgres
+
+import (
+	"context"
+	"database/sql"
+
+	billingapp "github.com/EBal0vGG/Unbelievable_Fish/internal/billing/app"
+)
+
+type ProcessedTopUpRepository struct {
+	db *sql.DB
+}
+
+func NewProcessedTopUpRepository(db *sql.DB) *ProcessedTopUpRepository {
+	return &ProcessedTopUpRepository{db: db}
+}
+
+var _ billingapp.ProcessedTopUpRepository = (*ProcessedTopUpRepository)(nil)
+
+func (r *ProcessedTopUpRepository) InsertIfNew(ctx context.Context, externalPaymentID, companyID, accountID string, amount int64) (bool, error) {
+	const q = `
+INSERT INTO billing_processed_top_ups (external_payment_id, company_id, account_id, amount)
+VALUES ($1, $2, $3, $4)
+ON CONFLICT (external_payment_id) DO NOTHING
+`
+	dbtx := DBTXFromContext(ctx, r.db)
+	res, err := dbtx.ExecContext(ctx, q, externalPaymentID, companyID, accountID, amount)
+	if err != nil {
+		return false, err
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return false, err
+	}
+	return n > 0, nil
+}
+
+===== ./internal/billing/postgres/tx_manager.go =====
+package postgres
+
+import (
+	"context"
+	"database/sql"
+	"errors"
+)
+
+type txContextKey struct{}
+
+type DBTX interface {
+	ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error)
+	QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error)
+	QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row
+}
+
+type TransactionManager struct {
+	db   *sql.DB
+	opts *sql.TxOptions
+}
+
+func NewTransactionManager(db *sql.DB, opts *sql.TxOptions) *TransactionManager {
+	return &TransactionManager{db: db, opts: opts}
+}
+
+func (m *TransactionManager) WithinTx(ctx context.Context, fn func(ctx context.Context) error) error {
+	tx, err := m.db.BeginTx(ctx, m.opts)
+	if err != nil {
+		return err
+	}
+	txCtx := context.WithValue(ctx, txContextKey{}, tx)
+	defer func() {
+		if p := recover(); p != nil {
+			_ = tx.Rollback()
+			panic(p)
+		}
+	}()
+	if err := fn(txCtx); err != nil {
+		if rollbackErr := tx.Rollback(); rollbackErr != nil {
+			return errors.Join(err, rollbackErr)
+		}
+		return err
+	}
+	if err := tx.Commit(); err != nil {
+		_ = tx.Rollback()
+		return err
+	}
+	return nil
+}
+
+func DBTXFromContext(ctx context.Context, db *sql.DB) DBTX {
+	if tx, ok := ctx.Value(txContextKey{}).(*sql.Tx); ok {
+		return tx
+	}
+	return db
+}
+
+===== ./internal/billing/postgres/ledger_repository.go =====
+package postgres
+
+import (
+	"context"
+	"database/sql"
+	"errors"
+
+	billingapp "github.com/EBal0vGG/Unbelievable_Fish/internal/billing/app"
+	"github.com/EBal0vGG/Unbelievable_Fish/internal/billing/wallet"
+)
+
+type LedgerRepository struct {
+	db *sql.DB
+}
+
+func NewLedgerRepository(db *sql.DB) *LedgerRepository {
+	return &LedgerRepository{db: db}
+}
+
+var _ billingapp.LedgerRepository = (*LedgerRepository)(nil)
+
+func (r *LedgerRepository) Append(ctx context.Context, entry wallet.LedgerEntry) error {
+	const q = `
+INSERT INTO billing_ledger_entries (id, account_id, company_id, type, amount, currency, reference_type, reference_id, created_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+`
+	dbtx := DBTXFromContext(ctx, r.db)
+	_, err := dbtx.ExecContext(ctx, q,
+		entry.ID,
+		entry.AccountID,
+		entry.CompanyID,
+		string(entry.EntryType),
+		entry.Amount,
+		string(entry.Currency),
+		entry.ReferenceType,
+		entry.ReferenceID,
+		entry.CreatedAt.UTC(),
+	)
+	return err
+}
+
+func (r *LedgerRepository) ExistsByReference(ctx context.Context, companyID, referenceType, referenceID string, typ wallet.LedgerEntryType) (bool, error) {
+	const q = `
+SELECT 1 FROM billing_ledger_entries
+WHERE company_id = $1 AND reference_type = $2 AND reference_id = $3 AND type = $4
+`
+	dbtx := DBTXFromContext(ctx, r.db)
+	row := dbtx.QueryRowContext(ctx, q, companyID, referenceType, referenceID, string(typ))
+	var one int
+	if err := row.Scan(&one); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
+}
+
+type LedgerLister struct {
+	db *sql.DB
+}
+
+func NewLedgerLister(db *sql.DB) *LedgerLister {
+	return &LedgerLister{db: db}
+}
+
+var _ billingapp.LedgerQuery = (*LedgerLister)(nil)
+
+func (r *LedgerLister) ListByCompany(ctx context.Context, companyID string, limit int) ([]wallet.LedgerEntry, error) {
+	if limit <= 0 {
+		limit = 100
+	}
+	const q = `
+SELECT id, account_id, company_id, type, amount, currency, reference_type, reference_id, created_at
+FROM billing_ledger_entries
+WHERE company_id = $1
+ORDER BY created_at DESC
+LIMIT $2
+`
+	dbtx := DBTXFromContext(ctx, r.db)
+	rows, err := dbtx.QueryContext(ctx, q, companyID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []wallet.LedgerEntry
+	for rows.Next() {
+		var e wallet.LedgerEntry
+		var typ, cur string
+		if err := rows.Scan(&e.ID, &e.AccountID, &e.CompanyID, &typ, &e.Amount, &cur, &e.ReferenceType, &e.ReferenceID, &e.CreatedAt); err != nil {
+			return nil, err
+		}
+		e.EntryType = wallet.LedgerEntryType(typ)
+		e.Currency = wallet.Currency(cur)
+		out = append(out, e)
+	}
+	return out, rows.Err()
+}
+
+===== ./internal/billing/postgres/deposit_repository.go =====
+package postgres
+
+import (
+	"context"
+	"database/sql"
+	"errors"
+	"time"
+
+	billingapp "github.com/EBal0vGG/Unbelievable_Fish/internal/billing/app"
+	"github.com/EBal0vGG/Unbelievable_Fish/internal/billing/wallet"
+)
+
+type AuctionDepositRepository struct {
+	db *sql.DB
+}
+
+func NewAuctionDepositRepository(db *sql.DB) *AuctionDepositRepository {
+	return &AuctionDepositRepository{db: db}
+}
+
+var _ billingapp.AuctionDepositRepository = (*AuctionDepositRepository)(nil)
+
+func (r *AuctionDepositRepository) Find(ctx context.Context, auctionID, companyID string) (*wallet.AuctionDeposit, error) {
+	const q = `
+SELECT auction_id, company_id, account_id, amount, currency, status, created_at, released_at, captured_at
+FROM billing_auction_deposits
+WHERE auction_id = $1 AND company_id = $2
+`
+	dbtx := DBTXFromContext(ctx, r.db)
+	row := dbtx.QueryRowContext(ctx, q, auctionID, companyID)
+	var (
+		aid, cid, accid, cur, st string
+		amount                    int64
+		createdAt                 time.Time
+		releasedAt, capturedAt    sql.NullTime
+	)
+	if err := row.Scan(&aid, &cid, &accid, &amount, &cur, &st, &createdAt, &releasedAt, &capturedAt); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	d := &wallet.AuctionDeposit{
+		AuctionID: aid,
+		CompanyID: cid,
+		AccountID: accid,
+		Amount:    amount,
+		Currency:  wallet.Currency(cur),
+		Status:    wallet.DepositStatus(st),
+		CreatedAt: createdAt.UTC(),
+	}
+	if releasedAt.Valid {
+		t := releasedAt.Time.UTC()
+		d.ReleasedAt = &t
+	}
+	if capturedAt.Valid {
+		t := capturedAt.Time.UTC()
+		d.CapturedAt = &t
+	}
+	return d, nil
+}
+
+func (r *AuctionDepositRepository) Create(ctx context.Context, deposit *wallet.AuctionDeposit) error {
+	const q = `
+INSERT INTO billing_auction_deposits (
+    auction_id, company_id, account_id, amount, currency, status, created_at, released_at, captured_at
+) VALUES ($1, $2, $3, $4, $5, $6, $7, NULL, NULL)
+`
+	dbtx := DBTXFromContext(ctx, r.db)
+	_, err := dbtx.ExecContext(ctx, q,
+		deposit.AuctionID,
+		deposit.CompanyID,
+		deposit.AccountID,
+		deposit.Amount,
+		string(deposit.Currency),
+		string(deposit.Status),
+		deposit.CreatedAt.UTC(),
+	)
+	return err
+}
+
+func (r *AuctionDepositRepository) Save(ctx context.Context, deposit *wallet.AuctionDeposit) error {
+	const q = `
+UPDATE billing_auction_deposits
+SET status = $3, released_at = $4, captured_at = $5
+WHERE auction_id = $1 AND company_id = $2
+`
+	dbtx := DBTXFromContext(ctx, r.db)
+	var released, captured any
+	if deposit.ReleasedAt != nil {
+		released = deposit.ReleasedAt.UTC()
+	}
+	if deposit.CapturedAt != nil {
+		captured = deposit.CapturedAt.UTC()
+	}
+	_, err := dbtx.ExecContext(ctx, q,
+		deposit.AuctionID,
+		deposit.CompanyID,
+		string(deposit.Status),
+		released,
+		captured,
+	)
+	return err
+}
+
+func (r *AuctionDepositRepository) ListByAuction(ctx context.Context, auctionID string) ([]*wallet.AuctionDeposit, error) {
+	const q = `
+SELECT auction_id, company_id, account_id, amount, currency, status, created_at, released_at, captured_at
+FROM billing_auction_deposits
+WHERE auction_id = $1
+ORDER BY company_id
+`
+	dbtx := DBTXFromContext(ctx, r.db)
+	rows, err := dbtx.QueryContext(ctx, q, auctionID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []*wallet.AuctionDeposit
+	for rows.Next() {
+		var (
+			aid, cid, accid, cur, st string
+			amount                    int64
+			createdAt                 time.Time
+			releasedAt, capturedAt    sql.NullTime
+		)
+		if err := rows.Scan(&aid, &cid, &accid, &amount, &cur, &st, &createdAt, &releasedAt, &capturedAt); err != nil {
+			return nil, err
+		}
+		d := &wallet.AuctionDeposit{
+			AuctionID: aid,
+			CompanyID: cid,
+			AccountID: accid,
+			Amount:    amount,
+			Currency:  wallet.Currency(cur),
+			Status:    wallet.DepositStatus(st),
+			CreatedAt: createdAt.UTC(),
+		}
+		if releasedAt.Valid {
+			t := releasedAt.Time.UTC()
+			d.ReleasedAt = &t
+		}
+		if capturedAt.Valid {
+			t := capturedAt.Time.UTC()
+			d.CapturedAt = &t
+		}
+		out = append(out, d)
+	}
+	return out, rows.Err()
+}
+
+===== ./internal/billing/wallet/account.go =====
+package wallet
+
+func isBlank(s string) bool {
+	for _, r := range s {
+		if r != ' ' && r != '\t' && r != '\n' && r != '\r' {
+			return false
+		}
+	}
+	return true
+}
+
+type Account struct {
+	id        string
+	companyID string
+	currency  Currency
+
+	available int64
+	held      int64
+}
+
+func NewAccount(id, companyID string, currency Currency) (*Account, error) {
+	if isBlank(id) || isBlank(companyID) {
+		return nil, ErrInvalidIdentifier
+	}
+	if currency != CurrencyRUB {
+		return nil, ErrUnsupportedCurrency
+	}
+	return &Account{
+		id:        id,
+		companyID: companyID,
+		currency:  currency,
+		available: 0,
+		held:      0,
+	}, nil
+}
+
+func RehydrateAccount(id, companyID string, currency Currency, available, held int64) (*Account, error) {
+	a, err := NewAccount(id, companyID, currency)
+	if err != nil {
+		return nil, err
+	}
+	if available < 0 || held < 0 {
+		return nil, ErrInvalidAmount
+	}
+	a.available = available
+	a.held = held
+	return a, nil
+}
+
+func (a *Account) ID() string            { return a.id }
+func (a *Account) CompanyID() string     { return a.companyID }
+func (a *Account) Currency() Currency    { return a.currency }
+func (a *Account) Available() int64      { return a.available }
+func (a *Account) Held() int64           { return a.held }
+func (a *Account) Total() int64          { return a.available + a.held }
+
+func (a *Account) Deposit(amount int64) error {
+	if amount <= 0 {
+		return ErrInvalidAmount
+	}
+	a.available += amount
+	return nil
+}
+
+func (a *Account) Reserve(amount int64) error {
+	if amount <= 0 {
+		return ErrInvalidAmount
+	}
+	if a.available < amount {
+		return ErrInsufficientFunds
+	}
+	a.available -= amount
+	a.held += amount
+	return nil
+}
+
+func (a *Account) Release(amount int64) error {
+	if amount <= 0 {
+		return ErrInvalidAmount
+	}
+	if a.held < amount {
+		return ErrInsufficientHeld
+	}
+	a.held -= amount
+	a.available += amount
+	return nil
+}
+
+// Capture removes amount from held without returning it to available (e.g. platform fee or penalty).
+func (a *Account) Capture(amount int64) error {
+	if amount <= 0 {
+		return ErrInvalidAmount
+	}
+	if a.held < amount {
+		return ErrInsufficientHeld
+	}
+	a.held -= amount
+	return nil
+}
+
+===== ./internal/billing/wallet/events.go =====
+package wallet
+
+// Domain events for future billing outbox (stage 2+).
+
+type AccountCreated struct {
+	AccountID string
+	CompanyID string
+	Currency  Currency
+}
+
+type BalanceToppedUp struct {
+	AccountID string
+	CompanyID string
+	Amount    int64
+	Currency  Currency
+}
+
+type AuctionDepositReserved struct {
+	AuctionID string
+	CompanyID string
+	Amount    int64
+	Currency  Currency
+}
+
+type AuctionDepositReleased struct {
+	AuctionID string
+	CompanyID string
+	Amount    int64
+	Currency  Currency
+	Reason    string
+}
+
+type AuctionDepositCaptured struct {
+	AuctionID string
+	CompanyID string
+	Amount    int64
+	Currency  Currency
+	Reason    string
+}
+
+type PlatformFeeCaptured struct {
+	AuctionID string
+	CompanyID string
+	Amount    int64
+	Currency  Currency
+}
+
+type PlatformFeePaymentRequired struct {
+	AuctionID string
+	CompanyID string
+	AmountDue int64
+	Currency  Currency
+}
+
+===== ./internal/billing/wallet/errors.go =====
+package wallet
+
+import "errors"
+
+var (
+	ErrInvalidIdentifier   = errors.New("invalid identifier")
+	ErrUnsupportedCurrency = errors.New("unsupported currency")
+	ErrInvalidAmount       = errors.New("amount must be positive")
+	ErrInsufficientFunds   = errors.New("insufficient available funds")
+	ErrInsufficientHeld    = errors.New("insufficient held funds")
+	ErrInvalidDepositState = errors.New("invalid deposit status for operation")
+)
+
+===== ./internal/billing/wallet/deposit.go =====
+package wallet
+
+import "time"
+
+type DepositStatus string
+
+const (
+	DepositHeld     DepositStatus = "HELD"
+	DepositReleased DepositStatus = "RELEASED"
+	DepositCaptured DepositStatus = "CAPTURED"
+)
+
+type AuctionDeposit struct {
+	AuctionID string
+	CompanyID string
+	AccountID string
+	Amount    int64
+	Currency  Currency
+	Status    DepositStatus
+
+	CreatedAt  time.Time
+	ReleasedAt *time.Time
+	CapturedAt *time.Time
+}
+
+func NewAuctionDeposit(auctionID, companyID, accountID string, amount int64, currency Currency, now time.Time) (*AuctionDeposit, error) {
+	if isBlank(auctionID) || isBlank(companyID) || isBlank(accountID) {
+		return nil, ErrInvalidIdentifier
+	}
+	if amount <= 0 {
+		return nil, ErrInvalidAmount
+	}
+	if currency != CurrencyRUB {
+		return nil, ErrUnsupportedCurrency
+	}
+	return &AuctionDeposit{
+		AuctionID: auctionID,
+		CompanyID: companyID,
+		AccountID: accountID,
+		Amount:    amount,
+		Currency:  currency,
+		Status:    DepositHeld,
+		CreatedAt: now,
+	}, nil
+}
+
+func (d *AuctionDeposit) MarkReleased(now time.Time) {
+	d.Status = DepositReleased
+	d.ReleasedAt = &now
+}
+
+func (d *AuctionDeposit) MarkCaptured(now time.Time) {
+	d.Status = DepositCaptured
+	d.CapturedAt = &now
+}
+
+===== ./internal/billing/wallet/currency.go =====
+package wallet
+
+type Currency string
+
+const (
+	CurrencyRUB Currency = "RUB"
+)
+
+===== ./internal/billing/wallet/ledger_entry.go =====
+package wallet
+
+import "time"
+
+type LedgerEntryType string
+
+const (
+	LedgerTopUpConfirmed       LedgerEntryType = "TOP_UP_CONFIRMED"
+	LedgerBidDepositReserved   LedgerEntryType = "BID_DEPOSIT_RESERVED"
+	LedgerBidDepositReleased   LedgerEntryType = "BID_DEPOSIT_RELEASED"
+	LedgerBidDepositCaptured   LedgerEntryType = "BID_DEPOSIT_CAPTURED"
+	LedgerPlatformFeeCaptured  LedgerEntryType = "PLATFORM_FEE_CAPTURED"
+	LedgerPlatformFeeDue       LedgerEntryType = "PLATFORM_FEE_DUE"
+)
+
+type LedgerEntry struct {
+	ID            string
+	AccountID     string
+	CompanyID     string
+	Currency      Currency
+	Amount        int64
+	EntryType     LedgerEntryType
+	ReferenceType string
+	ReferenceID   string
+	CreatedAt     time.Time
+}
+
+===== ./internal/billing/wallet/account_test.go =====
+package wallet
+
+import "testing"
+
+func TestAccountReserveReleaseCapture(t *testing.T) {
+	a, err := NewAccount("acc-1", "co-1", CurrencyRUB)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := a.Deposit(10_000); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.Reserve(5_000); err != nil {
+		t.Fatalf("reserve: %v", err)
+	}
+	if a.Available() != 5_000 || a.Held() != 5_000 {
+		t.Fatalf("after reserve: avail=%d held=%d", a.Available(), a.Held())
+	}
+	if err := a.Reserve(6_000); err != ErrInsufficientFunds {
+		t.Fatalf("expected ErrInsufficientFunds, got %v", err)
+	}
+	if err := a.Release(2_000); err != nil {
+		t.Fatal(err)
+	}
+	if a.Available() != 7_000 || a.Held() != 3_000 {
+		t.Fatalf("after release: avail=%d held=%d", a.Available(), a.Held())
+	}
+	if err := a.Capture(3_000); err != nil {
+		t.Fatal(err)
+	}
+	if a.Available() != 7_000 || a.Held() != 0 {
+		t.Fatalf("after capture: avail=%d held=%d", a.Available(), a.Held())
+	}
+	if err := a.Release(1); err != ErrInsufficientHeld {
+		t.Fatalf("expected ErrInsufficientHeld, got %v", err)
+	}
+}
+
+func TestAccountCaptureInsufficientHeld(t *testing.T) {
+	a, _ := NewAccount("a", "c", CurrencyRUB)
+	_ = a.Deposit(100)
+	_ = a.Reserve(50)
+	if err := a.Capture(51); err != ErrInsufficientHeld {
+		t.Fatalf("got %v", err)
+	}
+}
+
+===== ./internal/billing/http/router.go =====
+package httpapi
+
+import (
+	"net/http"
+
+	"github.com/go-chi/chi/v5"
+)
+
+type Handlers struct {
+	GetBalance http.Handler
+	TestTopUp  http.Handler
+	GetLedger  http.Handler
+}
+
+func NewRouter(h Handlers, middlewares ...func(http.Handler) http.Handler) chi.Router {
+	r := chi.NewRouter()
+	r.Use(middlewares...)
+	r.Route("/accounts/me", func(r chi.Router) {
+		r.Method(http.MethodGet, "/", h.GetBalance)
+		r.Method(http.MethodPost, "/top-up/test", h.TestTopUp)
+		r.Method(http.MethodGet, "/ledger", h.GetLedger)
+	})
+	return r
+}
+
+===== ./internal/billing/http/handler/get_ledger.go =====
+package handler
+
+import (
+	"encoding/json"
+	"net/http"
+
+	billingapp "github.com/EBal0vGG/Unbelievable_Fish/internal/billing/app"
+	identityauth "github.com/EBal0vGG/Unbelievable_Fish/internal/identity/auth"
+)
+
+type GetLedgerHandler struct {
+	ledger billingapp.LedgerQuery
+}
+
+func NewGetLedgerHandler(ledger billingapp.LedgerQuery) *GetLedgerHandler {
+	return &GetLedgerHandler{ledger: ledger}
+}
+
+func (h *GetLedgerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	companyID, ok := identityauth.CompanyIDFromContext(r.Context())
+	if !ok || companyID == "" {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+	entries, err := h.ledger.ListByCompany(r.Context(), companyID, 100)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	out := make([]map[string]any, 0, len(entries))
+	for _, e := range entries {
+		out = append(out, map[string]any{
+			"id":             e.ID,
+			"type":           string(e.EntryType),
+			"amount":         e.Amount,
+			"currency":       string(e.Currency),
+			"reference_type": e.ReferenceType,
+			"reference_id":   e.ReferenceID,
+			"created_at":     e.CreatedAt.UTC().Format("2006-01-02T15:04:05Z07:00"),
+		})
+	}
+	_ = json.NewEncoder(w).Encode(map[string]any{"entries": out})
+}
+
+===== ./internal/billing/http/handler/get_balance.go =====
+package handler
+
+import (
+	"encoding/json"
+	"net/http"
+
+	billingapp "github.com/EBal0vGG/Unbelievable_Fish/internal/billing/app"
+	identityauth "github.com/EBal0vGG/Unbelievable_Fish/internal/identity/auth"
+)
+
+type GetBalanceHandler struct {
+	accounts      billingapp.AccountRepository
+	createAccount *billingapp.CreateAccount
+}
+
+func NewGetBalanceHandler(accounts billingapp.AccountRepository, create *billingapp.CreateAccount) *GetBalanceHandler {
+	return &GetBalanceHandler{accounts: accounts, createAccount: create}
+}
+
+func (h *GetBalanceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	companyID, ok := identityauth.CompanyIDFromContext(r.Context())
+	if !ok || companyID == "" {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+	if h.createAccount != nil {
+		if err := h.createAccount.Execute(r.Context(), companyID); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
+	acc, err := h.accounts.LoadByCompany(r.Context(), companyID)
+	if err != nil {
+		if err == billingapp.ErrAccountNotFound {
+			http.Error(w, `{"error":"ACCOUNT_NOT_FOUND"}`, http.StatusNotFound)
+			return
+		}
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"company_id": acc.CompanyID(),
+		"currency":   string(acc.Currency()),
+		"available":  acc.Available(),
+		"held":       acc.Held(),
+		"total":      acc.Total(),
+	})
+}
+
+===== ./internal/billing/http/handler/test_top_up.go =====
+package handler
+
+import (
+	"context"
+	"encoding/json"
+	"net/http"
+
+	billingapp "github.com/EBal0vGG/Unbelievable_Fish/internal/billing/app"
+	identityauth "github.com/EBal0vGG/Unbelievable_Fish/internal/identity/auth"
+)
+
+type TestTopUpHandler struct {
+	tx            TxRunner
+	createAccount *billingapp.CreateAccount
+	confirm       *billingapp.ConfirmTopUp
+	ids           billingapp.IDGenerator
+}
+
+type TxRunner interface {
+	WithinTx(ctx context.Context, fn func(ctx context.Context) error) error
+}
+
+func NewTestTopUpHandler(tx TxRunner, create *billingapp.CreateAccount, confirm *billingapp.ConfirmTopUp, ids billingapp.IDGenerator) *TestTopUpHandler {
+	if ids == nil {
+		ids = billingapp.RandomHexID{}
+	}
+	return &TestTopUpHandler{tx: tx, createAccount: create, confirm: confirm, ids: ids}
+}
+
+type testTopUpBody struct {
+	Amount int64 `json:"amount"`
+}
+
+func (h *TestTopUpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	companyID, ok := identityauth.CompanyIDFromContext(r.Context())
+	if !ok || companyID == "" {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+	var body testTopUpBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		http.Error(w, `{"error":"INVALID_BODY"}`, http.StatusBadRequest)
+		return
+	}
+	if body.Amount <= 0 {
+		http.Error(w, `{"error":"INVALID_AMOUNT"}`, http.StatusBadRequest)
+		return
+	}
+	extID := "test-topup:" + companyID + ":" + h.ids.NewID()
+	if err := h.tx.WithinTx(r.Context(), func(ctx context.Context) error {
+		if h.createAccount != nil {
+			if err := h.createAccount.Execute(ctx, companyID); err != nil {
+				return err
+			}
+		}
+		return h.confirm.Execute(ctx, companyID, body.Amount, extID)
+	}); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+

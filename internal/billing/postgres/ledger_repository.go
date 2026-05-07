@@ -21,8 +21,8 @@ var _ billingapp.LedgerRepository = (*LedgerRepository)(nil)
 
 func (r *LedgerRepository) Append(ctx context.Context, entry wallet.LedgerEntry) error {
 	const q = `
-INSERT INTO billing_ledger_entries (id, account_id, company_id, type, amount, currency, reference_type, reference_id, created_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+INSERT INTO billing_ledger_entries (id, account_id, company_id, type, amount, currency, reference_type, reference_id, reason, created_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 `
 	dbtx := DBTXFromContext(ctx, r.db)
 	_, err := dbtx.ExecContext(ctx, q,
@@ -34,6 +34,7 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 		string(entry.Currency),
 		entry.ReferenceType,
 		entry.ReferenceID,
+		entry.Reason,
 		entry.CreatedAt.UTC(),
 	)
 	return err
@@ -71,7 +72,7 @@ func (r *LedgerLister) ListByCompany(ctx context.Context, companyID string, limi
 		limit = 100
 	}
 	const q = `
-SELECT id, account_id, company_id, type, amount, currency, reference_type, reference_id, created_at
+SELECT id, account_id, company_id, type, amount, currency, reference_type, reference_id, reason, created_at
 FROM billing_ledger_entries
 WHERE company_id = $1
 ORDER BY created_at DESC
@@ -87,7 +88,7 @@ LIMIT $2
 	for rows.Next() {
 		var e wallet.LedgerEntry
 		var typ, cur string
-		if err := rows.Scan(&e.ID, &e.AccountID, &e.CompanyID, &typ, &e.Amount, &cur, &e.ReferenceType, &e.ReferenceID, &e.CreatedAt); err != nil {
+		if err := rows.Scan(&e.ID, &e.AccountID, &e.CompanyID, &typ, &e.Amount, &cur, &e.ReferenceType, &e.ReferenceID, &e.Reason, &e.CreatedAt); err != nil {
 			return nil, err
 		}
 		e.EntryType = wallet.LedgerEntryType(typ)

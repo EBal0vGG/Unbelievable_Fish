@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
@@ -48,4 +49,10 @@ func (RandomHexID) NewID() string {
 		panic(err)
 	}
 	return hex.EncodeToString(b[:])
+}
+
+type noOpUnitOfWork struct{}
+
+func (noOpUnitOfWork) WithinTx(ctx context.Context, fn func(ctx context.Context) error) error {
+	return fn(ctx)
 }

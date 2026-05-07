@@ -8,14 +8,15 @@ import (
 )
 
 type ConfirmTopUp struct {
-	accounts   AccountRepository
-	ledger     LedgerRepository
-	processed  ProcessedTopUpRepository
-	ids        IDGenerator
-	clock      Clock
+	accounts  AccountRepository
+	ledger    LedgerRepository
+	processed ProcessedTopUpRepository
+	ids       IDGenerator
+	clock     Clock
+	events    DomainEventPublisher
 }
 
-func NewConfirmTopUp(accounts AccountRepository, ledger LedgerRepository, processed ProcessedTopUpRepository, ids IDGenerator, clock Clock) (*ConfirmTopUp, error) {
+func NewConfirmTopUp(accounts AccountRepository, ledger LedgerRepository, processed ProcessedTopUpRepository, ids IDGenerator, clock Clock, events DomainEventPublisher) (*ConfirmTopUp, error) {
 	if accounts == nil || ledger == nil || processed == nil {
 		return nil, ErrNilDependency
 	}
@@ -31,6 +32,7 @@ func NewConfirmTopUp(accounts AccountRepository, ledger LedgerRepository, proces
 		processed: processed,
 		ids:       ids,
 		clock:     clock,
+		events:    events,
 	}, nil
 }
 
@@ -58,6 +60,7 @@ func (uc *ConfirmTopUp) Execute(ctx context.Context, companyID string, amount in
 	if err := uc.accounts.Save(ctx, acc); err != nil {
 		return err
 	}
+	now := uc.clock.Now().UTC()
 	entry := wallet.LedgerEntry{
 		ID:            uc.ids.NewID(),
 		AccountID:     acc.ID(),
@@ -67,9 +70,21 @@ func (uc *ConfirmTopUp) Execute(ctx context.Context, companyID string, amount in
 		EntryType:     wallet.LedgerTopUpConfirmed,
 		ReferenceType: "external_payment",
 		ReferenceID:   externalPaymentID,
-		CreatedAt:     uc.clock.Now().UTC(),
+		Reason:        "TOP_UP",
+		CreatedAt:     now,
 	}
-	return uc.ledger.Append(ctx, entry)
+	if err := uc.ledger.Append(ctx, entry); err != nil {
+		return err
+	}
+	if uc.events != nil {
+		return uc.events.Publish(ctx, acc.ID(), companyID, wallet.BalanceToppedUp{
+			AccountID: acc.ID(),
+			CompanyID: companyID,
+			Amount:    amount,
+			Currency:  wallet.CurrencyRUB,
+		})
+	}
+	return nil
 }
 
 type systemClock struct{}

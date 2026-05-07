@@ -8,6 +8,7 @@ const (
 	DepositHeld     DepositStatus = "HELD"
 	DepositReleased DepositStatus = "RELEASED"
 	DepositCaptured DepositStatus = "CAPTURED"
+	DepositSettled  DepositStatus = "SETTLED"
 )
 
 type AuctionDeposit struct {
@@ -51,5 +52,11 @@ func (d *AuctionDeposit) MarkReleased(now time.Time) {
 
 func (d *AuctionDeposit) MarkCaptured(now time.Time) {
 	d.Status = DepositCaptured
+	d.CapturedAt = &now
+}
+
+func (d *AuctionDeposit) MarkSettled(now time.Time) {
+	d.Status = DepositSettled
+	d.ReleasedAt = &now
 	d.CapturedAt = &now
 }

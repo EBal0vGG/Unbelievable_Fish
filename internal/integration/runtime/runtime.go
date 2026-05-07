@@ -12,10 +12,10 @@ import (
 	catalog "github.com/EBal0vGG/Unbelievable_Fish/internal/catalog/domain"
 	dealsapp "github.com/EBal0vGG/Unbelievable_Fish/internal/deals/app"
 	deal "github.com/EBal0vGG/Unbelievable_Fish/internal/deals/deal"
+	identity "github.com/EBal0vGG/Unbelievable_Fish/internal/identity/domain"
 	"github.com/EBal0vGG/Unbelievable_Fish/internal/infra/eventbus/inmemory"
 	outbox "github.com/EBal0vGG/Unbelievable_Fish/internal/infra/outbox"
 	outboxpg "github.com/EBal0vGG/Unbelievable_Fish/internal/infra/outbox/postgres"
-	identity "github.com/EBal0vGG/Unbelievable_Fish/internal/identity/domain"
 	"github.com/EBal0vGG/Unbelievable_Fish/internal/shared/events"
 	tradingapp "github.com/EBal0vGG/Unbelievable_Fish/internal/trading/app"
 	auction "github.com/EBal0vGG/Unbelievable_Fish/internal/trading/auction"
@@ -28,6 +28,7 @@ type Dependencies struct {
 	ProjectionRepo dealsapp.ProjectionRepository
 	AuctionLister  ExpiredAuctionLister
 	DealLister     ExpiredDealLister
+	BillingTx      billingapp.UnitOfWork
 	CreateAccount  *billingapp.CreateAccount
 }
 
@@ -301,7 +302,12 @@ func subscribeHandlers(
 				return errors.New("unexpected payload for CompanyCreated")
 			}
 			slog.InfoContext(ctx, "integration_company_created", "component", "integration.runtime", "company_id", evt.CompanyID)
-			return createAccount.Execute(ctx, evt.CompanyID)
+			if deps.BillingTx == nil {
+				return errors.New("billing transaction manager is required for CompanyCreated handling")
+			}
+			return deps.BillingTx.WithinTx(ctx, func(txCtx context.Context) error {
+				return createAccount.Execute(txCtx, evt.CompanyID)
+			})
 		})
 	}
 }

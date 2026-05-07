@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 
@@ -9,12 +10,13 @@ import (
 )
 
 type GetBalanceHandler struct {
+	tx            TxRunner
 	accounts      billingapp.AccountRepository
 	createAccount *billingapp.CreateAccount
 }
 
-func NewGetBalanceHandler(accounts billingapp.AccountRepository, create *billingapp.CreateAccount) *GetBalanceHandler {
-	return &GetBalanceHandler{accounts: accounts, createAccount: create}
+func NewGetBalanceHandler(tx TxRunner, accounts billingapp.AccountRepository, create *billingapp.CreateAccount) *GetBalanceHandler {
+	return &GetBalanceHandler{tx: tx, accounts: accounts, createAccount: create}
 }
 
 func (h *GetBalanceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -24,7 +26,9 @@ func (h *GetBalanceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if h.createAccount != nil {
-		if err := h.createAccount.Execute(r.Context(), companyID); err != nil {
+		if err := h.tx.WithinTx(r.Context(), func(ctx context.Context) error {
+			return h.createAccount.Execute(ctx, companyID)
+		}); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}

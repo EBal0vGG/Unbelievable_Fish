@@ -12,9 +12,10 @@ type CapturePlatformFeeFromDeposit struct {
 	ledger   LedgerRepository
 	ids      IDGenerator
 	clock    Clock
+	events   DomainEventPublisher
 }
 
-func NewCapturePlatformFeeFromDeposit(accounts AccountRepository, deposits AuctionDepositRepository, ledger LedgerRepository, ids IDGenerator, clock Clock) (*CapturePlatformFeeFromDeposit, error) {
+func NewCapturePlatformFeeFromDeposit(accounts AccountRepository, deposits AuctionDepositRepository, ledger LedgerRepository, ids IDGenerator, clock Clock, events DomainEventPublisher) (*CapturePlatformFeeFromDeposit, error) {
 	if accounts == nil || deposits == nil || ledger == nil {
 		return nil, ErrNilDependency
 	}
@@ -24,7 +25,7 @@ func NewCapturePlatformFeeFromDeposit(accounts AccountRepository, deposits Aucti
 	if clock == nil {
 		clock = systemClock{}
 	}
-	return &CapturePlatformFeeFromDeposit{accounts: accounts, deposits: deposits, ledger: ledger, ids: ids, clock: clock}, nil
+	return &CapturePlatformFeeFromDeposit{accounts: accounts, deposits: deposits, ledger: ledger, ids: ids, clock: clock, events: events}, nil
 }
 
 func (uc *CapturePlatformFeeFromDeposit) Execute(ctx context.Context, companyID, auctionID string, finalPrice int64) error {
@@ -61,10 +62,10 @@ func (uc *CapturePlatformFeeFromDeposit) Execute(ctx context.Context, companyID,
 	}
 
 	fee := platformFeeFromFinalPrice(finalPrice)
-	d := dep.Amount
+	depositAmount := dep.Amount
 
 	if fee <= 0 {
-		if err := acc.Release(d); err != nil {
+		if err := acc.Release(depositAmount); err != nil {
 			return err
 		}
 		dep.MarkReleased(now)
@@ -79,25 +80,25 @@ func (uc *CapturePlatformFeeFromDeposit) Execute(ctx context.Context, companyID,
 			AccountID:     acc.ID(),
 			CompanyID:     companyID,
 			Currency:      dep.Currency,
-			Amount:        d,
+			Amount:        depositAmount,
 			EntryType:     wallet.LedgerBidDepositReleased,
 			ReferenceType: "platform_fee_from_deposit_zero",
 			ReferenceID:   settlementRef,
+			Reason:        "PLATFORM_FEE_ZERO",
 			CreatedAt:     now,
 		})
 	}
 
-	if d >= fee {
+	// deposit > fee: capture fee, release remainder, mark as settled.
+	if depositAmount > fee {
+		remainder := depositAmount - fee
 		if err := acc.Capture(fee); err != nil {
 			return err
 		}
-		remainder := d - fee
-		if remainder > 0 {
-			if err := acc.Release(remainder); err != nil {
-				return err
-			}
+		if err := acc.Release(remainder); err != nil {
+			return err
 		}
-		dep.MarkReleased(now)
+		dep.MarkSettled(now)
 		if err := uc.deposits.Save(ctx, dep); err != nil {
 			return err
 		}
@@ -113,27 +114,75 @@ func (uc *CapturePlatformFeeFromDeposit) Execute(ctx context.Context, companyID,
 			EntryType:     wallet.LedgerPlatformFeeCaptured,
 			ReferenceType: "platform_fee_from_deposit",
 			ReferenceID:   settlementRef,
+			Reason:        "PLATFORM_FEE",
 			CreatedAt:     now,
 		}); err != nil {
 			return err
 		}
-		if remainder > 0 {
-			return uc.ledger.Append(ctx, wallet.LedgerEntry{
-				ID:            uc.ids.NewID(),
-				AccountID:     acc.ID(),
-				CompanyID:     companyID,
-				Currency:      dep.Currency,
-				Amount:        remainder,
-				EntryType:     wallet.LedgerBidDepositReleased,
-				ReferenceType: "platform_fee_deposit_remainder",
-				ReferenceID:   settlementRef + ":remainder",
-				CreatedAt:     now,
+		if err := uc.ledger.Append(ctx, wallet.LedgerEntry{
+			ID:            uc.ids.NewID(),
+			AccountID:     acc.ID(),
+			CompanyID:     companyID,
+			Currency:      dep.Currency,
+			Amount:        remainder,
+			EntryType:     wallet.LedgerBidDepositReleased,
+			ReferenceType: "platform_fee_deposit_remainder",
+			ReferenceID:   settlementRef + ":remainder",
+			Reason:        "PLATFORM_FEE_REMAINDER",
+			CreatedAt:     now,
+		}); err != nil {
+			return err
+		}
+		if uc.events != nil {
+			return uc.events.Publish(ctx, dep.AuctionID, companyID, wallet.PlatformFeeCaptured{
+				AuctionID: dep.AuctionID,
+				CompanyID: companyID,
+				Amount:    fee,
+				Currency:  dep.Currency,
 			})
 		}
 		return nil
 	}
 
-	if err := acc.Capture(d); err != nil {
+	// deposit == fee: full capture, mark captured.
+	if depositAmount == fee {
+		if err := acc.Capture(depositAmount); err != nil {
+			return err
+		}
+		dep.MarkCaptured(now)
+		if err := uc.deposits.Save(ctx, dep); err != nil {
+			return err
+		}
+		if err := uc.accounts.Save(ctx, acc); err != nil {
+			return err
+		}
+		if err := uc.ledger.Append(ctx, wallet.LedgerEntry{
+			ID:            uc.ids.NewID(),
+			AccountID:     acc.ID(),
+			CompanyID:     companyID,
+			Currency:      dep.Currency,
+			Amount:        depositAmount,
+			EntryType:     wallet.LedgerPlatformFeeCaptured,
+			ReferenceType: "platform_fee_from_deposit",
+			ReferenceID:   settlementRef,
+			Reason:        "PLATFORM_FEE",
+			CreatedAt:     now,
+		}); err != nil {
+			return err
+		}
+		if uc.events != nil {
+			return uc.events.Publish(ctx, dep.AuctionID, companyID, wallet.PlatformFeeCaptured{
+				AuctionID: dep.AuctionID,
+				CompanyID: companyID,
+				Amount:    depositAmount,
+				Currency:  dep.Currency,
+			})
+		}
+		return nil
+	}
+
+	// deposit < fee: full deposit captured + due on remainder.
+	if err := acc.Capture(depositAmount); err != nil {
 		return err
 	}
 	dep.MarkCaptured(now)
@@ -148,19 +197,17 @@ func (uc *CapturePlatformFeeFromDeposit) Execute(ctx context.Context, companyID,
 		AccountID:     acc.ID(),
 		CompanyID:     companyID,
 		Currency:      dep.Currency,
-		Amount:        d,
+		Amount:        depositAmount,
 		EntryType:     wallet.LedgerPlatformFeeCaptured,
 		ReferenceType: "platform_fee_from_deposit",
 		ReferenceID:   settlementRef,
+		Reason:        "PLATFORM_FEE",
 		CreatedAt:     now,
 	}); err != nil {
 		return err
 	}
-	due := fee - d
-	if due <= 0 {
-		return nil
-	}
-	return uc.ledger.Append(ctx, wallet.LedgerEntry{
+	due := fee - depositAmount
+	if err := uc.ledger.Append(ctx, wallet.LedgerEntry{
 		ID:            uc.ids.NewID(),
 		AccountID:     acc.ID(),
 		CompanyID:     companyID,
@@ -169,8 +216,28 @@ func (uc *CapturePlatformFeeFromDeposit) Execute(ctx context.Context, companyID,
 		EntryType:     wallet.LedgerPlatformFeeDue,
 		ReferenceType: "platform_fee_due",
 		ReferenceID:   settlementRef + ":due",
+		Reason:        "PLATFORM_FEE_DUE",
 		CreatedAt:     now,
-	})
+	}); err != nil {
+		return err
+	}
+	if uc.events != nil {
+		if err := uc.events.Publish(ctx, dep.AuctionID, companyID, wallet.PlatformFeeCaptured{
+			AuctionID: dep.AuctionID,
+			CompanyID: companyID,
+			Amount:    depositAmount,
+			Currency:  dep.Currency,
+		}); err != nil {
+			return err
+		}
+		return uc.events.Publish(ctx, dep.AuctionID, companyID, wallet.PlatformFeePaymentRequired{
+			AuctionID: dep.AuctionID,
+			CompanyID: companyID,
+			AmountDue: due,
+			Currency:  dep.Currency,
+		})
+	}
+	return nil
 }
 
 func (uc *CapturePlatformFeeFromDeposit) settlementAlreadyRecorded(ctx context.Context, companyID, settlementRef string) (bool, error) {

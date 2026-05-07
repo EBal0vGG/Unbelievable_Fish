@@ -148,3 +148,54 @@ ORDER BY company_id
 	}
 	return out, rows.Err()
 }
+
+func (r *AuctionDepositRepository) ListByCompany(ctx context.Context, companyID string, limit int) ([]*wallet.AuctionDeposit, error) {
+	if limit <= 0 {
+		limit = 100
+	}
+	const q = `
+SELECT auction_id, company_id, account_id, amount, currency, status, created_at, released_at, captured_at
+FROM billing_auction_deposits
+WHERE company_id = $1
+ORDER BY created_at DESC
+LIMIT $2
+`
+	dbtx := DBTXFromContext(ctx, r.db)
+	rows, err := dbtx.QueryContext(ctx, q, companyID, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	out := make([]*wallet.AuctionDeposit, 0, limit)
+	for rows.Next() {
+		var (
+			aid, cid, accid, cur, st string
+			amount                    int64
+			createdAt                 time.Time
+			releasedAt, capturedAt    sql.NullTime
+		)
+		if err := rows.Scan(&aid, &cid, &accid, &amount, &cur, &st, &createdAt, &releasedAt, &capturedAt); err != nil {
+			return nil, err
+		}
+		d := &wallet.AuctionDeposit{
+			AuctionID: aid,
+			CompanyID: cid,
+			AccountID: accid,
+			Amount:    amount,
+			Currency:  wallet.Currency(cur),
+			Status:    wallet.DepositStatus(st),
+			CreatedAt: createdAt.UTC(),
+		}
+		if releasedAt.Valid {
+			t := releasedAt.Time.UTC()
+			d.ReleasedAt = &t
+		}
+		if capturedAt.Valid {
+			t := capturedAt.Time.UTC()
+			d.CapturedAt = &t
+		}
+		out = append(out, d)
+	}
+	return out, rows.Err()
+}

@@ -10,6 +10,7 @@ type Handlers struct {
 	GetBalance http.Handler
 	TestTopUp  http.Handler
 	GetLedger  http.Handler
+	GetDeposits http.Handler
 }
 
 func NewRouter(h Handlers, middlewares ...func(http.Handler) http.Handler) chi.Router {
@@ -19,6 +20,7 @@ func NewRouter(h Handlers, middlewares ...func(http.Handler) http.Handler) chi.R
 		r.Method(http.MethodGet, "/", h.GetBalance)
 		r.Method(http.MethodPost, "/top-up/test", h.TestTopUp)
 		r.Method(http.MethodGet, "/ledger", h.GetLedger)
+		r.Method(http.MethodGet, "/deposits", h.GetDeposits)
 	})
 	return r
 }

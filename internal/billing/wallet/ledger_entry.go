@@ -5,12 +5,12 @@ import "time"
 type LedgerEntryType string
 
 const (
-	LedgerTopUpConfirmed       LedgerEntryType = "TOP_UP_CONFIRMED"
-	LedgerBidDepositReserved   LedgerEntryType = "BID_DEPOSIT_RESERVED"
-	LedgerBidDepositReleased   LedgerEntryType = "BID_DEPOSIT_RELEASED"
-	LedgerBidDepositCaptured   LedgerEntryType = "BID_DEPOSIT_CAPTURED"
-	LedgerPlatformFeeCaptured  LedgerEntryType = "PLATFORM_FEE_CAPTURED"
-	LedgerPlatformFeeDue       LedgerEntryType = "PLATFORM_FEE_DUE"
+	LedgerTopUpConfirmed      LedgerEntryType = "TOP_UP_CONFIRMED"
+	LedgerBidDepositReserved  LedgerEntryType = "BID_DEPOSIT_RESERVED"
+	LedgerBidDepositReleased  LedgerEntryType = "BID_DEPOSIT_RELEASED"
+	LedgerBidDepositCaptured  LedgerEntryType = "BID_DEPOSIT_CAPTURED"
+	LedgerPlatformFeeCaptured LedgerEntryType = "PLATFORM_FEE_CAPTURED"
+	LedgerPlatformFeeDue      LedgerEntryType = "PLATFORM_FEE_DUE"
 )
 
 type LedgerEntry struct {
@@ -22,5 +22,6 @@ type LedgerEntry struct {
 	EntryType     LedgerEntryType
 	ReferenceType string
 	ReferenceID   string
+	Reason        string
 	CreatedAt     time.Time
 }

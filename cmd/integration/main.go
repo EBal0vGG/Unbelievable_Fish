@@ -43,7 +43,11 @@ func main() {
 	auctionLister := tradingpg.NewAuctionLister(db)
 
 	billingAccounts := billingpg.NewAccountRepository(db)
-	createBillingAccount, err := billingapp.NewCreateAccount(billingAccounts, billingapp.RandomHexID{})
+	createBillingAccount, err := billingapp.NewCreateAccount(
+		billingAccounts,
+		billingapp.RandomHexID{},
+		billingpg.NewOutboxRepository(db),
+	)
 	if err != nil {
 		logging.Fatal(logger, "billing_create_account_init_failed", "error", err)
 	}
@@ -55,6 +59,7 @@ func main() {
 		ProjectionRepo: projectionRepo,
 		AuctionLister:  auctionLister,
 		DealLister:     dealLister,
+		BillingTx:      billingpg.NewTransactionManager(db, nil),
 		CreateAccount:  createBillingAccount,
 	})
 	if err != nil {

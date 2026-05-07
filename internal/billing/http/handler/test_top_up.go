@@ -16,10 +16,6 @@ type TestTopUpHandler struct {
 	ids           billingapp.IDGenerator
 }
 
-type TxRunner interface {
-	WithinTx(ctx context.Context, fn func(ctx context.Context) error) error
-}
-
 func NewTestTopUpHandler(tx TxRunner, create *billingapp.CreateAccount, confirm *billingapp.ConfirmTopUp, ids billingapp.IDGenerator) *TestTopUpHandler {
 	if ids == nil {
 		ids = billingapp.RandomHexID{}

@@ -37,6 +37,7 @@ func (h *GetLedgerHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			"currency":       string(e.Currency),
 			"reference_type": e.ReferenceType,
 			"reference_id":   e.ReferenceID,
+			"reason":         e.Reason,
 			"created_at":     e.CreatedAt.UTC().Format("2006-01-02T15:04:05Z07:00"),
 		})
 	}

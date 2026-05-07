@@ -12,9 +12,10 @@ type ReleaseAuctionDeposit struct {
 	ledger   LedgerRepository
 	ids      IDGenerator
 	clock    Clock
+	events   DomainEventPublisher
 }
 
-func NewReleaseAuctionDeposit(accounts AccountRepository, deposits AuctionDepositRepository, ledger LedgerRepository, ids IDGenerator, clock Clock) (*ReleaseAuctionDeposit, error) {
+func NewReleaseAuctionDeposit(accounts AccountRepository, deposits AuctionDepositRepository, ledger LedgerRepository, ids IDGenerator, clock Clock, events DomainEventPublisher) (*ReleaseAuctionDeposit, error) {
 	if accounts == nil || deposits == nil || ledger == nil {
 		return nil, ErrNilDependency
 	}
@@ -24,7 +25,7 @@ func NewReleaseAuctionDeposit(accounts AccountRepository, deposits AuctionDeposi
 	if clock == nil {
 		clock = systemClock{}
 	}
-	return &ReleaseAuctionDeposit{accounts: accounts, deposits: deposits, ledger: ledger, ids: ids, clock: clock}, nil
+	return &ReleaseAuctionDeposit{accounts: accounts, deposits: deposits, ledger: ledger, ids: ids, clock: clock, events: events}, nil
 }
 
 func (uc *ReleaseAuctionDeposit) Execute(ctx context.Context, companyID, auctionID, reason string) error {
@@ -78,8 +79,20 @@ func (uc *ReleaseAuctionDeposit) Execute(ctx context.Context, companyID, auction
 		EntryType:     wallet.LedgerBidDepositReleased,
 		ReferenceType: "auction_deposit_release",
 		ReferenceID:   refLedger,
+		Reason:        reason,
 		CreatedAt:     now,
 	}
-	_ = reason // reserved for future audit / events
-	return uc.ledger.Append(ctx, entry)
+	if err := uc.ledger.Append(ctx, entry); err != nil {
+		return err
+	}
+	if uc.events != nil {
+		return uc.events.Publish(ctx, dep.AuctionID, companyID, wallet.AuctionDepositReleased{
+			AuctionID: dep.AuctionID,
+			CompanyID: companyID,
+			Amount:    dep.Amount,
+			Currency:  dep.Currency,
+			Reason:    reason,
+		})
+	}
+	return nil
 }

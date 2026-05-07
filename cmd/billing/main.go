@@ -9,8 +9,8 @@ import (
 	billingpg "github.com/EBal0vGG/Unbelievable_Fish/internal/billing/postgres"
 	identityauth "github.com/EBal0vGG/Unbelievable_Fish/internal/identity/auth"
 	"github.com/EBal0vGG/Unbelievable_Fish/internal/infra/dbconfig"
-	"github.com/EBal0vGG/Unbelievable_Fish/internal/infra/httplog"
 	"github.com/EBal0vGG/Unbelievable_Fish/internal/infra/httpauth"
+	"github.com/EBal0vGG/Unbelievable_Fish/internal/infra/httplog"
 	"github.com/EBal0vGG/Unbelievable_Fish/internal/infra/logging"
 )
 
@@ -27,12 +27,14 @@ func main() {
 	ledger := billingpg.NewLedgerRepository(db)
 	processed := billingpg.NewProcessedTopUpRepository(db)
 	ledgerLister := billingpg.NewLedgerLister(db)
+	deposits := billingpg.NewAuctionDepositRepository(db)
+	events := billingpg.NewOutboxRepository(db)
 
-	createAccount, err := billingapp.NewCreateAccount(accounts, billingapp.RandomHexID{})
+	createAccount, err := billingapp.NewCreateAccount(accounts, billingapp.RandomHexID{}, events)
 	if err != nil {
 		logging.Fatal(logger, "create_account_init_failed", "error", err)
 	}
-	confirmTopUp, err := billingapp.NewConfirmTopUp(accounts, ledger, processed, billingapp.RandomHexID{}, nil)
+	confirmTopUp, err := billingapp.NewConfirmTopUp(accounts, ledger, processed, billingapp.RandomHexID{}, nil, events)
 	if err != nil {
 		logging.Fatal(logger, "confirm_top_up_init_failed", "error", err)
 	}
@@ -44,9 +46,10 @@ func main() {
 	authMiddleware := identityauth.NewMiddleware(tokenProvider, httpauth.JSONErrorHandler("billing_auth_error"))
 
 	inner := httpapi.NewRouter(httpapi.Handlers{
-		GetBalance: authMiddleware.Wrap(handler.NewGetBalanceHandler(accounts, createAccount)),
-		TestTopUp:  authMiddleware.Wrap(handler.NewTestTopUpHandler(txm, createAccount, confirmTopUp, billingapp.RandomHexID{})),
-		GetLedger:  authMiddleware.Wrap(handler.NewGetLedgerHandler(ledgerLister)),
+		GetBalance:  authMiddleware.Wrap(handler.NewGetBalanceHandler(txm, accounts, createAccount)),
+		TestTopUp:   authMiddleware.Wrap(handler.NewTestTopUpHandler(txm, createAccount, confirmTopUp, billingapp.RandomHexID{})),
+		GetLedger:   authMiddleware.Wrap(handler.NewGetLedgerHandler(ledgerLister)),
+		GetDeposits: authMiddleware.Wrap(handler.NewGetDepositsHandler(deposits)),
 	}, httplog.Middleware(logger))
 
 	r := http.NewServeMux()

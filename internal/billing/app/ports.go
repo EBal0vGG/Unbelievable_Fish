@@ -20,6 +20,7 @@ type AuctionDepositRepository interface {
 	Create(ctx context.Context, deposit *wallet.AuctionDeposit) error
 	Save(ctx context.Context, deposit *wallet.AuctionDeposit) error
 	ListByAuction(ctx context.Context, auctionID string) ([]*wallet.AuctionDeposit, error)
+	ListByCompany(ctx context.Context, companyID string, limit int) ([]*wallet.AuctionDeposit, error)
 }
 
 type LedgerRepository interface {
@@ -32,6 +33,10 @@ type LedgerQuery interface {
 	ListByCompany(ctx context.Context, companyID string, limit int) ([]wallet.LedgerEntry, error)
 }
 
+type DepositQuery interface {
+	ListByCompany(ctx context.Context, companyID string, limit int) ([]*wallet.AuctionDeposit, error)
+}
+
 type ProcessedTopUpRepository interface {
 	InsertIfNew(ctx context.Context, externalPaymentID, companyID, accountID string, amount int64) (inserted bool, err error)
 }
@@ -42,4 +47,12 @@ type IDGenerator interface {
 
 type Clock interface {
 	Now() time.Time
+}
+
+type UnitOfWork interface {
+	WithinTx(ctx context.Context, fn func(ctx context.Context) error) error
+}
+
+type DomainEventPublisher interface {
+	Publish(ctx context.Context, aggregateID, companyID string, event any) error
 }

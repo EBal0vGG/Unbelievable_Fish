@@ -12,9 +12,10 @@ type CaptureAuctionDeposit struct {
 	ledger   LedgerRepository
 	ids      IDGenerator
 	clock    Clock
+	events   DomainEventPublisher
 }
 
-func NewCaptureAuctionDeposit(accounts AccountRepository, deposits AuctionDepositRepository, ledger LedgerRepository, ids IDGenerator, clock Clock) (*CaptureAuctionDeposit, error) {
+func NewCaptureAuctionDeposit(accounts AccountRepository, deposits AuctionDepositRepository, ledger LedgerRepository, ids IDGenerator, clock Clock, events DomainEventPublisher) (*CaptureAuctionDeposit, error) {
 	if accounts == nil || deposits == nil || ledger == nil {
 		return nil, ErrNilDependency
 	}
@@ -24,7 +25,7 @@ func NewCaptureAuctionDeposit(accounts AccountRepository, deposits AuctionDeposi
 	if clock == nil {
 		clock = systemClock{}
 	}
-	return &CaptureAuctionDeposit{accounts: accounts, deposits: deposits, ledger: ledger, ids: ids, clock: clock}, nil
+	return &CaptureAuctionDeposit{accounts: accounts, deposits: deposits, ledger: ledger, ids: ids, clock: clock, events: events}, nil
 }
 
 func (uc *CaptureAuctionDeposit) Execute(ctx context.Context, companyID, auctionID, reason string) error {
@@ -78,8 +79,20 @@ func (uc *CaptureAuctionDeposit) Execute(ctx context.Context, companyID, auction
 		EntryType:     wallet.LedgerBidDepositCaptured,
 		ReferenceType: "auction_deposit_capture",
 		ReferenceID:   refLedger,
+		Reason:        reason,
 		CreatedAt:     now,
 	}
-	_ = reason
-	return uc.ledger.Append(ctx, entry)
+	if err := uc.ledger.Append(ctx, entry); err != nil {
+		return err
+	}
+	if uc.events != nil {
+		return uc.events.Publish(ctx, dep.AuctionID, companyID, wallet.AuctionDepositCaptured{
+			AuctionID: dep.AuctionID,
+			CompanyID: companyID,
+			Amount:    dep.Amount,
+			Currency:  dep.Currency,
+			Reason:    reason,
+		})
+	}
+	return nil
 }

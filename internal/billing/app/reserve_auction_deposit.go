@@ -8,14 +8,15 @@ import (
 )
 
 type ReserveAuctionDeposit struct {
-	accounts  AccountRepository
-	deposits  AuctionDepositRepository
-	ledger    LedgerRepository
-	ids       IDGenerator
-	clock     Clock
+	accounts AccountRepository
+	deposits AuctionDepositRepository
+	ledger   LedgerRepository
+	ids      IDGenerator
+	clock    Clock
+	events   DomainEventPublisher
 }
 
-func NewReserveAuctionDeposit(accounts AccountRepository, deposits AuctionDepositRepository, ledger LedgerRepository, ids IDGenerator, clock Clock) (*ReserveAuctionDeposit, error) {
+func NewReserveAuctionDeposit(accounts AccountRepository, deposits AuctionDepositRepository, ledger LedgerRepository, ids IDGenerator, clock Clock, events DomainEventPublisher) (*ReserveAuctionDeposit, error) {
 	if accounts == nil || deposits == nil || ledger == nil {
 		return nil, ErrNilDependency
 	}
@@ -31,6 +32,7 @@ func NewReserveAuctionDeposit(accounts AccountRepository, deposits AuctionDeposi
 		ledger:   ledger,
 		ids:      ids,
 		clock:    clock,
+		events:   events,
 	}, nil
 }
 
@@ -107,7 +109,19 @@ func (uc *ReserveAuctionDeposit) Execute(
 		EntryType:     wallet.LedgerBidDepositReserved,
 		ReferenceType: "auction_deposit",
 		ReferenceID:   ref,
+		Reason:        "RESERVE_DEPOSIT",
 		CreatedAt:     now,
 	}
-	return uc.ledger.Append(ctx, entry)
+	if err := uc.ledger.Append(ctx, entry); err != nil {
+		return err
+	}
+	if uc.events != nil {
+		return uc.events.Publish(ctx, dep.AuctionID, companyID, wallet.AuctionDepositReserved{
+			AuctionID: dep.AuctionID,
+			CompanyID: companyID,
+			Amount:    dep.Amount,
+			Currency:  dep.Currency,
+		})
+	}
+	return nil
 }
