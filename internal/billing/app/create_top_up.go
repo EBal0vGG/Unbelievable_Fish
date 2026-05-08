@@ -64,6 +64,9 @@ func (uc *CreateTopUp) Execute(ctx context.Context, companyID string, amount int
 	if err != nil {
 		return nil, err
 	}
+	if err := uc.topUps.Create(ctx, tu); err != nil {
+		return nil, err
+	}
 	resp, err := uc.provider.CreateTopUp(ctx, CreateTopUpRequest{
 		TopUpID:   topUpID,
 		CompanyID: companyID,
@@ -77,7 +80,7 @@ func (uc *CreateTopUp) Execute(ctx context.Context, companyID string, amount int
 	if err := tu.AttachProviderPayment(resp.ProviderPaymentID, resp.ConfirmationURL); err != nil {
 		return nil, err
 	}
-	if err := uc.topUps.Create(ctx, tu); err != nil {
+	if err := uc.topUps.Save(ctx, tu); err != nil {
 		return nil, err
 	}
 	return tu, nil
