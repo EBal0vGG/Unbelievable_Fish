@@ -37,3 +37,8 @@ type IDGenerator interface {
 type Clock interface {
 	Now() time.Time
 }
+
+// CompanyVerifier validates company requisites in an external source (e.g. FNS).
+type CompanyVerifier interface {
+	VerifyCompany(ctx context.Context, inn string, ogrn string) (CompanyVerificationResult, error)
+}

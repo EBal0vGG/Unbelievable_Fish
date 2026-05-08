@@ -12,6 +12,7 @@ type RegisterCompany struct {
 	companies CompanyRepository
 	ids       IDGenerator
 	clock     Clock
+	verifier  CompanyVerifier
 }
 
 func NewRegisterCompany(companies CompanyRepository, ids IDGenerator, clock Clock) (*RegisterCompany, error) {
@@ -28,23 +29,44 @@ func NewRegisterCompany(companies CompanyRepository, ids IDGenerator, clock Cloc
 		companies: companies,
 		ids:       ids,
 		clock:     clock,
+		verifier:  NewNoopCompanyVerifier(),
 	}, nil
 }
 
+func (uc *RegisterCompany) WithCompanyVerifier(verifier CompanyVerifier) *RegisterCompany {
+	if verifier == nil {
+		uc.verifier = NewNoopCompanyVerifier()
+		return uc
+	}
+	uc.verifier = verifier
+	return uc
+}
+
 func (uc *RegisterCompany) Execute(ctx context.Context, cmd RegisterCompanyCommand) (CompanyDTO, error) {
-	existing, err := uc.companies.GetByRequisites(ctx, strings.TrimSpace(cmd.INN), strings.TrimSpace(cmd.OGRN))
+	inn := strings.TrimSpace(cmd.INN)
+	ogrn := strings.TrimSpace(cmd.OGRN)
+	existing, err := uc.companies.GetByRequisites(ctx, inn, ogrn)
 	if err == nil && existing != nil {
 		return companyDTOFromDomain(existing), nil
 	}
 	if err != nil && !errors.Is(err, ErrCompanyNotFound) {
 		return CompanyDTO{}, err
 	}
+	verified, err := uc.verifier.VerifyCompany(ctx, inn, ogrn)
+	if err != nil {
+		return CompanyDTO{}, err
+	}
+
+	name := cmd.Name
+	if strings.TrimSpace(name) == "" && strings.TrimSpace(verified.Name) != "" {
+		name = verified.Name
+	}
 
 	company, err := identity.NewCompany(
 		uc.ids.NewCompanyID(),
-		cmd.Name,
-		cmd.INN,
-		cmd.OGRN,
+		name,
+		inn,
+		ogrn,
 		uc.clock.Now(),
 	)
 	if err != nil {
