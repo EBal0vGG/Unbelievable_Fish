@@ -259,6 +259,7 @@ TRUNCATE TABLE
     billing_processed_top_ups,
     billing_ledger_entries,
     billing_auction_deposits,
+    billing_top_ups,
     billing_accounts,
     trading_auction_winners,
     trading_bids,

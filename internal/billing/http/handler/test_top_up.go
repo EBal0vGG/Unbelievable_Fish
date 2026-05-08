@@ -1,5 +1,8 @@
 package handler
 
+// TestTopUpHandler applies a top-up directly (no provider).
+// Dev-only / scripts: POST /billing/accounts/me/top-up/test — do not expose in production as a payment path.
+
 import (
 	"context"
 	"encoding/json"

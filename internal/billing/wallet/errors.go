@@ -9,4 +9,5 @@ var (
 	ErrInsufficientFunds   = errors.New("insufficient available funds")
 	ErrInsufficientHeld    = errors.New("insufficient held funds")
 	ErrInvalidDepositState = errors.New("invalid deposit status for operation")
+	ErrInvalidTopUpStatus  = errors.New("invalid top-up status for operation")
 )

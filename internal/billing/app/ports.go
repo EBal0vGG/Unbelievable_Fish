@@ -41,6 +41,16 @@ type ProcessedTopUpRepository interface {
 	InsertIfNew(ctx context.Context, externalPaymentID, companyID, accountID string, amount int64) (inserted bool, err error)
 }
 
+type TopUpRepository interface {
+	Create(ctx context.Context, topUp *wallet.TopUp) error
+	Save(ctx context.Context, topUp *wallet.TopUp) error
+	Load(ctx context.Context, id string) (*wallet.TopUp, error)
+	LoadForUpdate(ctx context.Context, id string) (*wallet.TopUp, error)
+	LoadByProviderPayment(ctx context.Context, provider, providerPaymentID string) (*wallet.TopUp, error)
+	LoadByProviderPaymentForUpdate(ctx context.Context, provider, providerPaymentID string) (*wallet.TopUp, error)
+	ListByCompany(ctx context.Context, companyID string, limit int) ([]*wallet.TopUp, error)
+}
+
 type IDGenerator interface {
 	NewID() string
 }

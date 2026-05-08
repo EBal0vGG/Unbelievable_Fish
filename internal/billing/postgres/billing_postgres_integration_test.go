@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	billingapp "github.com/EBal0vGG/Unbelievable_Fish/internal/billing/app"
+	"github.com/EBal0vGG/Unbelievable_Fish/internal/billing/payment/fake"
 	"github.com/EBal0vGG/Unbelievable_Fish/internal/billing/wallet"
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
@@ -87,6 +88,134 @@ SELECT count(*) FROM billing_processed_top_ups WHERE external_payment_id = $1
 	}
 	if processedCount != 1 {
 		t.Fatalf("expected one processed topup row, got %d", processedCount)
+	}
+}
+
+func TestTopUpCreateAndFakeConfirmFlow_RealPG(t *testing.T) {
+	db, ok := openRealPostgres(t)
+	if !ok {
+		return
+	}
+	if err := applyMigrations(t, db); err != nil {
+		t.Fatalf("apply migrations: %v", err)
+	}
+	if err := truncateBillingTables(t, db); err != nil {
+		t.Fatalf("truncate billing tables: %v", err)
+	}
+
+	ctx := context.Background()
+	txm := NewTransactionManager(db, nil)
+	accounts := NewAccountRepository(db)
+	ledger := NewLedgerRepository(db)
+	processed := NewProcessedTopUpRepository(db)
+	topUps := NewTopUpRepository(db)
+	createAccount, err := billingapp.NewCreateAccount(accounts, billingapp.RandomHexID{}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	confirmTopUp, err := billingapp.NewConfirmTopUp(accounts, ledger, processed, billingapp.RandomHexID{}, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	createTopUpUC, err := billingapp.NewCreateTopUp(
+		createAccount,
+		accounts,
+		topUps,
+		fake.Provider{},
+		fake.ProviderName,
+		billingapp.RandomHexID{},
+		nil,
+		"http://localhost",
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	confirmByProv, err := billingapp.NewConfirmTopUpByProvider(topUps, confirmTopUp, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	companyID := "co-topup-flow-1"
+	if err := txm.WithinTx(ctx, func(txCtx context.Context) error {
+		return createAccount.Execute(txCtx, companyID)
+	}); err != nil {
+		t.Fatalf("create account: %v", err)
+	}
+
+	var tu *wallet.TopUp
+	if err := txm.WithinTx(ctx, func(txCtx context.Context) error {
+		var err error
+		tu, err = createTopUpUC.Execute(txCtx, companyID, 7777, wallet.CurrencyRUB)
+		return err
+	}); err != nil {
+		t.Fatalf("create top-up: %v", err)
+	}
+	if tu.Status != wallet.TopUpPending {
+		t.Fatalf("expected PENDING, got %s", tu.Status)
+	}
+
+	accBefore, err := accounts.LoadByCompany(ctx, companyID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if accBefore.Available() != 0 {
+		t.Fatalf("expected zero balance before confirm, got %d", accBefore.Available())
+	}
+
+	if err := txm.WithinTx(ctx, func(txCtx context.Context) error {
+		return confirmByProv.ExecuteByTopUpID(txCtx, tu.ID)
+	}); err != nil {
+		t.Fatalf("confirm top-up: %v", err)
+	}
+
+	accAfter, err := accounts.LoadByCompany(ctx, companyID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if accAfter.Available() != 7777 {
+		t.Fatalf("expected balance 7777, got %d", accAfter.Available())
+	}
+
+	var topUpStatus string
+	if err := db.QueryRowContext(ctx, `SELECT status FROM billing_top_ups WHERE id = $1`, tu.ID).Scan(&topUpStatus); err != nil {
+		t.Fatalf("load top-up row: %v", err)
+	}
+	if topUpStatus != string(wallet.TopUpSucceeded) {
+		t.Fatalf("top-up status want SUCCEEDED, got %s", topUpStatus)
+	}
+
+	var ledgerCount int
+	if err := db.QueryRowContext(ctx, `
+SELECT count(*) FROM billing_ledger_entries
+WHERE company_id = $1 AND reference_id = $2 AND type = $3
+`, companyID, tu.ProviderPaymentID, string(wallet.LedgerTopUpConfirmed)).Scan(&ledgerCount); err != nil {
+		t.Fatalf("count ledger: %v", err)
+	}
+	if ledgerCount != 1 {
+		t.Fatalf("expected one ledger entry, got %d", ledgerCount)
+	}
+
+	var processedCount int
+	if err := db.QueryRowContext(ctx, `
+SELECT count(*) FROM billing_processed_top_ups WHERE external_payment_id = $1
+`, tu.ProviderPaymentID).Scan(&processedCount); err != nil {
+		t.Fatalf("count processed: %v", err)
+	}
+	if processedCount != 1 {
+		t.Fatalf("expected one processed row, got %d", processedCount)
+	}
+
+	if err := txm.WithinTx(ctx, func(txCtx context.Context) error {
+		return confirmByProv.ExecuteByTopUpID(txCtx, tu.ID)
+	}); err != nil {
+		t.Fatalf("duplicate confirm: %v", err)
+	}
+	accDup, err := accounts.LoadByCompany(ctx, companyID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if accDup.Available() != 7777 {
+		t.Fatalf("balance changed on duplicate confirm: %d", accDup.Available())
 	}
 }
 
@@ -296,6 +425,7 @@ TRUNCATE TABLE
     billing_processed_top_ups,
     billing_ledger_entries,
     billing_auction_deposits,
+    billing_top_ups,
     billing_accounts
 `)
 	return err

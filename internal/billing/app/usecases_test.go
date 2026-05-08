@@ -2,11 +2,24 @@ package app
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
 	"github.com/EBal0vGG/Unbelievable_Fish/internal/billing/wallet"
 )
+
+// stubFakeProvider matches billing/payment/fake.Provider without importing that package (avoids import cycle in tests).
+type stubFakeProvider struct{}
+
+func (stubFakeProvider) CreateTopUp(ctx context.Context, req CreateTopUpRequest) (CreateTopUpResponse, error) {
+	return CreateTopUpResponse{
+		ProviderPaymentID: "fake-pay-" + req.TopUpID,
+		ConfirmationURL:   "/billing/top-ups/" + req.TopUpID + "/fake-confirm",
+	}, nil
+}
+
+const stubFakeProviderName = "fake"
 
 type memAccountRepo struct {
 	accounts map[string]*wallet.Account
@@ -99,6 +112,181 @@ func (m *memProcessedTopUp) InsertIfNew(ctx context.Context, externalPaymentID, 
 	}
 	m.ids[externalPaymentID] = struct{}{}
 	return true, nil
+}
+
+type memTopUpRepo struct {
+	all []*wallet.TopUp
+}
+
+func (m *memTopUpRepo) Create(ctx context.Context, tu *wallet.TopUp) error {
+	_ = ctx
+	m.all = append(m.all, tu)
+	return nil
+}
+
+func (m *memTopUpRepo) Save(ctx context.Context, tu *wallet.TopUp) error {
+	_ = ctx
+	for i, x := range m.all {
+		if x.ID == tu.ID {
+			m.all[i] = tu
+			return nil
+		}
+	}
+	return ErrTopUpNotFound
+}
+
+func (m *memTopUpRepo) Load(ctx context.Context, id string) (*wallet.TopUp, error) {
+	_ = ctx
+	for _, x := range m.all {
+		if x.ID == id {
+			return x, nil
+		}
+	}
+	return nil, ErrTopUpNotFound
+}
+
+func (m *memTopUpRepo) LoadForUpdate(ctx context.Context, id string) (*wallet.TopUp, error) {
+	return m.Load(ctx, id)
+}
+
+func (m *memTopUpRepo) LoadByProviderPayment(ctx context.Context, provider, providerPaymentID string) (*wallet.TopUp, error) {
+	_ = ctx
+	for _, x := range m.all {
+		if x.Provider == provider && x.ProviderPaymentID == providerPaymentID {
+			return x, nil
+		}
+	}
+	return nil, ErrTopUpNotFound
+}
+
+func (m *memTopUpRepo) LoadByProviderPaymentForUpdate(ctx context.Context, provider, providerPaymentID string) (*wallet.TopUp, error) {
+	return m.LoadByProviderPayment(ctx, provider, providerPaymentID)
+}
+
+func (m *memTopUpRepo) ListByCompany(ctx context.Context, companyID string, limit int) ([]*wallet.TopUp, error) {
+	_ = ctx
+	if limit <= 0 {
+		limit = 100
+	}
+	var out []*wallet.TopUp
+	for _, x := range m.all {
+		if x.CompanyID == companyID {
+			out = append(out, x)
+		}
+	}
+	if len(out) > limit {
+		out = out[:limit]
+	}
+	return out, nil
+}
+
+func TestCreateTopUpDoesNotChangeBalance(t *testing.T) {
+	ar := &memAccountRepo{accounts: map[string]*wallet.Account{}}
+	tr := &memTopUpRepo{}
+	createAccount, _ := NewCreateAccount(ar, RandomHexID{}, nil)
+	clk := fixedClock{t: time.Date(2025, 6, 1, 0, 0, 0, 0, time.UTC)}
+	createTopUp, err := NewCreateTopUp(createAccount, ar, tr, stubFakeProvider{}, stubFakeProviderName, RandomHexID{}, clk, "http://localhost")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	if _, err := createTopUp.Execute(ctx, "c-top", 5000, wallet.CurrencyRUB); err != nil {
+		t.Fatal(err)
+	}
+	acc, err := ar.LoadByCompany(ctx, "c-top")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if acc.Available() != 0 || acc.Total() != 0 {
+		t.Fatalf("balance changed after create top-up: avail=%d total=%d", acc.Available(), acc.Total())
+	}
+}
+
+func TestConfirmTopUpByProviderCreditsBalanceAndLedger(t *testing.T) {
+	ar := &memAccountRepo{accounts: map[string]*wallet.Account{}}
+	tr := &memTopUpRepo{}
+	ledger := &memLedgerRepo{}
+	pt := &memProcessedTopUp{ids: map[string]struct{}{}}
+	clk := fixedClock{t: time.Date(2025, 6, 2, 0, 0, 0, 0, time.UTC)}
+	createAccount, _ := NewCreateAccount(ar, RandomHexID{}, nil)
+	createTopUp, _ := NewCreateTopUp(createAccount, ar, tr, stubFakeProvider{}, stubFakeProviderName, RandomHexID{}, clk, "http://localhost")
+	confirmTopUp, _ := NewConfirmTopUp(ar, ledger, pt, RandomHexID{}, clk, nil)
+	confirmByProv, _ := NewConfirmTopUpByProvider(tr, confirmTopUp, clk)
+
+	ctx := context.Background()
+	tu, err := createTopUp.Execute(ctx, "c1", 4200, wallet.CurrencyRUB)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := confirmByProv.ExecuteByTopUpID(ctx, tu.ID); err != nil {
+		t.Fatal(err)
+	}
+	acc := ar.accounts["c1"]
+	if acc.Available() != 4200 {
+		t.Fatalf("avail=%d", acc.Available())
+	}
+	if len(ledger.entries) != 1 || ledger.entries[0].EntryType != wallet.LedgerTopUpConfirmed {
+		t.Fatalf("ledger=%+v", ledger.entries)
+	}
+	if tu.Status != wallet.TopUpSucceeded {
+		t.Fatalf("top-up still %s", tu.Status)
+	}
+}
+
+func TestConfirmTopUpByProviderDuplicateNoOpExtraLedger(t *testing.T) {
+	ar := &memAccountRepo{accounts: map[string]*wallet.Account{}}
+	tr := &memTopUpRepo{}
+	ledger := &memLedgerRepo{}
+	pt := &memProcessedTopUp{ids: map[string]struct{}{}}
+	clk := fixedClock{t: time.Date(2025, 6, 3, 0, 0, 0, 0, time.UTC)}
+	createAccount, _ := NewCreateAccount(ar, RandomHexID{}, nil)
+	createTopUp, _ := NewCreateTopUp(createAccount, ar, tr, stubFakeProvider{}, stubFakeProviderName, RandomHexID{}, clk, "http://localhost")
+	confirmTopUp, _ := NewConfirmTopUp(ar, ledger, pt, RandomHexID{}, clk, nil)
+	confirmByProv, _ := NewConfirmTopUpByProvider(tr, confirmTopUp, clk)
+
+	ctx := context.Background()
+	tu, err := createTopUp.Execute(ctx, "c-dup", 1000, wallet.CurrencyRUB)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := confirmByProv.ExecuteByTopUpID(ctx, tu.ID); err != nil {
+		t.Fatal(err)
+	}
+	if err := confirmByProv.ExecuteByTopUpID(ctx, tu.ID); err != nil {
+		t.Fatal(err)
+	}
+	if len(ledger.entries) != 1 {
+		t.Fatalf("expected one ledger entry, got %d", len(ledger.entries))
+	}
+	if ar.accounts["c-dup"].Available() != 1000 {
+		t.Fatalf("balance=%d", ar.accounts["c-dup"].Available())
+	}
+}
+
+func TestConfirmTopUpByProviderAmountMismatchRejected(t *testing.T) {
+	ar := &memAccountRepo{accounts: map[string]*wallet.Account{}}
+	tr := &memTopUpRepo{}
+	ledger := &memLedgerRepo{}
+	pt := &memProcessedTopUp{ids: map[string]struct{}{}}
+	clk := fixedClock{t: time.Date(2025, 6, 4, 0, 0, 0, 0, time.UTC)}
+	createAccount, _ := NewCreateAccount(ar, RandomHexID{}, nil)
+	createTopUp, _ := NewCreateTopUp(createAccount, ar, tr, stubFakeProvider{}, stubFakeProviderName, RandomHexID{}, clk, "http://localhost")
+	confirmTopUp, _ := NewConfirmTopUp(ar, ledger, pt, RandomHexID{}, clk, nil)
+	confirmByProv, _ := NewConfirmTopUpByProvider(tr, confirmTopUp, clk)
+
+	ctx := context.Background()
+	tu, err := createTopUp.Execute(ctx, "c-mis", 2000, wallet.CurrencyRUB)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pid := tu.ProviderPaymentID
+	err = confirmByProv.Execute(ctx, stubFakeProviderName, pid, 1999, wallet.CurrencyRUB)
+	if err == nil || !errors.Is(err, ErrTopUpAmountMismatch) {
+		t.Fatalf("expected ErrTopUpAmountMismatch, got %v", err)
+	}
+	if ar.accounts["c-mis"].Available() != 0 {
+		t.Fatalf("balance changed: %d", ar.accounts["c-mis"].Available())
+	}
 }
 
 func TestCreateAccountIdempotent(t *testing.T) {
