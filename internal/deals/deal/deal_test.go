@@ -106,13 +106,27 @@ func TestDeal_RequestPaymentAndMarkAsPaid(t *testing.T) {
 	deal.SignContract("buyer", "sig")
 	logMsg(t, "contract signed status="+string(deal.Status()))
 
-	// Request payment
-	_, err := deal.RequestPayment("INV-001", nil)
+	// Request payment (invoice number optional at domain level)
+	events, err := deal.RequestPayment("", nil)
 	if err != nil {
 		logMsg(t, "request payment error="+err.Error())
 		t.Fatalf("unexpected error: %v", err)
 	}
-	logMsg(t, "payment requested invoice=INV-001 amount="+strconv.FormatInt(deal.CalculateTotal(), 10))
+	var pr *PaymentRequested
+	for _, e := range events {
+		if p, ok := e.(PaymentRequested); ok {
+			pr = &p
+			break
+		}
+	}
+	if pr == nil {
+		t.Fatal("expected PaymentRequested event")
+	}
+	if pr.GoodsAmount != deal.CalculateTotal() || pr.BuyerCompanyID != deal.CustomerID() ||
+		pr.SellerCompanyID != deal.SupplierID() || pr.AuctionID != deal.AuctionID() || pr.Currency != "RUB" {
+		t.Fatalf("unexpected PaymentRequested: %+v", pr)
+	}
+	logMsg(t, "payment requested goods="+strconv.FormatInt(pr.GoodsAmount, 10))
 
 	if deal.Status() != DealStatusPaymentRequested {
 		t.Errorf("expected status payment requested, got %s", deal.Status())

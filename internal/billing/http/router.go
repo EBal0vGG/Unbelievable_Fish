@@ -7,13 +7,17 @@ import (
 )
 
 type Handlers struct {
-	GetBalance       http.Handler
-	TestTopUp        http.Handler
-	GetLedger        http.Handler
-	GetDeposits      http.Handler
-	CreateTopUp      http.Handler
-	ListTopUps       http.Handler
-	FakeConfirmTopUp http.Handler
+	GetBalance            http.Handler
+	TestTopUp             http.Handler
+	GetLedger             http.Handler
+	GetDeposits           http.Handler
+	CreateTopUp           http.Handler
+	ListTopUps            http.Handler
+	FakeConfirmTopUp      http.Handler
+	GetDealInvoice        http.Handler
+	GetDealInvoiceByDeal  http.Handler
+	ListMyDealInvoices    http.Handler
+	FakeConfirmDealInvoice http.Handler
 }
 
 func NewRouter(h Handlers, middlewares ...func(http.Handler) http.Handler) chi.Router {
@@ -29,6 +33,12 @@ func NewRouter(h Handlers, middlewares ...func(http.Handler) http.Handler) chi.R
 		r.Method(http.MethodPost, "/", h.CreateTopUp)
 		r.Method(http.MethodGet, "/", h.ListTopUps)
 		r.Method(http.MethodPost, "/{topUpID}/fake-confirm", h.FakeConfirmTopUp)
+	})
+	r.Route("/invoices", func(r chi.Router) {
+		r.Method(http.MethodGet, "/me", h.ListMyDealInvoices)
+		r.Method(http.MethodGet, "/by-deal/{dealID}", h.GetDealInvoiceByDeal)
+		r.Method(http.MethodGet, "/{invoiceID}", h.GetDealInvoice)
+		r.Method(http.MethodPost, "/{invoiceID}/fake-confirm", h.FakeConfirmDealInvoice)
 	})
 	return r
 }

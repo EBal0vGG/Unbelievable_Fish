@@ -89,13 +89,18 @@ type ContractSigned struct {
 
 func (ContractSigned) isDealEvent() {}
 
-// PaymentRequested - событие запроса оплаты
+// PaymentRequested - событие запроса оплаты (интеграция → Billing создаёт DealInvoice).
+// InvoiceNumber не источник истины; номер задаёт провайдер/Billing.
 type PaymentRequested struct {
-	DealID        string
-	TotalAmount   int64
-	InvoiceNumber string
-	DueDate       *time.Time
-	RequestedAt   time.Time
+	DealID          string
+	AuctionID       string
+	BuyerCompanyID  string
+	SellerCompanyID string
+	Currency        string // e.g. "RUB"
+	GoodsAmount     int64  // сумма товара (лота); для аукциона при quantity=1 совпадает с финальной ценой
+	InvoiceNumber   string // legacy / опционально
+	DueDate         *time.Time
+	RequestedAt     time.Time
 }
 
 func (PaymentRequested) isDealEvent() {}
@@ -193,6 +198,21 @@ type WinnerSelectionFailed struct {
 }
 
 func (WinnerSelectionFailed) isDealEvent() {}
+
+// WinnerSelectionFinalized — оплата по инвойсу завершена, цепочка fallback закрыта; billing делает settlement депозитов.
+// SelectionID совпадает с AuctionID.
+type WinnerSelectionFinalized struct {
+	SelectionID          string
+	DealID               string
+	AuctionID            string
+	CompanyID            string
+	FinalPrice           int64
+	GoodsAmount          int64
+	PlatformFeeDueAmount int64
+	FinalizedAt          time.Time
+}
+
+func (WinnerSelectionFinalized) isDealEvent() {}
 
 // PriceUpdated - событие обновления цены
 type PriceUpdated struct {

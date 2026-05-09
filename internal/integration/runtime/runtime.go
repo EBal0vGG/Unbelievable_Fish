@@ -35,6 +35,12 @@ type Dependencies struct {
 	ReleaseAuctionDepositsExceptCandidates *billingapp.ReleaseAuctionDepositsExceptCandidates
 	// CaptureAuctionDeposit captures HELD winner deposit on deals.WinnerRejected (nil = skip).
 	CaptureAuctionDeposit *billingapp.CaptureAuctionDeposit
+	// CreateDealInvoice creates billing invoice on deals.PaymentRequested (nil = skip).
+	CreateDealInvoice *billingapp.CreateDealInvoice
+	// HandleDealInvoicePaid marks deal paid and finalizes winner selection (nil = skip).
+	HandleDealInvoicePaid *dealsapp.HandleDealInvoicePaid
+	// SettleWinnerDepositAfterInvoicePaid captures/releases winner HELD deposit after invoice (nil = skip).
+	SettleWinnerDepositAfterInvoicePaid *billingapp.SettleWinnerDepositAfterInvoicePaid
 }
 
 type Runtime struct {
@@ -181,6 +187,7 @@ func DefaultDecoders() map[string]outbox.Decoder {
 		"deals.WinnerConfirmed":           outbox.JSONDecoder[deal.WinnerConfirmed](),
 		"deals.NextWinnerSelected":        outbox.JSONDecoder[deal.NextWinnerSelected](),
 		"deals.WinnerSelectionFailed":     outbox.JSONDecoder[deal.WinnerSelectionFailed](),
+		"deals.WinnerSelectionFinalized":  outbox.JSONDecoder[deal.WinnerSelectionFinalized](),
 		"deals.PriceUpdated":              outbox.JSONDecoder[deal.PriceUpdated](),
 		"identity.CompanyCreated":         outbox.JSONDecoder[identity.CompanyCreated](),
 		"billing.AccountCreated":          outbox.JSONDecoder[wallet.AccountCreated](),
@@ -188,6 +195,9 @@ func DefaultDecoders() map[string]outbox.Decoder {
 		"billing.AuctionDepositReserved":  outbox.JSONDecoder[wallet.AuctionDepositReserved](),
 		"billing.AuctionDepositReleased":  outbox.JSONDecoder[wallet.AuctionDepositReleased](),
 		"billing.AuctionDepositCaptured":  outbox.JSONDecoder[wallet.AuctionDepositCaptured](),
+		"billing.PlatformFeeCaptured":     outbox.JSONDecoder[wallet.PlatformFeeCaptured](),
+		"billing.DealInvoiceCreated":      outbox.JSONDecoder[wallet.DealInvoiceCreated](),
+		"billing.DealInvoicePaid":         outbox.JSONDecoder[wallet.DealInvoicePaid](),
 	}
 }
 

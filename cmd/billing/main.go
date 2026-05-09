@@ -32,6 +32,7 @@ func main() {
 	topUps := billingpg.NewTopUpRepository(db)
 	ledgerLister := billingpg.NewLedgerLister(db)
 	deposits := billingpg.NewAuctionDepositRepository(db)
+	dealInvoices := billingpg.NewDealInvoiceRepository(db)
 	events := billingpg.NewOutboxRepository(db)
 
 	createAccount, err := billingapp.NewCreateAccount(accounts, billingapp.RandomHexID{}, events)
@@ -62,6 +63,11 @@ func main() {
 		logging.Fatal(logger, "confirm_top_up_by_provider_init_failed", "error", err)
 	}
 
+	confirmDealInvoice, err := billingapp.NewConfirmDealInvoicePaid(dealInvoices, events, nil)
+	if err != nil {
+		logging.Fatal(logger, "confirm_deal_invoice_init_failed", "error", err)
+	}
+
 	tokenProvider := identityauth.NewTokenProvider(
 		dbconfig.EnvOrDefault("IDENTITY_TOKEN_SECRET", "dev-secret"),
 		dbconfig.EnvDurationMinutes("IDENTITY_TOKEN_TTL_MINUTES", 24*60),
@@ -69,13 +75,17 @@ func main() {
 	authMiddleware := identityauth.NewMiddleware(tokenProvider, httpauth.JSONErrorHandler("billing_auth_error"))
 
 	inner := httpapi.NewRouter(httpapi.Handlers{
-		GetBalance:       authMiddleware.Wrap(handler.NewGetBalanceHandler(txm, accounts, createAccount)),
-		TestTopUp:        authMiddleware.Wrap(handler.NewTestTopUpHandler(txm, createAccount, confirmTopUp, billingapp.RandomHexID{})),
-		GetLedger:        authMiddleware.Wrap(handler.NewGetLedgerHandler(ledgerLister)),
-		GetDeposits:      authMiddleware.Wrap(handler.NewGetDepositsHandler(deposits)),
-		CreateTopUp:      authMiddleware.Wrap(handler.NewCreateTopUpHandler(txm, createTopUpUC)),
-		ListTopUps:       authMiddleware.Wrap(handler.NewListTopUpsHandler(topUps)),
-		FakeConfirmTopUp: authMiddleware.Wrap(handler.NewFakeConfirmTopUpHandler(txm, confirmTopUpByProvider)),
+		GetBalance:             authMiddleware.Wrap(handler.NewGetBalanceHandler(txm, accounts, createAccount)),
+		TestTopUp:              authMiddleware.Wrap(handler.NewTestTopUpHandler(txm, createAccount, confirmTopUp, billingapp.RandomHexID{})),
+		GetLedger:              authMiddleware.Wrap(handler.NewGetLedgerHandler(ledgerLister)),
+		GetDeposits:            authMiddleware.Wrap(handler.NewGetDepositsHandler(deposits)),
+		CreateTopUp:            authMiddleware.Wrap(handler.NewCreateTopUpHandler(txm, createTopUpUC)),
+		ListTopUps:             authMiddleware.Wrap(handler.NewListTopUpsHandler(topUps)),
+		FakeConfirmTopUp:       authMiddleware.Wrap(handler.NewFakeConfirmTopUpHandler(txm, confirmTopUpByProvider)),
+		GetDealInvoice:         authMiddleware.Wrap(handler.NewGetDealInvoiceHandler(dealInvoices)),
+		GetDealInvoiceByDeal:   authMiddleware.Wrap(handler.NewGetDealInvoiceByDealHandler(dealInvoices)),
+		ListMyDealInvoices:     authMiddleware.Wrap(handler.NewListMyDealInvoicesHandler(dealInvoices)),
+		FakeConfirmDealInvoice: authMiddleware.Wrap(handler.NewFakeConfirmDealInvoiceHandler(txm, confirmDealInvoice)),
 	}, httplog.Middleware(logger))
 
 	r := http.NewServeMux()

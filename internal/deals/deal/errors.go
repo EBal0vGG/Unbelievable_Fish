@@ -42,6 +42,10 @@ var (
 	ErrNoAvailableWinnerCandidate      = errors.New("deal: no current winner candidate in selection")
 	ErrWinnerFallbackOnlyWhileActive        = errors.New("deal: winner fallback is only allowed while selection is active")
 	ErrWinnerSelectionMissingForAuctionDeal = errors.New("deal: winner selection is required to confirm an auction deal")
+	ErrWinnerSelectionNotAwaitingPayment      = errors.New("deal: winner selection is not awaiting payment finalization")
+	ErrWinnerSelectionDealMismatch            = errors.New("deal: winner selection deal id does not match")
+	ErrDealInvoicePaidInvariant             = errors.New("deal: invoice paid payload does not match deal totals")
+	ErrDealCancelledPayment                 = errors.New("deal: cannot finalize payment for cancelled deal")
 	ErrCannotUpdatePrice        = errors.New("deal: cannot update price in current status")
 	ErrInvalidStageTransition   = errors.New("deal: invalid stage transition")
 

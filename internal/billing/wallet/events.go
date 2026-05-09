@@ -1,5 +1,7 @@
 package wallet
 
+import "time"
+
 // Domain events for future billing outbox (stage 2+).
 
 type AccountCreated struct {
@@ -50,4 +52,33 @@ type PlatformFeePaymentRequired struct {
 	CompanyID string
 	AmountDue int64
 	Currency  Currency
+}
+
+// DealInvoiceCreated — инвойс создан, есть payment_url (slim integration event).
+type DealInvoiceCreated struct {
+	InvoiceID            string
+	DealID               string
+	AuctionID            string
+	BuyerCompanyID       string
+	SellerCompanyID      string
+	GoodsAmount          int64
+	PlatformFeeDueAmount int64
+	TotalAmount          int64
+	Currency             Currency
+	PaymentURL           string
+	DueAt                time.Time
+	CreatedAt            time.Time
+}
+
+// DealInvoicePaid — оплата подтверждена (без движения wallet balance на Stage 9).
+type DealInvoicePaid struct {
+	InvoiceID            string
+	DealID               string
+	AuctionID            string
+	BuyerCompanyID       string
+	GoodsAmount          int64
+	PlatformFeeDueAmount int64
+	Amount               int64 // total paid (= GoodsAmount + PlatformFeeDueAmount)
+	Currency             Currency
+	PaidAt               time.Time
 }

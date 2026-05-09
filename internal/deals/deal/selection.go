@@ -7,8 +7,8 @@ type WinnerSelectionStatus string
 const (
 	WinnerSelectionActive                  WinnerSelectionStatus = "active"
 	WinnerSelectionConfirmedPendingPayment WinnerSelectionStatus = "confirmed_pending_payment"
-	WinnerSelectionFinalized               WinnerSelectionStatus = "finalized"
-	WinnerSelectionExhausted             WinnerSelectionStatus = "exhausted"
+	WinnerSelectionStatusFinalized         WinnerSelectionStatus = "finalized"
+	WinnerSelectionExhausted               WinnerSelectionStatus = "exhausted"
 )
 
 // WinnerSelection tracks post-auction candidate progression.
@@ -69,9 +69,11 @@ func (s *WinnerSelection) Advance() bool {
 	next := s.CurrentIndex + 1
 	if next >= len(s.Candidates) {
 		s.Status = WinnerSelectionExhausted
+		s.DealID = ""
 		return false
 	}
 	s.CurrentIndex = next
+	s.DealID = ""
 	return true
 }
 
@@ -97,9 +99,37 @@ func (s *WinnerSelection) MarkCurrentConfirmed(dealID string) error {
 	return nil
 }
 
+// MarkFinalized closes the selection after invoice payment; DealID stays set.
+func (s *WinnerSelection) MarkFinalized(dealID string) error {
+	if s == nil {
+		return ErrSelectionNotFound
+	}
+	if dealID == "" {
+		return ErrDealIDRequired
+	}
+	if s.Status == WinnerSelectionStatusFinalized {
+		if s.DealID == dealID {
+			return nil
+		}
+		return ErrWinnerSelectionDealMismatch
+	}
+	if s.Status != WinnerSelectionConfirmedPendingPayment {
+		return ErrWinnerSelectionNotAwaitingPayment
+	}
+	if s.DealID != dealID {
+		return ErrWinnerSelectionDealMismatch
+	}
+	if _, ok := s.CurrentCandidate(); !ok {
+		return ErrNoAvailableWinnerCandidate
+	}
+	s.Status = WinnerSelectionStatusFinalized
+	return nil
+}
+
 func (s *WinnerSelection) MarkExhausted() {
 	if s == nil {
 		return
 	}
 	s.Status = WinnerSelectionExhausted
+	s.DealID = ""
 }

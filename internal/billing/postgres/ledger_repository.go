@@ -7,6 +7,7 @@ import (
 
 	billingapp "github.com/EBal0vGG/Unbelievable_Fish/internal/billing/app"
 	"github.com/EBal0vGG/Unbelievable_Fish/internal/billing/wallet"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 type LedgerRepository struct {
@@ -37,7 +38,16 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 		entry.Reason,
 		entry.CreatedAt.UTC(),
 	)
-	return err
+	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			// uq_billing_ledger_reference_company — duplicate append is idempotent (e.g. parallel consumers).
+			// Account/deposit mutations must still be guarded by their own locking or idempotent design.
+			return nil
+		}
+		return err
+	}
+	return nil
 }
 
 func (r *LedgerRepository) ExistsByReference(ctx context.Context, companyID, referenceType, referenceID string, typ wallet.LedgerEntryType) (bool, error) {

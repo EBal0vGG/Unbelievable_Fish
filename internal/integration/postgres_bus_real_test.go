@@ -12,6 +12,7 @@ import (
 	"time"
 
 	billingapp "github.com/EBal0vGG/Unbelievable_Fish/internal/billing/app"
+	"github.com/EBal0vGG/Unbelievable_Fish/internal/billing/payment/fake"
 	billingpg "github.com/EBal0vGG/Unbelievable_Fish/internal/billing/postgres"
 	"github.com/EBal0vGG/Unbelievable_Fish/internal/billing/wallet"
 	catalogapp "github.com/EBal0vGG/Unbelievable_Fish/internal/catalog/app"
@@ -22,6 +23,7 @@ import (
 	dealspg "github.com/EBal0vGG/Unbelievable_Fish/internal/deals/postgres"
 	"github.com/EBal0vGG/Unbelievable_Fish/internal/infra/dbconfig"
 	"github.com/EBal0vGG/Unbelievable_Fish/internal/infra/eventbus/inmemory"
+	"github.com/EBal0vGG/Unbelievable_Fish/internal/infra/integrationtest"
 	outbox "github.com/EBal0vGG/Unbelievable_Fish/internal/infra/outbox"
 	outboxpg "github.com/EBal0vGG/Unbelievable_Fish/internal/infra/outbox/postgres"
 	integrationruntime "github.com/EBal0vGG/Unbelievable_Fish/internal/integration/runtime"
@@ -1027,6 +1029,706 @@ SELECT count(*) FROM billing_ledger_entries WHERE type = $1
 	}
 }
 
+// TestStage9DealInvoiceFlow_RealPG: RequestPayment → outbox → billing invoice (fee net of HELD deposit), fake-confirm → PAID; deposits stay HELD.
+func TestStage9DealInvoiceFlow_RealPG(t *testing.T) {
+	db, ok := openRealPostgres(t)
+	if !ok {
+		return
+	}
+	if err := applyMigrations(t, db); err != nil {
+		t.Fatalf("apply migrations: %v", err)
+	}
+	if err := truncateAll(t, db); err != nil {
+		t.Fatalf("truncate: %v", err)
+	}
+
+	catalogLotRepo := catalogpg.NewLotRepository(db)
+	catalogOutbox := catalogpg.NewOutboxRepository(db)
+	catalogTx := catalogpg.NewTransactionManager(db, nil)
+	catalogService := catalogapp.NewCatalogService(
+		nil, nil, nil, nil,
+		catalogLotRepo,
+		catalogOutbox,
+		nil,
+		catalogTx,
+	)
+
+	tradingUOW := tradingpg.NewUnitOfWork(db)
+	dealsUOW := dealspg.NewUnitOfWork(db)
+	dealProjectionRepo := dealspg.NewProjectionRepository(db)
+
+	relayRepo := outboxpg.NewRepository(db)
+	relay := outbox.NewRelay(relayRepo, integrationruntime.DefaultDecoders())
+
+	startsAt := time.Now().Add(-time.Hour)
+	endsAt := time.Now().Add(time.Hour)
+	auctionID := "auc-stage9-inv"
+	lotID := "lot-stage9-inv"
+
+	lot, _, err := catalog.NewLot(
+		lotID,
+		"prod-1",
+		"seller-1",
+		"photo",
+		10,
+		100,
+		10,
+		catalog.NewAuctionScheduleAt(startsAt, time.Hour),
+	)
+	if err != nil {
+		t.Fatalf("new lot error: %v", err)
+	}
+	if _, err := lot.AssignAuctionID(auctionID); err != nil {
+		t.Fatalf("assign auction error: %v", err)
+	}
+	lotEvents, err := lot.Publish(true, catalog.ProductSnapshot{
+		ProductID:      "prod-1",
+		Name:           "Fish",
+		Weight:         10,
+		Unit:           "kg",
+		Size:           "M",
+		ProcessingType: catalog.ProcessingType("frozen"),
+	})
+	if err != nil {
+		t.Fatalf("publish lot error: %v", err)
+	}
+	ctx := context.Background()
+	if err := catalogLotRepo.Save(ctx, lot); err != nil {
+		t.Fatalf("save lot error: %v", err)
+	}
+	if err := catalogOutbox.Add(ctx, lotEvents); err != nil {
+		t.Fatalf("outbox add error: %v", err)
+	}
+
+	createAuctionUC, err := tradingapp.NewCreateAuction(tradingUOW, fixedAuctionIDFactoryReal{auctionID: tradingapp.AuctionID(auctionID)})
+	if err != nil {
+		t.Fatalf("create auction constructor error: %v", err)
+	}
+	publishAuctionUC, err := tradingapp.NewPublishAuction(tradingUOW)
+	if err != nil {
+		t.Fatalf("publish auction constructor error: %v", err)
+	}
+	createProjectionUC := dealsapp.NewCreateProjection(dealProjectionRepo)
+	createSelectionUC, err := dealsapp.NewCreateDealSelectionFromAuctionWon(dealsUOW)
+	if err != nil {
+		t.Fatalf("selection constructor error: %v", err)
+	}
+
+	billingTx := billingpg.NewTransactionManager(db, nil)
+	bAccounts := billingpg.NewAccountRepository(db)
+	bLedger := billingpg.NewLedgerRepository(db)
+	bDeposits := billingpg.NewAuctionDepositRepository(db)
+	bEvents := billingpg.NewOutboxRepository(db)
+	dealInvRepo := billingpg.NewDealInvoiceRepository(db)
+	releaseExcept, err := billingapp.NewReleaseAuctionDepositsExceptCandidates(
+		bAccounts, bDeposits, bLedger, billingapp.RandomHexID{}, nil, bEvents,
+	)
+	if err != nil {
+		t.Fatalf("release except uc: %v", err)
+	}
+	createDealInvUC, err := billingapp.NewCreateDealInvoice(
+		dealInvRepo,
+		bDeposits,
+		fake.Provider{},
+		fake.ProviderName,
+		billingapp.RandomHexID{},
+		nil,
+		bEvents,
+		"http://localhost:8085",
+	)
+	if err != nil {
+		t.Fatalf("create deal invoice uc: %v", err)
+	}
+	confirmDealInvUC, err := billingapp.NewConfirmDealInvoicePaid(dealInvRepo, bEvents, nil)
+	if err != nil {
+		t.Fatalf("confirm deal invoice uc: %v", err)
+	}
+
+	bus := inmemory.NewBus()
+
+	bus.Subscribe("catalog.LotPublished", func(ctx context.Context, envelope events.Envelope) error {
+		evt := envelope.Payload.(catalog.LotPublished)
+		if _, err := createAuctionUC.Execute(ctx, tradingMeta(), evt.LotID, startsAt, endsAt, evt.StartPrice, evt.MinBidStep); err != nil {
+			return err
+		}
+		if err := publishAuctionUC.Execute(ctx, tradingMeta(), tradingapp.AuctionID(evt.AuctionID)); err != nil {
+			return err
+		}
+		return createProjectionUC.Execute(ctx, dealsMeta(), evt.AuctionID, evt.SellerCompanyID, deal.ProductSnapshot{Name: "Fish"}, evt.StartPrice, envelope.OccurredAt)
+	})
+
+	bus.Subscribe("trading.AuctionWon", func(ctx context.Context, envelope events.Envelope) error {
+		evt := envelope.Payload.(auction.AuctionWon)
+		if len(evt.WinnerCompanyID) == 0 {
+			return nil
+		}
+		if err := createSelectionUC.Execute(ctx, dealsMeta(), evt.AuctionID, evt.WinnerCompanyID, evt.FinalPrice, envelope.OccurredAt); err != nil {
+			return err
+		}
+		if err := catalogService.HandleAuctionWon(ctx, catalogapp.AuctionWonDTO{
+			AuctionID:       evt.AuctionID,
+			FinalPrice:      evt.FinalPrice,
+			WinnerCompanyID: evt.WinnerCompanyID[0],
+		}); err != nil {
+			return err
+		}
+		return billingTx.WithinTx(ctx, func(txCtx context.Context) error {
+			return releaseExcept.Execute(txCtx, evt.AuctionID, evt.WinnerCompanyID, "LOST_AUCTION")
+		})
+	})
+
+	bus.Subscribe("deals.PaymentRequested", func(ctx context.Context, envelope events.Envelope) error {
+		evt := envelope.Payload.(deal.PaymentRequested)
+		cur := wallet.Currency(evt.Currency)
+		if evt.Currency == "" {
+			cur = wallet.CurrencyRUB
+		}
+		var due time.Time
+		if evt.DueDate != nil {
+			due = *evt.DueDate
+		}
+		return billingTx.WithinTx(ctx, func(txCtx context.Context) error {
+			_, err := createDealInvUC.Execute(txCtx, billingapp.CreateDealInvoiceCommand{
+				DealID:          evt.DealID,
+				AuctionID:       evt.AuctionID,
+				BuyerCompanyID:  evt.BuyerCompanyID,
+				SellerCompanyID: evt.SellerCompanyID,
+				GoodsAmount:     evt.GoodsAmount,
+				Currency:        cur,
+				DueAt:           due,
+			})
+			return err
+		})
+	})
+
+	if err := relay.RunOnce(ctx, bus, 100); err != nil {
+		t.Fatalf("relay lot published error: %v", err)
+	}
+
+	buyers := []string{"st9-a", "st9-b", "st9-c"}
+	for _, b := range buyers {
+		bootstrapBuyerWalletReal(t, db, b, 500_000)
+	}
+	depositSvc := newBillingDepositService(t, db)
+	placeBidUC, err := tradingapp.NewPlaceBid(tradingUOW, depositSvc)
+	if err != nil {
+		t.Fatalf("place bid constructor error: %v", err)
+	}
+	closeAuctionUC, err := tradingapp.NewCloseAuction(tradingUOW)
+	if err != nil {
+		t.Fatalf("close auction constructor error: %v", err)
+	}
+
+	amounts := []int64{150, 160, 170}
+	for i, b := range buyers {
+		meta := tradingMetaWithCompany(b)
+		tBid := endsAt.Add(time.Duration(-40+10*i) * time.Minute)
+		if err := placeBidUC.Execute(ctx, meta, tradingapp.AuctionID(auctionID), amounts[i], tBid); err != nil {
+			t.Fatalf("place bid %s: %v", b, err)
+		}
+	}
+
+	if err := closeAuctionUC.Execute(ctx, tradingMeta(), tradingapp.AuctionID(auctionID)); err != nil {
+		t.Fatalf("close auction error: %v", err)
+	}
+
+	if err := relay.RunOnce(ctx, bus, 100); err != nil {
+		t.Fatalf("relay auction won error: %v", err)
+	}
+
+	selRepo := dealspg.NewSelectionRepository(db)
+	sel, err := selRepo.GetByAuctionID(ctx, auctionID)
+	if err != nil {
+		t.Fatalf("winner selection: %v", err)
+	}
+	dealRepo := dealspg.NewDealRepository(db)
+	d1, err := dealRepo.GetByID(ctx, sel.DealID)
+	if err != nil {
+		t.Fatalf("deal: %v", err)
+	}
+	if d1.CustomerID() != "st9-c" {
+		t.Fatalf("expected winner st9-c, got %s", d1.CustomerID())
+	}
+
+	confirmUC, err := dealsapp.NewConfirmDeal(dealsUOW)
+	if err != nil {
+		t.Fatalf("confirm uc: %v", err)
+	}
+	confirmMeta := dealsapp.CommandMeta{
+		CompanyID:     d1.CustomerID(),
+		UserID:        "u-confirm",
+		CorrelationID: "c-stage9",
+		CausationID:   "c-stage9",
+	}
+	if err := confirmUC.Execute(ctx, confirmMeta, d1.ID()); err != nil {
+		t.Fatalf("confirm deal: %v", err)
+	}
+
+	prepareUC, err := dealsapp.NewPrepareContract(dealsUOW)
+	if err != nil {
+		t.Fatalf("prepare uc: %v", err)
+	}
+	if err := prepareUC.Execute(ctx, confirmMeta, d1.ID(), "CNT-ST9", "https://contracts/st9.pdf"); err != nil {
+		t.Fatalf("prepare contract: %v", err)
+	}
+	signUC, err := dealsapp.NewSignContract(dealsUOW)
+	if err != nil {
+		t.Fatalf("sign uc: %v", err)
+	}
+	if err := signUC.Execute(ctx, confirmMeta, d1.ID(), "sig-st9"); err != nil {
+		t.Fatalf("sign contract: %v", err)
+	}
+	reqPayUC, err := dealsapp.NewRequestPayment(dealsUOW)
+	if err != nil {
+		t.Fatalf("request payment uc: %v", err)
+	}
+	if err := reqPayUC.Execute(ctx, confirmMeta, d1.ID(), "", nil); err != nil {
+		t.Fatalf("request payment: %v", err)
+	}
+
+	for i := 0; i < 20; i++ {
+		if err := relay.RunOnce(ctx, bus, 100); err != nil {
+			t.Fatalf("relay payment requested %d: %v", i, err)
+		}
+	}
+
+	var invID, status string
+	var goods, feeDue, total int64
+	err = db.QueryRowContext(ctx, `
+SELECT id, status, goods_amount, platform_fee_due_amount, total_amount
+FROM billing_deal_invoices WHERE deal_id = $1
+`, d1.ID()).Scan(&invID, &status, &goods, &feeDue, &total)
+	if err != nil {
+		t.Fatalf("load invoice: %v", err)
+	}
+	if status != "PAYMENT_PENDING" {
+		t.Fatalf("expected PAYMENT_PENDING, got %s", status)
+	}
+	if goods != 170 {
+		t.Fatalf("goods_amount: want 170 got %d", goods)
+	}
+	var held int64
+	if err := db.QueryRowContext(ctx, `
+SELECT amount FROM billing_auction_deposits WHERE auction_id = $1 AND company_id = $2
+`, auctionID, "st9-c").Scan(&held); err != nil {
+		t.Fatalf("winner deposit: %v", err)
+	}
+	feeFull := int64(170 * 3 / 100)
+	wantFee := feeFull - held
+	if wantFee < 0 {
+		wantFee = 0
+	}
+	if feeDue != wantFee {
+		t.Fatalf("platform_fee_due_amount: want %d got %d (held=%d, fee_full=%d)", wantFee, feeDue, held, feeFull)
+	}
+	if total != goods+feeDue {
+		t.Fatalf("total: want %d got %d", goods+feeDue, total)
+	}
+
+	var payURL string
+	if err := db.QueryRowContext(ctx, `SELECT payment_url FROM billing_deal_invoices WHERE id = $1`, invID).Scan(&payURL); err != nil {
+		t.Fatalf("payment_url: %v", err)
+	}
+	if payURL == "" || !strings.Contains(payURL, "/billing/invoices/") || !strings.Contains(payURL, "/fake-confirm") {
+		t.Fatalf("unexpected payment_url (want .../invoices/{id}/fake-confirm): %q", payURL)
+	}
+
+	if err := billingTx.WithinTx(ctx, func(txCtx context.Context) error {
+		return confirmDealInvUC.Execute(txCtx, invID)
+	}); err != nil {
+		t.Fatalf("confirm invoice: %v", err)
+	}
+
+	if err := db.QueryRowContext(ctx, `SELECT status FROM billing_deal_invoices WHERE id = $1`, invID).Scan(&status); err != nil {
+		t.Fatalf("reload invoice: %v", err)
+	}
+	if status != "PAID" {
+		t.Fatalf("expected PAID, got %s", status)
+	}
+
+	for _, b := range buyers {
+		var st string
+		if err := db.QueryRowContext(ctx, `
+SELECT status FROM billing_auction_deposits WHERE auction_id = $1 AND company_id = $2
+`, auctionID, b).Scan(&st); err != nil {
+			t.Fatalf("deposit %s: %v", b, err)
+		}
+		if st != "HELD" {
+			t.Fatalf("expected %s HELD after invoice paid, got %s", b, st)
+		}
+	}
+}
+
+// TestStage10FinalizePaymentAfterInvoicePaid_RealPG: after Stage-9 invoice confirm, relay processes
+// DealInvoicePaid → deal paid + WinnerSelectionFinalized; then settlement releases loser deposits and captures fee from winner HELD deposit; second relay is stable.
+func TestStage10FinalizePaymentAfterInvoicePaid_RealPG(t *testing.T) {
+	db, ok := openRealPostgres(t)
+	if !ok {
+		return
+	}
+	if err := applyMigrations(t, db); err != nil {
+		t.Fatalf("apply migrations: %v", err)
+	}
+	if err := truncateAll(t, db); err != nil {
+		t.Fatalf("truncate: %v", err)
+	}
+
+	catalogLotRepo := catalogpg.NewLotRepository(db)
+	catalogOutbox := catalogpg.NewOutboxRepository(db)
+	catalogTx := catalogpg.NewTransactionManager(db, nil)
+	catalogService := catalogapp.NewCatalogService(
+		nil, nil, nil, nil,
+		catalogLotRepo,
+		catalogOutbox,
+		nil,
+		catalogTx,
+	)
+
+	tradingUOW := tradingpg.NewUnitOfWork(db)
+	dealsUOW := dealspg.NewUnitOfWork(db)
+	dealProjectionRepo := dealspg.NewProjectionRepository(db)
+
+	relayRepo := outboxpg.NewRepository(db)
+	relay := outbox.NewRelay(relayRepo, integrationruntime.DefaultDecoders())
+
+	startsAt := time.Now().Add(-time.Hour)
+	endsAt := time.Now().Add(time.Hour)
+	auctionID := "auc-stage10-inv"
+	lotID := "lot-stage10-inv"
+
+	lot, _, err := catalog.NewLot(
+		lotID,
+		"prod-1",
+		"seller-1",
+		"photo",
+		10,
+		100,
+		10,
+		catalog.NewAuctionScheduleAt(startsAt, time.Hour),
+	)
+	if err != nil {
+		t.Fatalf("new lot error: %v", err)
+	}
+	if _, err := lot.AssignAuctionID(auctionID); err != nil {
+		t.Fatalf("assign auction error: %v", err)
+	}
+	lotEvents, err := lot.Publish(true, catalog.ProductSnapshot{
+		ProductID:      "prod-1",
+		Name:           "Fish",
+		Weight:         10,
+		Unit:           "kg",
+		Size:           "M",
+		ProcessingType: catalog.ProcessingType("frozen"),
+	})
+	if err != nil {
+		t.Fatalf("publish lot error: %v", err)
+	}
+	ctx := context.Background()
+	if err := catalogLotRepo.Save(ctx, lot); err != nil {
+		t.Fatalf("save lot error: %v", err)
+	}
+	if err := catalogOutbox.Add(ctx, lotEvents); err != nil {
+		t.Fatalf("outbox add error: %v", err)
+	}
+
+	createAuctionUC, err := tradingapp.NewCreateAuction(tradingUOW, fixedAuctionIDFactoryReal{auctionID: tradingapp.AuctionID(auctionID)})
+	if err != nil {
+		t.Fatalf("create auction constructor error: %v", err)
+	}
+	publishAuctionUC, err := tradingapp.NewPublishAuction(tradingUOW)
+	if err != nil {
+		t.Fatalf("publish auction constructor error: %v", err)
+	}
+	createProjectionUC := dealsapp.NewCreateProjection(dealProjectionRepo)
+	createSelectionUC, err := dealsapp.NewCreateDealSelectionFromAuctionWon(dealsUOW)
+	if err != nil {
+		t.Fatalf("selection constructor error: %v", err)
+	}
+
+	billingTx := billingpg.NewTransactionManager(db, nil)
+	bAccounts := billingpg.NewAccountRepository(db)
+	bLedger := billingpg.NewLedgerRepository(db)
+	bDeposits := billingpg.NewAuctionDepositRepository(db)
+	bEvents := billingpg.NewOutboxRepository(db)
+	dealInvRepo := billingpg.NewDealInvoiceRepository(db)
+	releaseExcept, err := billingapp.NewReleaseAuctionDepositsExceptCandidates(
+		bAccounts, bDeposits, bLedger, billingapp.RandomHexID{}, nil, bEvents,
+	)
+	if err != nil {
+		t.Fatalf("release except uc: %v", err)
+	}
+	createDealInvUC, err := billingapp.NewCreateDealInvoice(
+		dealInvRepo,
+		bDeposits,
+		fake.Provider{},
+		fake.ProviderName,
+		billingapp.RandomHexID{},
+		nil,
+		bEvents,
+		"http://localhost:8085",
+	)
+	if err != nil {
+		t.Fatalf("create deal invoice uc: %v", err)
+	}
+	confirmDealInvUC, err := billingapp.NewConfirmDealInvoicePaid(dealInvRepo, bEvents, nil)
+	if err != nil {
+		t.Fatalf("confirm deal invoice uc: %v", err)
+	}
+	settleWinnerUC, err := billingapp.NewSettleWinnerDepositAfterInvoicePaid(
+		bAccounts, bDeposits, bLedger, billingapp.RandomHexID{}, nil, bEvents,
+	)
+	if err != nil {
+		t.Fatalf("settle winner uc: %v", err)
+	}
+	handleDealInvPaidUC, err := dealsapp.NewHandleDealInvoicePaid(dealsUOW)
+	if err != nil {
+		t.Fatalf("handle deal invoice paid: %v", err)
+	}
+
+	bus := inmemory.NewBus()
+
+	bus.Subscribe("catalog.LotPublished", func(ctx context.Context, envelope events.Envelope) error {
+		evt := envelope.Payload.(catalog.LotPublished)
+		if _, err := createAuctionUC.Execute(ctx, tradingMeta(), evt.LotID, startsAt, endsAt, evt.StartPrice, evt.MinBidStep); err != nil {
+			return err
+		}
+		if err := publishAuctionUC.Execute(ctx, tradingMeta(), tradingapp.AuctionID(evt.AuctionID)); err != nil {
+			return err
+		}
+		return createProjectionUC.Execute(ctx, dealsMeta(), evt.AuctionID, evt.SellerCompanyID, deal.ProductSnapshot{Name: "Fish"}, evt.StartPrice, envelope.OccurredAt)
+	})
+
+	bus.Subscribe("trading.AuctionWon", func(ctx context.Context, envelope events.Envelope) error {
+		evt := envelope.Payload.(auction.AuctionWon)
+		if len(evt.WinnerCompanyID) == 0 {
+			return nil
+		}
+		if err := createSelectionUC.Execute(ctx, dealsMeta(), evt.AuctionID, evt.WinnerCompanyID, evt.FinalPrice, envelope.OccurredAt); err != nil {
+			return err
+		}
+		if err := catalogService.HandleAuctionWon(ctx, catalogapp.AuctionWonDTO{
+			AuctionID:       evt.AuctionID,
+			FinalPrice:      evt.FinalPrice,
+			WinnerCompanyID: evt.WinnerCompanyID[0],
+		}); err != nil {
+			return err
+		}
+		return billingTx.WithinTx(ctx, func(txCtx context.Context) error {
+			return releaseExcept.Execute(txCtx, evt.AuctionID, evt.WinnerCompanyID, "LOST_AUCTION")
+		})
+	})
+
+	bus.Subscribe("deals.PaymentRequested", func(ctx context.Context, envelope events.Envelope) error {
+		evt := envelope.Payload.(deal.PaymentRequested)
+		cur := wallet.Currency(evt.Currency)
+		if evt.Currency == "" {
+			cur = wallet.CurrencyRUB
+		}
+		var due time.Time
+		if evt.DueDate != nil {
+			due = *evt.DueDate
+		}
+		return billingTx.WithinTx(ctx, func(txCtx context.Context) error {
+			_, err := createDealInvUC.Execute(txCtx, billingapp.CreateDealInvoiceCommand{
+				DealID:          evt.DealID,
+				AuctionID:       evt.AuctionID,
+				BuyerCompanyID:  evt.BuyerCompanyID,
+				SellerCompanyID: evt.SellerCompanyID,
+				GoodsAmount:     evt.GoodsAmount,
+				Currency:        cur,
+				DueAt:           due,
+			})
+			return err
+		})
+	})
+
+	bus.Subscribe("billing.DealInvoicePaid", func(ctx context.Context, envelope events.Envelope) error {
+		evt := envelope.Payload.(wallet.DealInvoicePaid)
+		return handleDealInvPaidUC.Execute(ctx, evt)
+	})
+
+	bus.Subscribe("deals.WinnerSelectionFinalized", func(ctx context.Context, envelope events.Envelope) error {
+		evt := envelope.Payload.(deal.WinnerSelectionFinalized)
+		return billingTx.WithinTx(ctx, func(txCtx context.Context) error {
+			if err := settleWinnerUC.Execute(txCtx, evt.AuctionID, evt.CompanyID, evt.GoodsAmount, evt.PlatformFeeDueAmount, "WINNER_FINALIZED"); err != nil {
+				return err
+			}
+			return releaseExcept.Execute(txCtx, evt.AuctionID, []string{evt.CompanyID}, "WINNER_FINALIZED")
+		})
+	})
+
+	if err := relay.RunOnce(ctx, bus, 100); err != nil {
+		t.Fatalf("relay lot published error: %v", err)
+	}
+
+	buyers := []string{"st10-a", "st10-b", "st10-c"}
+	for _, b := range buyers {
+		bootstrapBuyerWalletReal(t, db, b, 500_000)
+	}
+	depositSvc := newBillingDepositService(t, db)
+	placeBidUC, err := tradingapp.NewPlaceBid(tradingUOW, depositSvc)
+	if err != nil {
+		t.Fatalf("place bid constructor error: %v", err)
+	}
+	closeAuctionUC, err := tradingapp.NewCloseAuction(tradingUOW)
+	if err != nil {
+		t.Fatalf("close auction constructor error: %v", err)
+	}
+
+	amounts := []int64{150, 160, 170}
+	for i, b := range buyers {
+		meta := tradingMetaWithCompany(b)
+		tBid := endsAt.Add(time.Duration(-40+10*i) * time.Minute)
+		if err := placeBidUC.Execute(ctx, meta, tradingapp.AuctionID(auctionID), amounts[i], tBid); err != nil {
+			t.Fatalf("place bid %s: %v", b, err)
+		}
+	}
+
+	if err := closeAuctionUC.Execute(ctx, tradingMeta(), tradingapp.AuctionID(auctionID)); err != nil {
+		t.Fatalf("close auction error: %v", err)
+	}
+
+	if err := relay.RunOnce(ctx, bus, 100); err != nil {
+		t.Fatalf("relay auction won error: %v", err)
+	}
+
+	selRepo := dealspg.NewSelectionRepository(db)
+	sel, err := selRepo.GetByAuctionID(ctx, auctionID)
+	if err != nil {
+		t.Fatalf("winner selection: %v", err)
+	}
+	dealRepo := dealspg.NewDealRepository(db)
+	d1, err := dealRepo.GetByID(ctx, sel.DealID)
+	if err != nil {
+		t.Fatalf("deal: %v", err)
+	}
+	if d1.CustomerID() != "st10-c" {
+		t.Fatalf("expected winner st10-c, got %s", d1.CustomerID())
+	}
+
+	confirmUC, err := dealsapp.NewConfirmDeal(dealsUOW)
+	if err != nil {
+		t.Fatalf("confirm uc: %v", err)
+	}
+	confirmMeta := dealsapp.CommandMeta{
+		CompanyID:     d1.CustomerID(),
+		UserID:        "u-confirm",
+		CorrelationID: "c-stage10",
+		CausationID:   "c-stage10",
+	}
+	if err := confirmUC.Execute(ctx, confirmMeta, d1.ID()); err != nil {
+		t.Fatalf("confirm deal: %v", err)
+	}
+
+	prepareUC, err := dealsapp.NewPrepareContract(dealsUOW)
+	if err != nil {
+		t.Fatalf("prepare uc: %v", err)
+	}
+	if err := prepareUC.Execute(ctx, confirmMeta, d1.ID(), "CNT-ST10", "https://contracts/st10.pdf"); err != nil {
+		t.Fatalf("prepare contract: %v", err)
+	}
+	signUC, err := dealsapp.NewSignContract(dealsUOW)
+	if err != nil {
+		t.Fatalf("sign uc: %v", err)
+	}
+	if err := signUC.Execute(ctx, confirmMeta, d1.ID(), "sig-st10"); err != nil {
+		t.Fatalf("sign contract: %v", err)
+	}
+	reqPayUC, err := dealsapp.NewRequestPayment(dealsUOW)
+	if err != nil {
+		t.Fatalf("request payment uc: %v", err)
+	}
+	if err := reqPayUC.Execute(ctx, confirmMeta, d1.ID(), "", nil); err != nil {
+		t.Fatalf("request payment: %v", err)
+	}
+
+	for i := 0; i < 20; i++ {
+		if err := relay.RunOnce(ctx, bus, 100); err != nil {
+			t.Fatalf("relay payment requested %d: %v", i, err)
+		}
+	}
+
+	var invID string
+	if err := db.QueryRowContext(ctx, `SELECT id FROM billing_deal_invoices WHERE deal_id = $1`, d1.ID()).Scan(&invID); err != nil {
+		t.Fatalf("load invoice: %v", err)
+	}
+
+	if err := billingTx.WithinTx(ctx, func(txCtx context.Context) error {
+		return confirmDealInvUC.Execute(txCtx, invID)
+	}); err != nil {
+		t.Fatalf("confirm invoice: %v", err)
+	}
+
+	for i := 0; i < 30; i++ {
+		if err := relay.RunOnce(ctx, bus, 100); err != nil {
+			t.Fatalf("relay stage10 finalize %d: %v", i, err)
+		}
+	}
+
+	d1, err = dealRepo.GetByID(ctx, sel.DealID)
+	if err != nil {
+		t.Fatalf("reload deal: %v", err)
+	}
+	if d1.Status() != deal.DealStatusPaid {
+		t.Fatalf("deal status: want paid got %s", d1.Status())
+	}
+	sel, err = selRepo.GetByAuctionID(ctx, auctionID)
+	if err != nil {
+		t.Fatalf("reload selection: %v", err)
+	}
+	if sel.Status != deal.WinnerSelectionStatusFinalized {
+		t.Fatalf("selection: want finalized got %s", sel.Status)
+	}
+
+	var wStatus string
+	if err := db.QueryRowContext(ctx, `
+SELECT status FROM billing_auction_deposits WHERE auction_id = $1 AND company_id = 'st10-c'
+`, auctionID).Scan(&wStatus); err != nil {
+		t.Fatalf("winner deposit: %v", err)
+	}
+	if wStatus != "CAPTURED" {
+		t.Fatalf("winner deposit: want CAPTURED got %s", wStatus)
+	}
+	for _, b := range []string{"st10-a", "st10-b"} {
+		var st string
+		if err := db.QueryRowContext(ctx, `
+SELECT status FROM billing_auction_deposits WHERE auction_id = $1 AND company_id = $2
+`, auctionID, b).Scan(&st); err != nil {
+			t.Fatalf("deposit %s: %v", b, err)
+		}
+		if st != "RELEASED" {
+			t.Fatalf("loser %s: want RELEASED got %s", b, st)
+		}
+	}
+
+	var ledgerRows int
+	if err := db.QueryRowContext(ctx, `
+SELECT count(*) FROM billing_ledger_entries
+WHERE company_id = 'st10-c' AND type = $1
+`, string(wallet.LedgerPlatformFeeCaptured)).Scan(&ledgerRows); err != nil {
+		t.Fatalf("count fee ledger: %v", err)
+	}
+	if ledgerRows != 1 {
+		t.Fatalf("winner PLATFORM_FEE_CAPTURED rows: want 1 got %d", ledgerRows)
+	}
+
+	var ledgerRowsAfterReplay int
+	for i := 0; i < 15; i++ {
+		if err := relay.RunOnce(ctx, bus, 100); err != nil {
+			t.Fatalf("replay relay %d: %v", i, err)
+		}
+	}
+	if err := db.QueryRowContext(ctx, `
+SELECT count(*) FROM billing_ledger_entries
+WHERE company_id = 'st10-c' AND type = $1
+`, string(wallet.LedgerPlatformFeeCaptured)).Scan(&ledgerRowsAfterReplay); err != nil {
+		t.Fatalf("count fee ledger replay: %v", err)
+	}
+	if ledgerRowsAfterReplay != ledgerRows {
+		t.Fatalf("fee ledger changed after replay: was %d now %d", ledgerRows, ledgerRowsAfterReplay)
+	}
+}
+
 type fixedAuctionIDFactoryReal struct {
 	auctionID tradingapp.AuctionID
 }
@@ -1050,6 +1752,7 @@ func openRealPostgres(t *testing.T) (*sql.DB, bool) {
 		return nil, false
 	}
 	t.Cleanup(func() { _ = db.Close() })
+	integrationtest.AcquireSharedPostgresAdvisoryLock(t, db)
 	return db, true
 }
 
@@ -1095,6 +1798,7 @@ TRUNCATE TABLE
     billing_processed_top_ups,
     billing_ledger_entries,
     billing_auction_deposits,
+    billing_deal_invoices,
     billing_top_ups,
     billing_accounts,
     trading_auction_winners,

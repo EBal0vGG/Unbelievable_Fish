@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"sort"
+	"strings"
 	"testing"
 	"time"
 
@@ -17,6 +18,19 @@ func (stubFakeProvider) CreateTopUp(ctx context.Context, req CreateTopUpRequest)
 	return CreateTopUpResponse{
 		ProviderPaymentID: "fake-pay-" + req.TopUpID,
 		ConfirmationURL:   "/billing/top-ups/" + req.TopUpID + "/fake-confirm",
+	}, nil
+}
+
+func (stubFakeProvider) CreateDealInvoice(ctx context.Context, req CreateDealInvoiceRequest) (CreateDealInvoiceResponse, error) {
+	_ = ctx
+	rel := "/billing/invoices/" + req.InvoiceID + "/fake-confirm"
+	paymentURL := rel
+	if b := strings.TrimRight(req.ReturnURL, "/"); b != "" {
+		paymentURL = b + rel
+	}
+	return CreateDealInvoiceResponse{
+		ProviderInvoiceID: "fake-inv-" + req.InvoiceID,
+		PaymentURL:        paymentURL,
 	}, nil
 }
 

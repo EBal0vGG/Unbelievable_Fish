@@ -2,6 +2,7 @@ package fake
 
 import (
 	"context"
+	"strings"
 
 	billingapp "github.com/EBal0vGG/Unbelievable_Fish/internal/billing/app"
 )
@@ -18,5 +19,19 @@ func (Provider) CreateTopUp(ctx context.Context, req billingapp.CreateTopUpReque
 	return billingapp.CreateTopUpResponse{
 		ProviderPaymentID: pid,
 		ConfirmationURL:   confirmationURL,
+	}, nil
+}
+
+func (Provider) CreateDealInvoice(ctx context.Context, req billingapp.CreateDealInvoiceRequest) (billingapp.CreateDealInvoiceResponse, error) {
+	_ = ctx
+	pid := "fake-inv-" + req.InvoiceID
+	rel := "/billing/invoices/" + req.InvoiceID + "/fake-confirm"
+	paymentURL := rel
+	if b := strings.TrimRight(req.ReturnURL, "/"); b != "" {
+		paymentURL = b + rel
+	}
+	return billingapp.CreateDealInvoiceResponse{
+		ProviderInvoiceID: pid,
+		PaymentURL:        paymentURL,
 	}, nil
 }

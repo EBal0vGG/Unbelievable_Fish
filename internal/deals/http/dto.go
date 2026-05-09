@@ -44,7 +44,7 @@ type SignContractRequest struct {
 }
 
 type RequestPaymentRequest struct {
-	InvoiceNumber string     `json:"invoice_number"`
+	InvoiceNumber string     `json:"invoice_number,omitempty"`
 	DueDate       *time.Time `json:"due_date,omitempty"`
 }
 

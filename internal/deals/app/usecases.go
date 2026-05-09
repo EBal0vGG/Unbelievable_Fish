@@ -298,7 +298,6 @@ func (uc *HandleDealDeclined) Execute(ctx context.Context, meta CommandMeta, auc
 
 		now := time.Now().UTC()
 		if !selection.Advance() {
-			selection.DealID = ""
 			if err := tx.Selections().Save(ctx, selection); err != nil {
 				return err
 			}
@@ -318,7 +317,6 @@ func (uc *HandleDealDeclined) Execute(ctx context.Context, meta CommandMeta, auc
 		next, ok := selection.CurrentCandidate()
 		if !ok {
 			selection.MarkExhausted()
-			selection.DealID = ""
 			if err := tx.Selections().Save(ctx, selection); err != nil {
 				return err
 			}
@@ -539,9 +537,6 @@ func (uc *RequestPayment) Execute(
 	dueDate *time.Time,
 ) error {
 	_ = meta
-	if invoiceNumber == "" {
-		return ErrInvoiceNumberRequired
-	}
 	return executeDealMutation(ctx, uc.uow, dealID, func(item *deal.Deal) ([]deal.Event, error) {
 		return item.RequestPayment(invoiceNumber, dueDate)
 	})

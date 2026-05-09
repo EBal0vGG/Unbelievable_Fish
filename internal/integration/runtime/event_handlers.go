@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"time"
 
 	billingapp "github.com/EBal0vGG/Unbelievable_Fish/internal/billing/app"
+	"github.com/EBal0vGG/Unbelievable_Fish/internal/billing/wallet"
 	catalogapp "github.com/EBal0vGG/Unbelievable_Fish/internal/catalog/app"
 	catalog "github.com/EBal0vGG/Unbelievable_Fish/internal/catalog/domain"
 	dealsapp "github.com/EBal0vGG/Unbelievable_Fish/internal/deals/app"
@@ -295,4 +297,94 @@ func registerIntegrationHandlers(
 		ccH := newCompanyCreatedHandler(deps, createAccount)
 		bus.Subscribe("identity.CompanyCreated", ccH.Execute)
 	}
+	if deps.CreateDealInvoice != nil && deps.BillingTx != nil {
+		prH := newPaymentRequestedHandler(deps)
+		bus.Subscribe("deals.PaymentRequested", prH.Execute)
+	}
+	if deps.HandleDealInvoicePaid != nil {
+		dipH := newDealInvoicePaidHandler(deps)
+		bus.Subscribe("billing.DealInvoicePaid", dipH.Execute)
+	}
+	if deps.SettleWinnerDepositAfterInvoicePaid != nil && deps.ReleaseAuctionDepositsExceptCandidates != nil && deps.BillingTx != nil {
+		wsfH := newWinnerSelectionFinalizedHandler(deps)
+		bus.Subscribe("deals.WinnerSelectionFinalized", wsfH.Execute)
+	}
+}
+
+type paymentRequestedHandler struct {
+	deps Dependencies
+}
+
+func newPaymentRequestedHandler(deps Dependencies) *paymentRequestedHandler {
+	return &paymentRequestedHandler{deps: deps}
+}
+
+func (h *paymentRequestedHandler) Execute(ctx context.Context, envelope events.Envelope) error {
+	evt, ok := envelope.Payload.(deal.PaymentRequested)
+	if !ok {
+		return errors.New("unexpected payload for PaymentRequested")
+	}
+	cur := wallet.Currency(evt.Currency)
+	if evt.Currency == "" {
+		cur = wallet.CurrencyRUB
+	}
+	var due time.Time
+	if evt.DueDate != nil {
+		due = *evt.DueDate
+	}
+	return h.deps.BillingTx.WithinTx(ctx, func(txCtx context.Context) error {
+		_, err := h.deps.CreateDealInvoice.Execute(txCtx, billingapp.CreateDealInvoiceCommand{
+			DealID:          evt.DealID,
+			AuctionID:       evt.AuctionID,
+			BuyerCompanyID:  evt.BuyerCompanyID,
+			SellerCompanyID: evt.SellerCompanyID,
+			GoodsAmount:     evt.GoodsAmount,
+			Currency:        cur,
+			DueAt:           due,
+		})
+		return err
+	})
+}
+
+type dealInvoicePaidHandler struct {
+	deps Dependencies
+}
+
+func newDealInvoicePaidHandler(deps Dependencies) *dealInvoicePaidHandler {
+	return &dealInvoicePaidHandler{deps: deps}
+}
+
+func (h *dealInvoicePaidHandler) Execute(ctx context.Context, envelope events.Envelope) error {
+	evt, ok := envelope.Payload.(wallet.DealInvoicePaid)
+	if !ok {
+		return errors.New("unexpected payload for DealInvoicePaid")
+	}
+	if h.deps.HandleDealInvoicePaid == nil {
+		return errors.New("HandleDealInvoicePaid is not configured")
+	}
+	return h.deps.HandleDealInvoicePaid.Execute(ctx, evt)
+}
+
+type winnerSelectionFinalizedHandler struct {
+	deps Dependencies
+}
+
+func newWinnerSelectionFinalizedHandler(deps Dependencies) *winnerSelectionFinalizedHandler {
+	return &winnerSelectionFinalizedHandler{deps: deps}
+}
+
+func (h *winnerSelectionFinalizedHandler) Execute(ctx context.Context, envelope events.Envelope) error {
+	evt, ok := envelope.Payload.(deal.WinnerSelectionFinalized)
+	if !ok {
+		return errors.New("unexpected payload for WinnerSelectionFinalized")
+	}
+	if h.deps.BillingTx == nil || h.deps.SettleWinnerDepositAfterInvoicePaid == nil || h.deps.ReleaseAuctionDepositsExceptCandidates == nil {
+		return errors.New("billing settlement dependencies are not configured")
+	}
+	return h.deps.BillingTx.WithinTx(ctx, func(txCtx context.Context) error {
+		if err := h.deps.SettleWinnerDepositAfterInvoicePaid.Execute(txCtx, evt.AuctionID, evt.CompanyID, evt.GoodsAmount, evt.PlatformFeeDueAmount, "WINNER_FINALIZED"); err != nil {
+			return err
+		}
+		return h.deps.ReleaseAuctionDepositsExceptCandidates.Execute(txCtx, evt.AuctionID, []string{evt.CompanyID}, "WINNER_FINALIZED")
+	})
 }

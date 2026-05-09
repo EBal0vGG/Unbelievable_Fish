@@ -9,4 +9,5 @@ var (
 	ErrAccountNotFound             = errors.New("billing account not found")
 	ErrTopUpNotFound               = errors.New("billing top-up not found")
 	ErrTopUpAmountMismatch         = errors.New("top-up amount or currency does not match payment details")
+	ErrDealInvoiceNotFound         = errors.New("billing deal invoice not found")
 )

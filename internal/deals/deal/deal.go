@@ -146,7 +146,8 @@ func (d *Deal) IsParticipant(companyID string) bool {
 
 // Бизнес-методы
 
-// CalculateTotal - вычисляет общую сумму сделки
+// CalculateTotal - вычисляет общую сумму сделки (quantity * unitPrice).
+// Для аукционных сделок quantity=1 и unitPrice=финальная цена лота — итог = цена лота.
 func (d *Deal) CalculateTotal() int64 {
 	return d.quantity * d.unitPrice
 }
@@ -260,13 +261,19 @@ func (d *Deal) RequestPayment(invoiceNumber string, dueDate *time.Time) ([]Event
 
 	d.status = DealStatusPaymentRequested
 
+	now := time.Now()
+	goods := d.CalculateTotal()
 	events := []Event{
 		PaymentRequested{
-			DealID:        d.id,
-			TotalAmount:   d.CalculateTotal(),
-			InvoiceNumber: invoiceNumber,
-			DueDate:       dueDate,
-			RequestedAt:   time.Now(),
+			DealID:          d.id,
+			AuctionID:       d.auctionID,
+			BuyerCompanyID:  d.customerID,
+			SellerCompanyID: d.supplierID,
+			Currency:        "RUB",
+			GoodsAmount:     goods,
+			InvoiceNumber:   invoiceNumber,
+			DueDate:         dueDate,
+			RequestedAt:     now,
 		},
 	}
 

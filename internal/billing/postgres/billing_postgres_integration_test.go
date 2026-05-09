@@ -13,9 +13,10 @@ import (
 	"time"
 
 	billingapp "github.com/EBal0vGG/Unbelievable_Fish/internal/billing/app"
-	"github.com/EBal0vGG/Unbelievable_Fish/internal/infra/dbconfig"
 	"github.com/EBal0vGG/Unbelievable_Fish/internal/billing/payment/fake"
 	"github.com/EBal0vGG/Unbelievable_Fish/internal/billing/wallet"
+	"github.com/EBal0vGG/Unbelievable_Fish/internal/infra/dbconfig"
+	"github.com/EBal0vGG/Unbelievable_Fish/internal/infra/integrationtest"
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
 
@@ -368,6 +369,7 @@ func openRealPostgres(t *testing.T) (*sql.DB, bool) {
 		return nil, false
 	}
 	t.Cleanup(func() { _ = db.Close() })
+	integrationtest.AcquireSharedPostgresAdvisoryLock(t, db)
 	return db, true
 }
 
@@ -413,6 +415,7 @@ TRUNCATE TABLE
     billing_processed_top_ups,
     billing_ledger_entries,
     billing_auction_deposits,
+    billing_deal_invoices,
     billing_top_ups,
     billing_accounts
 `)

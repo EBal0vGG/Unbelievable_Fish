@@ -41,6 +41,17 @@ type ProcessedTopUpRepository interface {
 	InsertIfNew(ctx context.Context, externalPaymentID, companyID, accountID string, amount int64) (inserted bool, err error)
 }
 
+// DealInvoiceRepository persists full-payment invoices for deals (Stage 9+).
+type DealInvoiceRepository interface {
+	Create(ctx context.Context, inv *wallet.DealInvoice) error
+	Save(ctx context.Context, inv *wallet.DealInvoice) error
+	LoadByDealID(ctx context.Context, dealID string) (*wallet.DealInvoice, error)
+	LoadByDealIDForUpdate(ctx context.Context, dealID string) (*wallet.DealInvoice, error)
+	LoadByID(ctx context.Context, id string) (*wallet.DealInvoice, error)
+	LoadByIDForUpdate(ctx context.Context, id string) (*wallet.DealInvoice, error)
+	ListByBuyerCompany(ctx context.Context, buyerCompanyID string, limit int) ([]*wallet.DealInvoice, error)
+}
+
 type TopUpRepository interface {
 	Create(ctx context.Context, topUp *wallet.TopUp) error
 	Save(ctx context.Context, topUp *wallet.TopUp) error

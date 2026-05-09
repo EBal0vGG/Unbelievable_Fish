@@ -7,9 +7,11 @@ import (
 	"time"
 
 	billingapp "github.com/EBal0vGG/Unbelievable_Fish/internal/billing/app"
+	"github.com/EBal0vGG/Unbelievable_Fish/internal/billing/payment/fake"
 	billingpg "github.com/EBal0vGG/Unbelievable_Fish/internal/billing/postgres"
 	catalogapp "github.com/EBal0vGG/Unbelievable_Fish/internal/catalog/app"
 	catalogpg "github.com/EBal0vGG/Unbelievable_Fish/internal/catalog/postgres"
+	dealsapp "github.com/EBal0vGG/Unbelievable_Fish/internal/deals/app"
 	dealspg "github.com/EBal0vGG/Unbelievable_Fish/internal/deals/postgres"
 	"github.com/EBal0vGG/Unbelievable_Fish/internal/infra/dbconfig"
 	"github.com/EBal0vGG/Unbelievable_Fish/internal/infra/logging"
@@ -90,6 +92,41 @@ func main() {
 		logging.Fatal(logger, "billing_capture_deposit_init_failed", "error", err)
 	}
 
+	auctionDeposits := billingpg.NewAuctionDepositRepository(db)
+	dealInvoiceRepo := billingpg.NewDealInvoiceRepository(db)
+	billingPublicBase := dbconfig.EnvOrDefault("BILLING_PUBLIC_BASE_URL", "http://localhost:8085")
+	createDealInvoice, err := billingapp.NewCreateDealInvoice(
+		dealInvoiceRepo,
+		auctionDeposits,
+		fake.Provider{},
+		fake.ProviderName,
+		billingapp.RandomHexID{},
+		nil,
+		billingOutbox,
+		billingPublicBase,
+	)
+	if err != nil {
+		logging.Fatal(logger, "billing_create_deal_invoice_init_failed", "error", err)
+	}
+
+	billingLedger := billingpg.NewLedgerRepository(db)
+	settleWinnerDeposit, err := billingapp.NewSettleWinnerDepositAfterInvoicePaid(
+		billingAccounts,
+		auctionDeposits,
+		billingLedger,
+		billingapp.RandomHexID{},
+		nil,
+		billingOutbox,
+	)
+	if err != nil {
+		logging.Fatal(logger, "billing_settle_winner_deposit_init_failed", "error", err)
+	}
+
+	handleDealInvoicePaid, err := dealsapp.NewHandleDealInvoicePaid(dealsUOW)
+	if err != nil {
+		logging.Fatal(logger, "deals_handle_deal_invoice_paid_init_failed", "error", err)
+	}
+
 	runtime, err := integration.New(db, integration.Dependencies{
 		Catalog:        catalogService,
 		TradingUOW:     tradingUOW,
@@ -101,6 +138,9 @@ func main() {
 		CreateAccount:  createBillingAccount,
 		ReleaseAuctionDepositsExceptCandidates: releaseExcept,
 		CaptureAuctionDeposit:                  captureDeposit,
+		CreateDealInvoice:                      createDealInvoice,
+		HandleDealInvoicePaid:                  handleDealInvoicePaid,
+		SettleWinnerDepositAfterInvoicePaid:    settleWinnerDeposit,
 	})
 	if err != nil {
 		logging.Fatal(logger, "integration_runtime_init_failed", "error", err)
