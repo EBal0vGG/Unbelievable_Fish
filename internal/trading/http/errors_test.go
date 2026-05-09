@@ -42,6 +42,13 @@ func TestMapErrorContract(t *testing.T) {
 		assertHTTPError(t, got, 400, "INVALID_BID", "invalid bid")
 	})
 
+	t.Run("insufficient funds for deposit", func(t *testing.T) {
+		logTest(t)
+		got := MapError(app.ErrInsufficientFundsForDeposit)
+		logf(t, "mapped=%+v", got)
+		assertHTTPError(t, got, http.StatusConflict, "INSUFFICIENT_FUNDS_FOR_DEPOSIT", "insufficient funds for auction deposit; top up your balance")
+	})
+
 	t.Run("default", func(t *testing.T) {
 		logTest(t)
 		got := MapError(errors.New("boom"))

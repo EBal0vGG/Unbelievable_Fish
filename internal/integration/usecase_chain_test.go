@@ -98,7 +98,7 @@ func TestUseCaseChainHappyPathAndWinnerFallback(t *testing.T) {
 			t.Fatalf("publish LotPublished error: %v", err)
 		}
 
-		ucPlaceBid, _ := tradingapp.NewPlaceBid(tradingUOW)
+		ucPlaceBid, _ := tradingapp.NewPlaceBid(tradingUOW, tradingapp.NoopDepositService{})
 		if err := ucPlaceBid.Execute(context.Background(), tradingMeta(), tradingapp.AuctionID(auctionID), 120, endsAt.Add(-time.Minute)); err != nil {
 			t.Fatalf("place bid error: %v", err)
 		}

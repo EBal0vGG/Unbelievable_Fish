@@ -109,7 +109,7 @@ func TestCommandFlowSmoke(t *testing.T) {
 	winners := &spyWinners{}
 	uow := &spyUOW{tx: &spyTx{repo: repo, bids: bidRepo, outbox: outbox, winners: winners}}
 
-	placeBidUC, err := app.NewPlaceBid(uow)
+	placeBidUC, err := app.NewPlaceBid(uow, app.NoopDepositService{})
 	if err != nil {
 		t.Fatalf("unexpected constructor error: %v", err)
 	}

@@ -93,15 +93,20 @@ func (uc *PublishAuction) Execute(ctx context.Context, meta CommandMeta, id Auct
 }
 
 type PlaceBid struct {
-	uow UnitOfWork
+	uow      UnitOfWork
+	deposits DepositService
 }
 
-func NewPlaceBid(uow UnitOfWork) (*PlaceBid, error) {
+func NewPlaceBid(uow UnitOfWork, deposits DepositService) (*PlaceBid, error) {
 	if uow == nil {
 		return nil, ErrNilUnitOfWork
 	}
+	if deposits == nil {
+		return nil, ErrNilDepositService
+	}
 	return &PlaceBid{
-		uow: uow,
+		uow:      uow,
+		deposits: deposits,
 	}, nil
 }
 
@@ -123,6 +128,9 @@ func (uc *PlaceBid) Execute(
 		}
 		events, err := a.PlaceBid(bid)
 		if err != nil {
+			return err
+		}
+		if err := uc.deposits.ReserveAuctionDeposit(ctx, meta.CompanyID, string(id), a.StartPrice()); err != nil {
 			return err
 		}
 		if err := tx.Bids().Save(ctx, id, bid); err != nil {

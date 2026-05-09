@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"errors"
+	"sort"
 	"testing"
 	"time"
 
@@ -77,7 +78,23 @@ func (m *memDepositRepo) Save(ctx context.Context, deposit *wallet.AuctionDeposi
 }
 
 func (m *memDepositRepo) ListByAuction(ctx context.Context, auctionID string) ([]*wallet.AuctionDeposit, error) {
-	return nil, nil
+	_ = ctx
+	var companyIDs []string
+	for k, d := range m.deposits {
+		if d.AuctionID != auctionID {
+			continue
+		}
+		if depKey(auctionID, d.CompanyID) != k {
+			continue
+		}
+		companyIDs = append(companyIDs, d.CompanyID)
+	}
+	sort.Strings(companyIDs)
+	out := make([]*wallet.AuctionDeposit, 0, len(companyIDs))
+	for _, cid := range companyIDs {
+		out = append(out, m.deposits[depKey(auctionID, cid)])
+	}
+	return out, nil
 }
 
 func (m *memDepositRepo) ListByCompany(ctx context.Context, companyID string, limit int) ([]*wallet.AuctionDeposit, error) {
@@ -508,6 +525,157 @@ func TestReleaseAfterCaptureAndCaptureAfterRelease(t *testing.T) {
 	}
 	if err := capUC2.Execute(context.Background(), "c2", "auc2", "capture"); err != ErrDepositNotHeld {
 		t.Fatalf("expected ErrDepositNotHeld, got %v", err)
+	}
+}
+
+func TestReleaseAuctionDepositsExceptCandidates_ReleasesNonCandidates(t *testing.T) {
+	clk := fixedClock{t: time.Date(2026, 1, 10, 12, 0, 0, 0, time.UTC)}
+	ctx := context.Background()
+	auctionID := "auc-top3"
+
+	ar := &memAccountRepo{accounts: map[string]*wallet.Account{}}
+	for _, cid := range []string{"c1", "c2", "c3", "c4"} {
+		acc, _ := wallet.NewAccount("acc-"+cid, cid, wallet.CurrencyRUB)
+		_ = acc.Deposit(100_000)
+		_ = acc.Reserve(5_000)
+		ar.accounts[cid] = acc
+	}
+
+	dr := &memDepositRepo{deposits: map[string]*wallet.AuctionDeposit{}}
+	for _, cid := range []string{"c1", "c2", "c3", "c4"} {
+		dep, _ := wallet.NewAuctionDeposit(auctionID, cid, "acc-"+cid, 5_000, wallet.CurrencyRUB, clk.t)
+		_ = dr.Create(ctx, dep)
+	}
+	lr := &memLedgerRepo{}
+	uc, err := NewReleaseAuctionDepositsExceptCandidates(ar, dr, lr, RandomHexID{}, clk, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := uc.Execute(ctx, auctionID, []string{"c1", "c2", "c3"}, "LOST_AUCTION"); err != nil {
+		t.Fatal(err)
+	}
+	for _, cid := range []string{"c1", "c2", "c3"} {
+		d, _ := dr.Find(ctx, auctionID, cid)
+		if d == nil || d.Status != wallet.DepositHeld {
+			t.Fatalf("candidate %s: want HELD, got %+v", cid, d)
+		}
+	}
+	d4, _ := dr.Find(ctx, auctionID, "c4")
+	if d4 == nil || d4.Status != wallet.DepositReleased {
+		t.Fatalf("loser c4: want RELEASED, got %+v", d4)
+	}
+	if ar.accounts["c4"].Held() != 0 || ar.accounts["c4"].Available() != 100_000 {
+		t.Fatalf("c4 balance avail=%d held=%d", ar.accounts["c4"].Available(), ar.accounts["c4"].Held())
+	}
+	var releaseCount int
+	for _, e := range lr.entries {
+		if e.EntryType == wallet.LedgerBidDepositReleased && e.CompanyID == "c4" {
+			releaseCount++
+		}
+	}
+	if releaseCount != 1 {
+		t.Fatalf("expected one BID_DEPOSIT_RELEASED for c4, got %d entries total %d", releaseCount, len(lr.entries))
+	}
+}
+
+func TestReleaseAuctionDepositsExceptCandidates_Idempotent(t *testing.T) {
+	clk := fixedClock{t: time.Date(2026, 1, 11, 12, 0, 0, 0, time.UTC)}
+	ctx := context.Background()
+	auctionID := "auc-idem"
+
+	ar := &memAccountRepo{accounts: map[string]*wallet.Account{}}
+	for _, cid := range []string{"c1", "c2"} {
+		acc, _ := wallet.NewAccount("a"+cid, cid, wallet.CurrencyRUB)
+		_ = acc.Deposit(50_000)
+		_ = acc.Reserve(3_000)
+		ar.accounts[cid] = acc
+	}
+	dr := &memDepositRepo{deposits: map[string]*wallet.AuctionDeposit{}}
+	for _, cid := range []string{"c1", "c2"} {
+		dep, _ := wallet.NewAuctionDeposit(auctionID, cid, "a"+cid, 3_000, wallet.CurrencyRUB, clk.t)
+		_ = dr.Create(ctx, dep)
+	}
+	lr := &memLedgerRepo{}
+	uc, _ := NewReleaseAuctionDepositsExceptCandidates(ar, dr, lr, RandomHexID{}, clk, nil)
+	candidates := []string{"c1"}
+	for range 2 {
+		if err := uc.Execute(ctx, auctionID, candidates, "LOST_AUCTION"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if ar.accounts["c2"].Held() != 0 {
+		t.Fatalf("c2 held=%d", ar.accounts["c2"].Held())
+	}
+	n := 0
+	for _, e := range lr.entries {
+		if e.CompanyID == "c2" && e.EntryType == wallet.LedgerBidDepositReleased {
+			n++
+		}
+	}
+	if n != 1 {
+		t.Fatalf("ledger releases for c2: %d", n)
+	}
+}
+
+func TestReleaseAuctionDepositsExceptCandidates_SkipsNonHeld(t *testing.T) {
+	clk := fixedClock{t: time.Date(2026, 1, 12, 12, 0, 0, 0, time.UTC)}
+	ctx := context.Background()
+	auctionID := "auc-skip"
+
+	ar := &memAccountRepo{accounts: map[string]*wallet.Account{}}
+	acc1, _ := wallet.NewAccount("a1", "c1", wallet.CurrencyRUB)
+	_ = acc1.Deposit(50_000)
+	_ = acc1.Reserve(2_000)
+	ar.accounts["c1"] = acc1
+	acc2, _ := wallet.NewAccount("a2", "c2", wallet.CurrencyRUB)
+	_ = acc2.Deposit(50_000)
+	ar.accounts["c2"] = acc2
+
+	depReleased, _ := wallet.NewAuctionDeposit(auctionID, "c1", "a1", 2_000, wallet.CurrencyRUB, clk.t)
+	depReleased.MarkReleased(clk.t)
+	depCap, _ := wallet.NewAuctionDeposit(auctionID, "c2", "a2", 2_000, wallet.CurrencyRUB, clk.t)
+	depCap.MarkCaptured(clk.t)
+
+	dr := &memDepositRepo{deposits: map[string]*wallet.AuctionDeposit{
+		depKey(auctionID, "c1"): depReleased,
+		depKey(auctionID, "c2"): depCap,
+	}}
+	lr := &memLedgerRepo{}
+	uc, _ := NewReleaseAuctionDepositsExceptCandidates(ar, dr, lr, RandomHexID{}, clk, nil)
+	if err := uc.Execute(ctx, auctionID, []string{"cx"}, "LOST_AUCTION"); err != nil {
+		t.Fatal(err)
+	}
+	if len(lr.entries) != 0 {
+		t.Fatalf("expected no ledger writes, got %d", len(lr.entries))
+	}
+}
+
+func TestReleaseAuctionDepositsExceptCandidates_CandidateWithoutDeposit_OthersReleased(t *testing.T) {
+	clk := fixedClock{t: time.Date(2026, 1, 13, 12, 0, 0, 0, time.UTC)}
+	ctx := context.Background()
+	auctionID := "auc-miss"
+
+	ar := &memAccountRepo{accounts: map[string]*wallet.Account{}}
+	for _, cid := range []string{"c1", "c3", "c4"} {
+		acc, _ := wallet.NewAccount("a"+cid, cid, wallet.CurrencyRUB)
+		_ = acc.Deposit(80_000)
+		_ = acc.Reserve(4_000)
+		ar.accounts[cid] = acc
+	}
+	dr := &memDepositRepo{deposits: map[string]*wallet.AuctionDeposit{}}
+	for _, cid := range []string{"c1", "c3", "c4"} {
+		dep, _ := wallet.NewAuctionDeposit(auctionID, cid, "a"+cid, 4_000, wallet.CurrencyRUB, clk.t)
+		_ = dr.Create(ctx, dep)
+	}
+	lr := &memLedgerRepo{}
+	uc, _ := NewReleaseAuctionDepositsExceptCandidates(ar, dr, lr, RandomHexID{}, clk, nil)
+	// c2 is candidate but has no deposit row
+	if err := uc.Execute(ctx, auctionID, []string{"c1", "c2", "c3"}, "LOST_AUCTION"); err != nil {
+		t.Fatal(err)
+	}
+	d4, _ := dr.Find(ctx, auctionID, "c4")
+	if d4 == nil || d4.Status != wallet.DepositReleased {
+		t.Fatalf("c4 should be released, got %+v", d4)
 	}
 }
 

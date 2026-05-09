@@ -137,7 +137,7 @@ func TestPostgresOutboxBusChains(t *testing.T) {
 		t.Fatalf("relay lot published error: %v", err)
 	}
 
-	placeBidUC, err := tradingapp.NewPlaceBid(tradingUOW)
+	placeBidUC, err := tradingapp.NewPlaceBid(tradingUOW, tradingapp.NoopDepositService{})
 	if err != nil {
 		t.Fatalf("place bid constructor error: %v", err)
 	}

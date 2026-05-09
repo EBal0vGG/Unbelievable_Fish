@@ -43,13 +43,25 @@ func main() {
 	auctionLister := tradingpg.NewAuctionLister(db)
 
 	billingAccounts := billingpg.NewAccountRepository(db)
+	billingOutbox := billingpg.NewOutboxRepository(db)
 	createBillingAccount, err := billingapp.NewCreateAccount(
 		billingAccounts,
 		billingapp.RandomHexID{},
-		billingpg.NewOutboxRepository(db),
+		billingOutbox,
 	)
 	if err != nil {
 		logging.Fatal(logger, "billing_create_account_init_failed", "error", err)
+	}
+	releaseExcept, err := billingapp.NewReleaseAuctionDepositsExceptCandidates(
+		billingAccounts,
+		billingpg.NewAuctionDepositRepository(db),
+		billingpg.NewLedgerRepository(db),
+		billingapp.RandomHexID{},
+		nil,
+		billingOutbox,
+	)
+	if err != nil {
+		logging.Fatal(logger, "billing_release_except_init_failed", "error", err)
 	}
 
 	runtime, err := integration.New(db, integration.Dependencies{
@@ -61,6 +73,7 @@ func main() {
 		DealLister:     dealLister,
 		BillingTx:      billingpg.NewTransactionManager(db, nil),
 		CreateAccount:  createBillingAccount,
+		ReleaseAuctionDepositsExceptCandidates: releaseExcept,
 	})
 	if err != nil {
 		logging.Fatal(logger, "integration_runtime_init_failed", "error", err)

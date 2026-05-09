@@ -68,6 +68,8 @@ func MapError(err error) HTTPError {
 		return HTTPError{http.StatusBadRequest, "INVALID_BODY", "invalid request body"}
 	case errors.Is(err, app.ErrNotFound):
 		return HTTPError{http.StatusNotFound, "AUCTION_NOT_FOUND", "auction not found"}
+	case errors.Is(err, app.ErrInsufficientFundsForDeposit):
+		return HTTPError{http.StatusConflict, "INSUFFICIENT_FUNDS_FOR_DEPOSIT", "insufficient funds for auction deposit; top up your balance"}
 	default:
 		return HTTPError{http.StatusInternalServerError, "INTERNAL_ERROR", "internal error"}
 	}

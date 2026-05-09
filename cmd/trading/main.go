@@ -9,12 +9,15 @@ import (
 	"strconv"
 	"time"
 
+	billingapp "github.com/EBal0vGG/Unbelievable_Fish/internal/billing/app"
+	billingpg "github.com/EBal0vGG/Unbelievable_Fish/internal/billing/postgres"
 	identityauth "github.com/EBal0vGG/Unbelievable_Fish/internal/identity/auth"
 	identity "github.com/EBal0vGG/Unbelievable_Fish/internal/identity/domain"
 	"github.com/EBal0vGG/Unbelievable_Fish/internal/infra/dbconfig"
 	"github.com/EBal0vGG/Unbelievable_Fish/internal/infra/httpauth"
 	"github.com/EBal0vGG/Unbelievable_Fish/internal/infra/httplog"
 	"github.com/EBal0vGG/Unbelievable_Fish/internal/infra/logging"
+	"github.com/EBal0vGG/Unbelievable_Fish/internal/trading/adapters/billingdeposit"
 	tradingapp "github.com/EBal0vGG/Unbelievable_Fish/internal/trading/app"
 	"github.com/EBal0vGG/Unbelievable_Fish/internal/trading/auction"
 	httpapi "github.com/EBal0vGG/Unbelievable_Fish/internal/trading/http"
@@ -31,11 +34,26 @@ func main() {
 	defer db.Close()
 
 	uow := tradingpg.NewUnitOfWork(db)
+
+	accounts := billingpg.NewAccountRepository(db)
+	ledger := billingpg.NewLedgerRepository(db)
+	auctionDeposits := billingpg.NewAuctionDepositRepository(db)
+	billingEvents := billingpg.NewOutboxRepository(db)
+	createAccount, err := billingapp.NewCreateAccount(accounts, billingapp.RandomHexID{}, billingEvents)
+	if err != nil {
+		logging.Fatal(logger, "billing_create_account_init_failed", "error", err)
+	}
+	reserveDeposit, err := billingapp.NewReserveAuctionDeposit(accounts, auctionDeposits, ledger, billingapp.RandomHexID{}, nil, billingEvents)
+	if err != nil {
+		logging.Fatal(logger, "billing_reserve_deposit_init_failed", "error", err)
+	}
+	depositSvc := billingdeposit.NewService(createAccount, reserveDeposit)
+
 	publishAuctionUC, err := tradingapp.NewPublishAuction(uow)
 	if err != nil {
 		logging.Fatal(logger, "publish_auction_usecase_init_failed", "error", err)
 	}
-	placeBidUC, err := tradingapp.NewPlaceBid(uow)
+	placeBidUC, err := tradingapp.NewPlaceBid(uow, depositSvc)
 	if err != nil {
 		logging.Fatal(logger, "place_bid_usecase_init_failed", "error", err)
 	}

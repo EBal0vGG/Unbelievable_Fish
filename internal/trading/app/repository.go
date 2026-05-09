@@ -46,3 +46,19 @@ type Tx interface {
 type UnitOfWork interface {
 	Do(ctx context.Context, fn func(Tx) error) error
 }
+
+// DepositService reserves auction deposit funds in the same DB transaction as PlaceBid (implemented via billing in composition root).
+type DepositService interface {
+	ReserveAuctionDeposit(ctx context.Context, companyID, auctionID string, startPrice int64) error
+}
+
+// NoopDepositService is a DepositService that does nothing (tests or callers without billing).
+type NoopDepositService struct{}
+
+func (NoopDepositService) ReserveAuctionDeposit(ctx context.Context, companyID, auctionID string, startPrice int64) error {
+	_ = ctx
+	_ = companyID
+	_ = auctionID
+	_ = startPrice
+	return nil
+}

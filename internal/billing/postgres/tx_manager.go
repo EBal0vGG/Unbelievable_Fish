@@ -3,54 +3,19 @@ package postgres
 import (
 	"context"
 	"database/sql"
-	"errors"
+
+	"github.com/EBal0vGG/Unbelievable_Fish/internal/infra/postgresctx"
 )
 
-type txContextKey struct{}
-
-type DBTX interface {
-	ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error)
-	QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error)
-	QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row
-}
-
+// TransactionManager runs use cases inside a single SQL transaction (shared key with trading via postgresctx).
 type TransactionManager struct {
-	db   *sql.DB
-	opts *sql.TxOptions
+	*postgresctx.Manager
 }
 
 func NewTransactionManager(db *sql.DB, opts *sql.TxOptions) *TransactionManager {
-	return &TransactionManager{db: db, opts: opts}
+	return &TransactionManager{Manager: postgresctx.NewManager(db, opts)}
 }
 
-func (m *TransactionManager) WithinTx(ctx context.Context, fn func(ctx context.Context) error) error {
-	tx, err := m.db.BeginTx(ctx, m.opts)
-	if err != nil {
-		return err
-	}
-	txCtx := context.WithValue(ctx, txContextKey{}, tx)
-	defer func() {
-		if p := recover(); p != nil {
-			_ = tx.Rollback()
-			panic(p)
-		}
-	}()
-	if err := fn(txCtx); err != nil {
-		if rollbackErr := tx.Rollback(); rollbackErr != nil {
-			return errors.Join(err, rollbackErr)
-		}
-		return err
-	}
-	if err := tx.Commit(); err != nil {
-		_ = tx.Rollback()
-		return err
-	}
-	return nil
-}
-
-func DBTXFromContext(ctx context.Context, db *sql.DB) DBTX {
-	if tx, ok := ctx.Value(txContextKey{}).(*sql.Tx); ok {
-		return tx
-	}
-	return db
+func DBTXFromContext(ctx context.Context, db *sql.DB) postgresctx.DBTX {
+	return postgresctx.FromContext(ctx, db)
 }

@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"reflect"
 	"sync"
 	"testing"
@@ -109,6 +110,22 @@ func (s *spyWinners) Save(ctx context.Context, auctionID AuctionID, winners []Wi
 	s.lastSaved = winners
 	*s.calls = append(*s.calls, "winners")
 	return nil
+}
+
+type spyDepositService struct {
+	calls *[]string
+	err   error
+}
+
+func (s *spyDepositService) ReserveAuctionDeposit(ctx context.Context, companyID, auctionID string, startPrice int64) error {
+	_ = ctx
+	_ = companyID
+	_ = auctionID
+	_ = startPrice
+	if s.calls != nil {
+		*s.calls = append(*s.calls, "reserve_deposit")
+	}
+	return s.err
 }
 
 type spyTx struct {
@@ -230,7 +247,10 @@ func TestPlaceBidOrchestratesLoadSavePublish(t *testing.T) {
 	calls := []string{}
 	startsAt := time.Now().Add(-time.Hour)
 	endsAt := startsAt.Add(time.Hour)
-	a, _ := auction.NewAuction("1", "lot-1", startsAt, endsAt)
+	a, err := auction.NewAuctionWithPricing("1", "lot-1", startsAt, endsAt, 100, 10)
+	if err != nil {
+		t.Fatalf("auction: %v", err)
+	}
 	logf(t, "auction id=%s lot_id=%s state=%s", a.ID, a.LotID, a.State())
 	_, _ = a.Publish()
 	repo := &spyRepo{auction: a, calls: &calls}
@@ -238,8 +258,9 @@ func TestPlaceBidOrchestratesLoadSavePublish(t *testing.T) {
 	outbox := &spyOutbox{calls: &calls}
 	winners := &spyWinners{calls: &calls}
 	uow := &spyUOW{tx: &spyTx{repo: repo, bids: bidRepo, outbox: outbox, winners: winners}}
+	deposits := &spyDepositService{calls: &calls}
 
-	uc, err := NewPlaceBid(uow)
+	uc, err := NewPlaceBid(uow, deposits)
 	if err != nil {
 		t.Fatalf("unexpected constructor error: %v", err)
 	}
@@ -249,9 +270,47 @@ func TestPlaceBidOrchestratesLoadSavePublish(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	logf(t, "calls=%v bid_saved_amount=%d", calls, bidRepo.lastSaved.Amount())
-	assertCalls(t, calls, []string{"load_for_update", "save_bid", "save", "outbox"})
+	assertCalls(t, calls, []string{"load_for_update", "reserve_deposit", "save_bid", "save", "outbox"})
 	assertSavedAggregate(t, repo)
 	assertOutbox(t, outbox, testMeta())
+}
+
+func TestPlaceBidSkipsPersistWhenDepositFails(t *testing.T) {
+	logTest(t)
+	calls := []string{}
+	startsAt := time.Now().Add(-time.Hour)
+	endsAt := startsAt.Add(time.Hour)
+	a, err := auction.NewAuctionWithPricing("1", "lot-1", startsAt, endsAt, 100, 10)
+	if err != nil {
+		t.Fatalf("auction: %v", err)
+	}
+	_, _ = a.Publish()
+	repo := &spyRepo{auction: a, calls: &calls}
+	bidRepo := &spyBidRepo{calls: &calls}
+	outbox := &spyOutbox{calls: &calls}
+	winners := &spyWinners{calls: &calls}
+	uow := &spyUOW{tx: &spyTx{repo: repo, bids: bidRepo, outbox: outbox, winners: winners}}
+	deposits := &spyDepositService{calls: &calls, err: ErrInsufficientFundsForDeposit}
+
+	uc, err := NewPlaceBid(uow, deposits)
+	if err != nil {
+		t.Fatalf("unexpected constructor error: %v", err)
+	}
+	placedAt := endsAt.Add(-time.Minute)
+	err = uc.Execute(context.Background(), testMeta(), "1", 100, placedAt)
+	if !errors.Is(err, ErrInsufficientFundsForDeposit) {
+		t.Fatalf("expected ErrInsufficientFundsForDeposit, got %v", err)
+	}
+	assertCalls(t, calls, []string{"load_for_update", "reserve_deposit"})
+	if bidRepo.saveCount != 0 {
+		t.Fatalf("expected no bid save, got %d", bidRepo.saveCount)
+	}
+	if repo.saveCount != 0 {
+		t.Fatalf("expected no auction save, got %d", repo.saveCount)
+	}
+	if outbox.saveCount != 0 {
+		t.Fatalf("expected no outbox, got %d", outbox.saveCount)
+	}
 }
 
 func TestCloseAuctionOrchestratesLoadSavePublish(t *testing.T) {
@@ -323,7 +382,7 @@ func TestPlaceBidRejectsLowerAmount(t *testing.T) {
 	winners := &spyWinners{calls: &calls}
 	uow := &spyUOW{tx: &spyTx{repo: repo, bids: bidRepo, outbox: outbox, winners: winners}}
 
-	uc, err := NewPlaceBid(uow)
+	uc, err := NewPlaceBid(uow, NoopDepositService{})
 	if err != nil {
 		t.Fatalf("unexpected constructor error: %v", err)
 	}
@@ -350,7 +409,7 @@ func TestPlaceBidRejectsAfterEnd(t *testing.T) {
 	winners := &spyWinners{calls: &calls}
 	uow := &spyUOW{tx: &spyTx{repo: repo, bids: bidRepo, outbox: outbox, winners: winners}}
 
-	uc, err := NewPlaceBid(uow)
+	uc, err := NewPlaceBid(uow, NoopDepositService{})
 	if err != nil {
 		t.Fatalf("unexpected constructor error: %v", err)
 	}
@@ -377,7 +436,7 @@ func TestConcurrentBidsKeepConsistentAuctionState(t *testing.T) {
 	winners := &syncWinners{}
 	uow := &syncUOW{tx: &syncTx{repo: repo, bids: bidRepo, outbox: outbox, winners: winners}}
 
-	uc, err := NewPlaceBid(uow)
+	uc, err := NewPlaceBid(uow, NoopDepositService{})
 	if err != nil {
 		t.Fatalf("unexpected constructor error: %v", err)
 	}
@@ -573,10 +632,10 @@ type syncTx struct {
 	winners *syncWinners
 }
 
-func (s *syncTx) Auctions() AuctionRepository             { return s.repo }
-func (s *syncTx) Bids() BidRepository                     { return s.bids }
-func (s *syncTx) Outbox() OutboxRepository                { return s.outbox }
-func (s *syncTx) Winners() AuctionWinnersRepository       { return s.winners }
+func (s *syncTx) Auctions() AuctionRepository       { return s.repo }
+func (s *syncTx) Bids() BidRepository               { return s.bids }
+func (s *syncTx) Outbox() OutboxRepository          { return s.outbox }
+func (s *syncTx) Winners() AuctionWinnersRepository { return s.winners }
 
 type syncUOW struct {
 	mu sync.Mutex

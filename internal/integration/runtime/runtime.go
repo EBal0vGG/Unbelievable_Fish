@@ -8,6 +8,7 @@ import (
 	"time"
 
 	billingapp "github.com/EBal0vGG/Unbelievable_Fish/internal/billing/app"
+	"github.com/EBal0vGG/Unbelievable_Fish/internal/billing/wallet"
 	catalogapp "github.com/EBal0vGG/Unbelievable_Fish/internal/catalog/app"
 	catalog "github.com/EBal0vGG/Unbelievable_Fish/internal/catalog/domain"
 	dealsapp "github.com/EBal0vGG/Unbelievable_Fish/internal/deals/app"
@@ -30,6 +31,8 @@ type Dependencies struct {
 	DealLister     ExpiredDealLister
 	BillingTx      billingapp.UnitOfWork
 	CreateAccount  *billingapp.CreateAccount
+	// ReleaseAuctionDepositsExceptCandidates releases HELD deposits for bidders not in AuctionWon.WinnerCompanyID (nil = skip).
+	ReleaseAuctionDepositsExceptCandidates *billingapp.ReleaseAuctionDepositsExceptCandidates
 }
 
 type Runtime struct {
@@ -271,11 +274,19 @@ func subscribeHandlers(
 		if err := createSelection.Execute(ctx, dealsMeta, evt.AuctionID, evt.WinnerCompanyID, evt.FinalPrice, envelope.OccurredAt); err != nil {
 			return err
 		}
-		return deps.Catalog.HandleAuctionWon(ctx, catalogapp.AuctionWonDTO{
+		if err := deps.Catalog.HandleAuctionWon(ctx, catalogapp.AuctionWonDTO{
 			AuctionID:       evt.AuctionID,
 			FinalPrice:      evt.FinalPrice,
 			WinnerCompanyID: evt.WinnerCompanyID[0],
-		})
+		}); err != nil {
+			return err
+		}
+		if deps.ReleaseAuctionDepositsExceptCandidates != nil && deps.BillingTx != nil {
+			return deps.BillingTx.WithinTx(ctx, func(txCtx context.Context) error {
+				return deps.ReleaseAuctionDepositsExceptCandidates.Execute(txCtx, evt.AuctionID, evt.WinnerCompanyID, "LOST_AUCTION")
+			})
+		}
+		return nil
 	})
 
 	bus.Subscribe("deals.DealCancelled", func(ctx context.Context, envelope events.Envelope) error {
@@ -344,6 +355,7 @@ func DefaultDecoders() map[string]outbox.Decoder {
 		"deals.DealCancelled":             outbox.JSONDecoder[deal.DealCancelled](),
 		"deals.PriceUpdated":              outbox.JSONDecoder[deal.PriceUpdated](),
 		"identity.CompanyCreated":         outbox.JSONDecoder[identity.CompanyCreated](),
+		"billing.AuctionDepositReleased":  outbox.JSONDecoder[wallet.AuctionDepositReleased](),
 	}
 }
 

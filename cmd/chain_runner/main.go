@@ -12,6 +12,8 @@ import (
 	"strings"
 	"time"
 
+	billingapp "github.com/EBal0vGG/Unbelievable_Fish/internal/billing/app"
+	billingpg "github.com/EBal0vGG/Unbelievable_Fish/internal/billing/postgres"
 	catalogapp "github.com/EBal0vGG/Unbelievable_Fish/internal/catalog/app"
 	catalog "github.com/EBal0vGG/Unbelievable_Fish/internal/catalog/domain"
 	catalogpg "github.com/EBal0vGG/Unbelievable_Fish/internal/catalog/postgres"
@@ -19,6 +21,7 @@ import (
 	dealspg "github.com/EBal0vGG/Unbelievable_Fish/internal/deals/postgres"
 	"github.com/EBal0vGG/Unbelievable_Fish/internal/infra/logging"
 	integration "github.com/EBal0vGG/Unbelievable_Fish/internal/integration/runtime"
+	"github.com/EBal0vGG/Unbelievable_Fish/internal/trading/adapters/billingdeposit"
 	tradingapp "github.com/EBal0vGG/Unbelievable_Fish/internal/trading/app"
 	tradingpg "github.com/EBal0vGG/Unbelievable_Fish/internal/trading/postgres"
 	_ "github.com/jackc/pgx/v5/stdlib"
@@ -114,6 +117,31 @@ func runChains(db *sql.DB) error {
 		return fmt.Errorf("publish lot: %w", err)
 	}
 
+	bAccounts := billingpg.NewAccountRepository(db)
+	bLedger := billingpg.NewLedgerRepository(db)
+	bDeposits := billingpg.NewAuctionDepositRepository(db)
+	bProcessed := billingpg.NewProcessedTopUpRepository(db)
+	bEvents := billingpg.NewOutboxRepository(db)
+	bTx := billingpg.NewTransactionManager(db, nil)
+	bCreateAccount, err := billingapp.NewCreateAccount(bAccounts, billingapp.RandomHexID{}, bEvents)
+	if err != nil {
+		return err
+	}
+	bReleaseExcept, err := billingapp.NewReleaseAuctionDepositsExceptCandidates(
+		bAccounts, bDeposits, bLedger, billingapp.RandomHexID{}, nil, bEvents,
+	)
+	if err != nil {
+		return err
+	}
+	bConfirm, err := billingapp.NewConfirmTopUp(bAccounts, bLedger, bProcessed, billingapp.RandomHexID{}, nil, bEvents)
+	if err != nil {
+		return err
+	}
+	bReserve, err := billingapp.NewReserveAuctionDeposit(bAccounts, bDeposits, bLedger, billingapp.RandomHexID{}, nil, bEvents)
+	if err != nil {
+		return err
+	}
+
 	runtime, err := integration.New(db, integration.Dependencies{
 		Catalog:        catalogService,
 		TradingUOW:     tradingUOW,
@@ -121,6 +149,9 @@ func runChains(db *sql.DB) error {
 		ProjectionRepo: dealProjectionRepo,
 		AuctionLister:  auctionLister,
 		DealLister:     dealspg.NewDealDeadlineLister(db),
+		BillingTx:      bTx,
+		CreateAccount:  bCreateAccount,
+		ReleaseAuctionDepositsExceptCandidates: bReleaseExcept,
 	})
 	if err != nil {
 		return err
@@ -129,8 +160,17 @@ func runChains(db *sql.DB) error {
 	if err := runtime.Relay.RunOnce(context.Background(), runtime.Bus, 100); err != nil {
 		return fmt.Errorf("relay lot published: %w", err)
 	}
+	if err := bTx.WithinTx(context.Background(), func(txCtx context.Context) error {
+		if err := bCreateAccount.Execute(txCtx, "buyer-1"); err != nil {
+			return err
+		}
+		return bConfirm.Execute(txCtx, "buyer-1", 500_000, "chain-runner-bootstrap:"+auctionID)
+	}); err != nil {
+		return fmt.Errorf("bootstrap buyer wallet: %w", err)
+	}
 
-	placeBidUC, err := tradingapp.NewPlaceBid(tradingUOW)
+	depositSvc := billingdeposit.NewService(bCreateAccount, bReserve)
+	placeBidUC, err := tradingapp.NewPlaceBid(tradingUOW, depositSvc)
 	if err != nil {
 		return err
 	}
@@ -233,6 +273,7 @@ TRUNCATE TABLE
     trading_auctions,
     catalog_lots,
     deal_winner_selections,
+    deal_confirmations,
     deal_projections,
     deals
 `)

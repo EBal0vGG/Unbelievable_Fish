@@ -209,14 +209,21 @@ func (a *Auction) LeaderCompanyID() string {
 	return a.leaderCompanyID
 }
 
+// maxWinnerCandidatesInAuctionWon matches CloseAuction winner persistence (top bid rows).
+const maxWinnerCandidatesInAuctionWon = 3
+
 func collectWinnerCompanyIDs(bids []Bid) []string {
 	if len(bids) == 0 {
 		return nil
 	}
-	seen := make(map[string]struct{}, len(bids))
-	out := make([]string, 0, len(bids))
-	for _, bid := range bids {
-		id := bid.BidderCompanyID()
+	n := maxWinnerCandidatesInAuctionWon
+	if n > len(bids) {
+		n = len(bids)
+	}
+	seen := make(map[string]struct{}, n)
+	out := make([]string, 0, n)
+	for i := 0; i < n; i++ {
+		id := bids[i].BidderCompanyID()
 		if id == "" {
 			continue
 		}

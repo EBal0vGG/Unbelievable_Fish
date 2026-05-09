@@ -135,7 +135,7 @@ func TestPlaceBidHandlerInvalidJSON(t *testing.T) {
 	outbox := &spyOutbox{}
 	winners := &spyWinners{}
 	uow := &spyUOW{tx: &spyTx{repo: repo, bids: bidRepo, outbox: outbox, winners: winners}}
-	uc, err := app.NewPlaceBid(uow)
+	uc, err := app.NewPlaceBid(uow, app.NoopDepositService{})
 	if err != nil {
 		t.Fatalf("unexpected constructor error: %v", err)
 	}
@@ -197,7 +197,7 @@ func TestPlaceBidHandlerUsesIdentityFromContext(t *testing.T) {
 	outbox := &spyOutbox{}
 	winners := &spyWinners{}
 	uow := &spyUOW{tx: &spyTx{repo: repo, bids: bidRepo, outbox: outbox, winners: winners}}
-	uc, err := app.NewPlaceBid(uow)
+	uc, err := app.NewPlaceBid(uow, app.NoopDepositService{})
 	if err != nil {
 		t.Fatalf("unexpected constructor error: %v", err)
 	}
@@ -234,7 +234,7 @@ func TestProtectedPlaceBidEndpointWithValidToken(t *testing.T) {
 	outbox := &spyOutbox{}
 	winners := &spyWinners{}
 	uow := &spyUOW{tx: &spyTx{repo: repo, bids: bidRepo, outbox: outbox, winners: winners}}
-	uc, err := app.NewPlaceBid(uow)
+	uc, err := app.NewPlaceBid(uow, app.NoopDepositService{})
 	if err != nil {
 		t.Fatalf("unexpected constructor error: %v", err)
 	}
@@ -273,7 +273,7 @@ func TestProtectedPlaceBidEndpointForbiddenForWrongRole(t *testing.T) {
 	outbox := &spyOutbox{}
 	winners := &spyWinners{}
 	uow := &spyUOW{tx: &spyTx{repo: repo, bids: bidRepo, outbox: outbox, winners: winners}}
-	uc, err := app.NewPlaceBid(uow)
+	uc, err := app.NewPlaceBid(uow, app.NoopDepositService{})
 	if err != nil {
 		t.Fatalf("unexpected constructor error: %v", err)
 	}
@@ -317,7 +317,7 @@ func TestProtectedPlaceBidEndpointAllowsBuyerSellerRole(t *testing.T) {
 	outbox := &spyOutbox{}
 	winners := &spyWinners{}
 	uow := &spyUOW{tx: &spyTx{repo: repo, bids: bidRepo, outbox: outbox, winners: winners}}
-	uc, err := app.NewPlaceBid(uow)
+	uc, err := app.NewPlaceBid(uow, app.NoopDepositService{})
 	if err != nil {
 		t.Fatalf("unexpected constructor error: %v", err)
 	}
