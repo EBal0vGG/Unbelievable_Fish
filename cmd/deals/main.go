@@ -66,7 +66,7 @@ func main() {
 	authMiddleware := identityauth.NewMiddleware(tokenProvider, httpauth.JSONErrorHandler("deals_auth_error"))
 	router := httpapi.NewRouter(httpapi.Handlers{
 		GetDealProjection:   handler.NewGetProjectionByAuctionIDHandler(dealsapp.NewGetProjectionByAuctionID(projectionRepo)),
-		GetDealByAuction:    handler.NewGetDealByAuctionIDHandler(dealsapp.NewGetDealByAuctionID(dealRepo)),
+		GetDealByAuction:    handler.NewGetDealByAuctionIDHandler(dealsapp.NewGetDealByAuctionID(uow)),
 		GetDeal:             handler.NewGetDealByIDHandler(dealsapp.NewGetDealByID(dealRepo)),
 		GetConfirmations:    handler.NewGetDealConfirmationsHandler(dealsapp.NewGetDealConfirmations(dealRepo, confirmationRepo)),
 		RequestConfirmation: handler.NewRequestDealConfirmationHandler(requestConfirmationUC),

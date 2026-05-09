@@ -113,7 +113,7 @@ func (uc *ApproveDealConfirmation) Execute(
 
 	var updated *deal.DealConfirmation
 	err := uc.uow.Do(ctx, func(tx Tx) error {
-		item, err := tx.Deals().GetByID(ctx, dealID)
+		item, err := tx.Deals().GetByIDForUpdate(ctx, dealID)
 		if err != nil {
 			return err
 		}
@@ -133,6 +133,11 @@ func (uc *ApproveDealConfirmation) Execute(
 		if err != nil {
 			return err
 		}
+		extra, err := appendAuctionWinnerConfirmedIfNeeded(ctx, tx, item)
+		if err != nil {
+			return err
+		}
+		dealEvents = append(dealEvents, extra...)
 
 		if err := tx.Confirmations().Save(ctx, confirmation); err != nil {
 			return err

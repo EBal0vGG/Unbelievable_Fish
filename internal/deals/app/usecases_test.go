@@ -127,15 +127,26 @@ func TestCreateDealSelectionFromAuctionWonCreatesDealForFirstCandidate(t *testin
 func TestHandleDealDeclinedMovesToNextCandidate(t *testing.T) {
 	logTest(t)
 	calls := []string{}
+	fac := deal.NewFactory()
+	snap := deal.ProductSnapshot{Name: "Fish"}
+	wonAt := time.Now()
+	cancelledDeal, _, err := fac.CreateFromSelection("auc-1", "sup-1", snap, "buyer-1", 120, wonAt)
+	if err != nil {
+		t.Fatalf("create deal: %v", err)
+	}
+	if _, err := cancelledDeal.Cancel("manual withdrawal", "buyer-1"); err != nil {
+		t.Fatalf("cancel: %v", err)
+	}
 	selection := deal.NewWinnerSelection(
 		"auc-1",
 		[]string{"buyer-1", "buyer-2"},
 		120,
-		time.Now(),
+		wonAt,
 		"sup-1",
-		deal.ProductSnapshot{Name: "Fish"},
+		snap,
 	)
-	deals := &dealRepoSpy{calls: &calls}
+	selection.DealID = cancelledDeal.ID()
+	deals := &dealRepoSpy{calls: &calls, deal: cancelledDeal}
 	confirmations := &confirmationRepoSpy{calls: &calls}
 	selections := &selectionRepoSpy{calls: &calls, selection: selection}
 	outbox := &outboxSpy{calls: &calls}
@@ -145,20 +156,80 @@ func TestHandleDealDeclinedMovesToNextCandidate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected constructor error: %v", err)
 	}
-	if err := uc.Execute(context.Background(), testMeta(), "auc-1", ""); err != nil {
+	if err := uc.Execute(context.Background(), testMeta(), "auc-1", cancelledDeal.ID()); err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	assertCalls(t, calls, []string{"load_selection", "save_deal", "save_selection", "outbox"})
+	assertCalls(t, calls, []string{"load_selection", "load_deal", "save_deal", "save_selection", "outbox"})
 	if deals.lastSaved == nil || deals.lastSaved.CustomerID() != "buyer-2" {
 		t.Fatalf("expected deal for buyer-2, got %v", deals.lastSaved)
 	}
 	if selections.lastSaved == nil || selections.lastSaved.CurrentIndex != 1 {
 		t.Fatalf("expected selection to advance to index 1, got %v", selections.lastSaved)
 	}
+	if len(outbox.saved) == 0 {
+		t.Fatal("expected outbox batches")
+	}
+	lastBatch := outbox.saved[len(outbox.saved)-1]
+	foundNext := false
+	for _, e := range lastBatch {
+		if _, ok := e.(deal.NextWinnerSelected); ok {
+			foundNext = true
+			break
+		}
+	}
+	if !foundNext {
+		t.Fatalf("expected NextWinnerSelected in last outbox batch, got %#v", lastBatch)
+	}
 }
 
-func TestHandleDealDeclinedNoOpWhenDealIDMismatch(t *testing.T) {
+func TestHandleDealDeclinedExhaustedEmitsWinnerSelectionFailed(t *testing.T) {
+	logTest(t)
+	calls := []string{}
+	fac := deal.NewFactory()
+	snap := deal.ProductSnapshot{Name: "Fish"}
+	wonAt := time.Now()
+	cancelledDeal, _, err := fac.CreateFromSelection("auc-ex", "sup-1", snap, "buyer-1", 120, wonAt)
+	if err != nil {
+		t.Fatalf("create deal: %v", err)
+	}
+	if _, err := cancelledDeal.Cancel("manual", "buyer-1"); err != nil {
+		t.Fatalf("cancel: %v", err)
+	}
+	selection := deal.NewWinnerSelection("auc-ex", []string{"buyer-1"}, 120, wonAt, "sup-1", snap)
+	selection.DealID = cancelledDeal.ID()
+	deals := &dealRepoSpy{calls: &calls, deal: cancelledDeal}
+	selections := &selectionRepoSpy{calls: &calls, selection: selection}
+	outbox := &outboxSpy{calls: &calls}
+	uow := &spyUOW{tx: &spyTx{deals: deals, confirmations: &confirmationRepoSpy{}, projections: &projectionRepoSpy{}, selections: selections, outbox: outbox}}
+
+	uc, err := NewHandleDealDeclined(uow)
+	if err != nil {
+		t.Fatalf("constructor: %v", err)
+	}
+	if err := uc.Execute(context.Background(), testMeta(), "auc-ex", cancelledDeal.ID()); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if selections.lastSaved == nil || selections.lastSaved.Status != deal.WinnerSelectionExhausted {
+		t.Fatalf("expected exhausted selection, got %#v", selections.lastSaved)
+	}
+	var failed *deal.WinnerSelectionFailed
+	for _, batch := range outbox.saved {
+		for _, e := range batch {
+			if wf, ok := e.(deal.WinnerSelectionFailed); ok {
+				failed = &wf
+			}
+		}
+	}
+	if failed == nil {
+		t.Fatal("expected WinnerSelectionFailed event")
+	}
+	if selections.lastSaved.DealID != "" {
+		t.Fatalf("expected exhausted selection to clear DealID, got %q", selections.lastSaved.DealID)
+	}
+}
+
+func TestHandleDealDeclinedReturnsStaleWhenDealIDMismatch(t *testing.T) {
 	logTest(t)
 	calls := []string{}
 	selection := deal.NewWinnerSelection(
@@ -180,8 +251,8 @@ func TestHandleDealDeclinedNoOpWhenDealIDMismatch(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected constructor error: %v", err)
 	}
-	if err := uc.Execute(context.Background(), testMeta(), "auc-1", "deal-1"); err != nil {
-		t.Fatalf("unexpected error: %v", err)
+	if err := uc.Execute(context.Background(), testMeta(), "auc-1", "deal-1"); !errors.Is(err, deal.ErrStaleWinnerSelection) {
+		t.Fatalf("want ErrStaleWinnerSelection, got %v", err)
 	}
 
 	assertCalls(t, calls, []string{"load_selection"})
@@ -193,14 +264,55 @@ func TestHandleDealDeclinedNoOpWhenDealIDMismatch(t *testing.T) {
 	}
 }
 
+func TestHandleDealDeclined_errorsWhenAwaitingPayment(t *testing.T) {
+	selection := deal.NewWinnerSelection(
+		"auc-1",
+		[]string{"buyer-1"},
+		120,
+		time.Now().UTC(),
+		"sup-1",
+		deal.ProductSnapshot{Name: "Fish"},
+	)
+	selection.DealID = "deal-1"
+	selection.Status = deal.WinnerSelectionConfirmedPendingPayment
+
+	selections := &selectionRepoSpy{selection: selection}
+	uow := &spyUOW{tx: &spyTx{
+		deals:         &dealRepoSpy{},
+		confirmations: &confirmationRepoSpy{},
+		projections:   &projectionRepoSpy{},
+		selections:    selections,
+		outbox:        &outboxSpy{},
+	}}
+
+	uc, err := NewHandleDealDeclined(uow)
+	if err != nil {
+		t.Fatalf("constructor: %v", err)
+	}
+	if err := uc.Execute(context.Background(), testMeta(), "auc-1", "deal-1"); !errors.Is(err, deal.ErrWinnerFallbackOnlyWhileActive) {
+		t.Fatalf("want ErrWinnerFallbackOnlyWhileActive, got %v", err)
+	}
+}
+
 func TestConfirmDealOrchestratesLoadSavePublish(t *testing.T) {
 	logTest(t)
 	calls := []string{}
 	item := createPendingDeal(t)
+	selection := deal.NewWinnerSelection(
+		item.AuctionID(),
+		[]string{item.CustomerID()},
+		item.UnitPrice(),
+		time.Now().UTC(),
+		item.SupplierID(),
+		item.ProductSnapshot(),
+	)
+	selection.DealID = item.ID()
+
 	deals := &dealRepoSpy{calls: &calls, deal: item}
 	confirmations := &confirmationRepoSpy{calls: &calls}
 	outbox := &outboxSpy{calls: &calls}
-	uow := &spyUOW{tx: &spyTx{deals: deals, confirmations: confirmations, projections: &projectionRepoSpy{}, selections: &selectionRepoSpy{}, outbox: outbox}}
+	selections := &selectionRepoSpy{calls: &calls, selection: selection}
+	uow := &spyUOW{tx: &spyTx{deals: deals, confirmations: confirmations, projections: &projectionRepoSpy{}, selections: selections, outbox: outbox}}
 
 	uc, err := NewConfirmDeal(uow)
 	if err != nil {
@@ -210,9 +322,124 @@ func TestConfirmDealOrchestratesLoadSavePublish(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	assertCalls(t, calls, []string{"load_deal", "save_deal", "outbox"})
+	assertCalls(t, calls, []string{"load_deal_for_update", "load_selection_for_update", "save_selection", "save_deal", "outbox"})
 	if deals.lastSaved.Status() != deal.DealStatusConfirmed {
 		t.Fatalf("expected confirmed status, got %s", deals.lastSaved.Status())
+	}
+	if selections.lastSaved == nil || selections.lastSaved.Status != deal.WinnerSelectionConfirmedPendingPayment {
+		t.Fatalf("expected selection confirmed_pending_payment, got %+v", selections.lastSaved)
+	}
+	var seenDealConf, seenWinnerConf bool
+	for _, batch := range outbox.saved {
+		for _, e := range batch {
+			switch e.(type) {
+			case deal.DealConfirmed:
+				seenDealConf = true
+			case deal.WinnerConfirmed:
+				seenWinnerConf = true
+			}
+		}
+	}
+	if !seenDealConf || !seenWinnerConf {
+		t.Fatalf("expected DealConfirmed and WinnerConfirmed in outbox, got %v", outbox.saved)
+	}
+}
+
+func TestConfirmDealAuctionRejectsStaleSelectionDealID(t *testing.T) {
+	logTest(t)
+	item := createPendingDeal(t)
+	selection := deal.NewWinnerSelection(
+		item.AuctionID(),
+		[]string{item.CustomerID()},
+		item.UnitPrice(),
+		time.Now().UTC(),
+		item.SupplierID(),
+		item.ProductSnapshot(),
+	)
+	selection.DealID = "other-deal-id"
+
+	uow := &spyUOW{tx: &spyTx{
+		deals:         &dealRepoSpy{deal: item},
+		confirmations: &confirmationRepoSpy{},
+		projections:   &projectionRepoSpy{},
+		selections:    &selectionRepoSpy{selection: selection},
+		outbox:        &outboxSpy{},
+	}}
+	uc, err := NewConfirmDeal(uow)
+	if err != nil {
+		t.Fatalf("constructor: %v", err)
+	}
+	if err := uc.Execute(context.Background(), testMeta(), item.ID()); !errors.Is(err, deal.ErrStaleWinnerSelection) {
+		t.Fatalf("want ErrStaleWinnerSelection, got %v", err)
+	}
+}
+
+func TestConfirmDealAuctionRejectsWrongCandidate(t *testing.T) {
+	logTest(t)
+	item := createPendingDeal(t)
+	selection := deal.NewWinnerSelection(
+		item.AuctionID(),
+		[]string{"other-buyer", item.CustomerID()},
+		item.UnitPrice(),
+		time.Now().UTC(),
+		item.SupplierID(),
+		item.ProductSnapshot(),
+	)
+	selection.DealID = item.ID()
+	selection.CurrentIndex = 0
+
+	uow := &spyUOW{tx: &spyTx{
+		deals:         &dealRepoSpy{deal: item},
+		confirmations: &confirmationRepoSpy{},
+		projections:   &projectionRepoSpy{},
+		selections:    &selectionRepoSpy{selection: selection},
+		outbox:        &outboxSpy{},
+	}}
+	uc, err := NewConfirmDeal(uow)
+	if err != nil {
+		t.Fatalf("constructor: %v", err)
+	}
+	if err := uc.Execute(context.Background(), testMeta(), item.ID()); !errors.Is(err, deal.ErrWrongSelectedCandidate) {
+		t.Fatalf("want ErrWrongSelectedCandidate, got %v", err)
+	}
+}
+
+func TestConfirmDealDirectSkipsWinnerSelection(t *testing.T) {
+	logTest(t)
+	calls := []string{}
+	createdAt := time.Now().UTC()
+	item, err := deal.Rehydrate(deal.RehydrateParams{
+		ID:              "deal-direct-1",
+		CustomerID:      "buyer-1",
+		SupplierID:    "sup-1",
+		AuctionID:     "",
+		Quantity:      1,
+		UnitPrice:     100,
+		Status:          deal.DealStatusPending,
+		TypeName:        deal.DealTypeDirect,
+		CreatedAt:       createdAt,
+		ProductSnapshot: deal.ProductSnapshot{ProductID: "p", Name: "Fish"},
+	})
+	if err != nil {
+		t.Fatalf("rehydrate: %v", err)
+	}
+	deals := &dealRepoSpy{calls: &calls, deal: item}
+	confirmations := &confirmationRepoSpy{calls: &calls}
+	outbox := &outboxSpy{calls: &calls}
+	selections := &selectionRepoSpy{calls: &calls, selection: nil}
+	uow := &spyUOW{tx: &spyTx{deals: deals, confirmations: confirmations, projections: &projectionRepoSpy{}, selections: selections, outbox: outbox}}
+
+	uc, err := NewConfirmDeal(uow)
+	if err != nil {
+		t.Fatalf("constructor: %v", err)
+	}
+	if err := uc.Execute(context.Background(), testMeta(), item.ID()); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	for _, c := range calls {
+		if c == "load_selection_for_update" || c == "load_selection" {
+			t.Fatalf("unexpected selection load for direct deal: %v", calls)
+		}
 	}
 }
 
@@ -249,6 +476,15 @@ func TestApproveDealConfirmationMovesDealStatus(t *testing.T) {
 	logTest(t)
 	calls := []string{}
 	item := createPendingDeal(t)
+	selection := deal.NewWinnerSelection(
+		item.AuctionID(),
+		[]string{item.CustomerID()},
+		item.UnitPrice(),
+		time.Now().UTC(),
+		item.SupplierID(),
+		item.ProductSnapshot(),
+	)
+	selection.DealID = item.ID()
 	confirmation, _, err := item.RequestConfirmation(
 		deal.DealConfirmationStageConfirmed,
 		item.SupplierID(),
@@ -265,7 +501,8 @@ func TestApproveDealConfirmationMovesDealStatus(t *testing.T) {
 	deals := &dealRepoSpy{calls: &calls, deal: item}
 	confirmations := &confirmationRepoSpy{calls: &calls, confirmation: confirmation}
 	outbox := &outboxSpy{calls: &calls}
-	uow := &spyUOW{tx: &spyTx{deals: deals, confirmations: confirmations, projections: &projectionRepoSpy{}, selections: &selectionRepoSpy{}, outbox: outbox}}
+	selections := &selectionRepoSpy{calls: &calls, selection: selection}
+	uow := &spyUOW{tx: &spyTx{deals: deals, confirmations: confirmations, projections: &projectionRepoSpy{}, selections: selections, outbox: outbox}}
 
 	uc, err := NewApproveDealConfirmation(uow)
 	if err != nil {
@@ -276,9 +513,12 @@ func TestApproveDealConfirmationMovesDealStatus(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	assertCalls(t, calls, []string{"load_deal", "load_confirmation", "save_confirmation", "save_deal", "outbox"})
+	assertCalls(t, calls, []string{"load_deal_for_update", "load_confirmation", "load_selection_for_update", "save_selection", "save_confirmation", "save_deal", "outbox"})
 	if deals.lastSaved.Status() != deal.DealStatusConfirmed {
 		t.Fatalf("expected confirmed status, got %s", deals.lastSaved.Status())
+	}
+	if selections.lastSaved == nil || selections.lastSaved.Status != deal.WinnerSelectionConfirmedPendingPayment {
+		t.Fatalf("expected selection confirmed_pending_payment, got %+v", selections.lastSaved)
 	}
 }
 
@@ -363,10 +603,22 @@ func (s *dealRepoSpy) GetByID(ctx context.Context, dealID string) (*deal.Deal, e
 	return s.deal, nil
 }
 
-func (s *dealRepoSpy) GetByAuctionID(ctx context.Context, auctionID string) (*deal.Deal, error) {
+func (s *dealRepoSpy) GetByIDForUpdate(ctx context.Context, dealID string) (*deal.Deal, error) {
+	_ = ctx
+	_ = dealID
+	if s.calls != nil {
+		*s.calls = append(*s.calls, "load_deal_for_update")
+	}
+	if s.deal == nil {
+		return nil, ErrDealNotFound
+	}
+	return s.deal, nil
+}
+
+func (s *dealRepoSpy) GetActiveDealByAuctionID(ctx context.Context, auctionID string) (*deal.Deal, error) {
 	_ = ctx
 	_ = auctionID
-	if s.deal == nil {
+	if s.deal == nil || s.deal.Status() == deal.DealStatusCancelled {
 		return nil, ErrDealNotFound
 	}
 	return s.deal, nil
@@ -449,6 +701,18 @@ func (s *selectionRepoSpy) GetByAuctionID(ctx context.Context, auctionID string)
 	_ = auctionID
 	if s.calls != nil {
 		*s.calls = append(*s.calls, "load_selection")
+	}
+	if s.selection == nil {
+		return nil, deal.ErrSelectionNotFound
+	}
+	return s.selection, nil
+}
+
+func (s *selectionRepoSpy) GetByAuctionIDForUpdate(ctx context.Context, auctionID string) (*deal.WinnerSelection, error) {
+	_ = ctx
+	_ = auctionID
+	if s.calls != nil {
+		*s.calls = append(*s.calls, "load_selection_for_update")
 	}
 	if s.selection == nil {
 		return nil, deal.ErrSelectionNotFound

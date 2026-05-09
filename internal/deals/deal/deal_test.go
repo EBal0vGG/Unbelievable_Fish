@@ -1,6 +1,7 @@
 package deal
 
 import (
+	"errors"
 	"strconv"
 	"testing"
 	"time"
@@ -156,5 +157,54 @@ func TestDeal_Cancel(t *testing.T) {
 	}
 	if event.Reason != "buyer changed mind" {
 		t.Errorf("expected reason 'buyer changed mind', got '%s'", event.Reason)
+	}
+}
+
+func TestDeal_Cancel_WinnerRejectEmitsWinnerRejected(t *testing.T) {
+	logTest(t)
+
+	d := createTestDeal(t)
+	events, err := d.Cancel(DealCancelReasonWinnerRejected, "customer")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(events) != 2 {
+		t.Fatalf("expected 2 events, got %d", len(events))
+	}
+	if _, ok := events[0].(DealCancelled); !ok {
+		t.Fatalf("expected DealCancelled first, got %T", events[0])
+	}
+	wr, ok := events[1].(WinnerRejected)
+	if !ok {
+		t.Fatalf("expected WinnerRejected second, got %T", events[1])
+	}
+	if wr.Reason != DealCancelReasonWinnerRejected {
+		t.Fatalf("expected normalized reason %q, got %q", DealCancelReasonWinnerRejected, wr.Reason)
+	}
+	if wr.CompanyID != d.CustomerID() || wr.AuctionID != d.AuctionID() {
+		t.Fatalf("unexpected WinnerRejected fields: %+v", wr)
+	}
+}
+
+func TestDeal_Cancel_LegacyDeadlineReasonNormalizesOnWinnerRejected(t *testing.T) {
+	d := createTestDeal(t)
+	events, err := d.Cancel(DealCancelReasonLegacyDeadlineExceeded, "system")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	wr := events[1].(WinnerRejected)
+	if wr.Reason != DealCancelReasonConfirmationTimeout {
+		t.Fatalf("expected %q, got %q", DealCancelReasonConfirmationTimeout, wr.Reason)
+	}
+}
+
+func TestDeal_Cancel_WinnerRejectRejectedAfterConfirm(t *testing.T) {
+	d := createTestDeal(t)
+	if _, err := d.Confirm(); err != nil {
+		t.Fatalf("confirm: %v", err)
+	}
+	_, err := d.Cancel(DealCancelReasonWinnerRejected, "customer")
+	if !errors.Is(err, ErrCannotDeclineWinnerAfterConfirm) {
+		t.Fatalf("expected ErrCannotDeclineWinnerAfterConfirm, got %v", err)
 	}
 }

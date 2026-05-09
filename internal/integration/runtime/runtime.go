@@ -33,6 +33,8 @@ type Dependencies struct {
 	CreateAccount  *billingapp.CreateAccount
 	// ReleaseAuctionDepositsExceptCandidates releases HELD deposits for bidders not in AuctionWon.WinnerCompanyID (nil = skip).
 	ReleaseAuctionDepositsExceptCandidates *billingapp.ReleaseAuctionDepositsExceptCandidates
+	// CaptureAuctionDeposit captures HELD winner deposit on deals.WinnerRejected (nil = skip).
+	CaptureAuctionDeposit *billingapp.CaptureAuctionDeposit
 }
 
 type Runtime struct {
@@ -136,7 +138,7 @@ func (r *Runtime) RunCancelExpiredDeals(ctx context.Context, now time.Time, limi
 			CorrelationID: "scheduler-deal-deadline",
 			CausationID:   "scheduler-deal-deadline",
 		}
-		if err := r.cancelDeal.Execute(ctx, meta, id, "deadline exceeded"); err != nil {
+		if err := r.cancelDeal.Execute(ctx, meta, id, deal.DealCancelReasonConfirmationTimeout); err != nil {
 			slog.ErrorContext(ctx, "scheduler_cancel_deal_error", "component", "scheduler", "operation", "cancel_expired_deal", "deal_id", id, "error", err)
 			continue
 		}
@@ -175,9 +177,17 @@ func DefaultDecoders() map[string]outbox.Decoder {
 		"deals.DealShipped":               outbox.JSONDecoder[deal.DealShipped](),
 		"deals.DealCompleted":             outbox.JSONDecoder[deal.DealCompleted](),
 		"deals.DealCancelled":             outbox.JSONDecoder[deal.DealCancelled](),
+		"deals.WinnerRejected":            outbox.JSONDecoder[deal.WinnerRejected](),
+		"deals.WinnerConfirmed":           outbox.JSONDecoder[deal.WinnerConfirmed](),
+		"deals.NextWinnerSelected":        outbox.JSONDecoder[deal.NextWinnerSelected](),
+		"deals.WinnerSelectionFailed":     outbox.JSONDecoder[deal.WinnerSelectionFailed](),
 		"deals.PriceUpdated":              outbox.JSONDecoder[deal.PriceUpdated](),
 		"identity.CompanyCreated":         outbox.JSONDecoder[identity.CompanyCreated](),
+		"billing.AccountCreated":          outbox.JSONDecoder[wallet.AccountCreated](),
+		"billing.BalanceToppedUp":         outbox.JSONDecoder[wallet.BalanceToppedUp](),
+		"billing.AuctionDepositReserved":  outbox.JSONDecoder[wallet.AuctionDepositReserved](),
 		"billing.AuctionDepositReleased":  outbox.JSONDecoder[wallet.AuctionDepositReleased](),
+		"billing.AuctionDepositCaptured":  outbox.JSONDecoder[wallet.AuctionDepositCaptured](),
 	}
 }
 

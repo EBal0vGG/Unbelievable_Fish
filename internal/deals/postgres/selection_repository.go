@@ -93,6 +93,14 @@ ON CONFLICT (auction_id) DO UPDATE SET
 }
 
 func (r *SelectionRepository) GetByAuctionID(ctx context.Context, auctionID string) (*deal.WinnerSelection, error) {
+	return r.getByAuctionID(ctx, auctionID, "")
+}
+
+func (r *SelectionRepository) GetByAuctionIDForUpdate(ctx context.Context, auctionID string) (*deal.WinnerSelection, error) {
+	return r.getByAuctionID(ctx, auctionID, " FOR UPDATE")
+}
+
+func (r *SelectionRepository) getByAuctionID(ctx context.Context, auctionID string, lockSuffix string) (*deal.WinnerSelection, error) {
 	const query = `
 SELECT auction_id, candidates, current_index, status, final_price, won_at, supplier_id, deal_id,
        product_id, product_name, product_description, product_category, product_weight,
@@ -101,8 +109,11 @@ FROM deal_winner_selections
 WHERE auction_id = $1
 `
 	dbtx := DBTXFromContext(ctx, r.db)
-	row := dbtx.QueryRowContext(ctx, query, auctionID)
+	row := dbtx.QueryRowContext(ctx, query+lockSuffix, auctionID)
+	return r.scanRow(row)
+}
 
+func (r *SelectionRepository) scanRow(row *sql.Row) (*deal.WinnerSelection, error) {
 	var (
 		id, status, supplierID                                                     string
 		currentIndex                                                               int

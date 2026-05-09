@@ -17,6 +17,20 @@ import (
 	tradingpg "github.com/EBal0vGG/Unbelievable_Fish/internal/trading/postgres"
 )
 
+func runTicker(ctx context.Context, interval time.Duration, fn func(context.Context) error) {
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			_ = fn(ctx)
+		}
+	}
+}
+
 func main() {
 	logger := logging.New("integration")
 	db, ok := dbconfig.OpenPostgresFromEnv(0)
@@ -64,6 +78,18 @@ func main() {
 		logging.Fatal(logger, "billing_release_except_init_failed", "error", err)
 	}
 
+	captureDeposit, err := billingapp.NewCaptureAuctionDeposit(
+		billingAccounts,
+		billingpg.NewAuctionDepositRepository(db),
+		billingpg.NewLedgerRepository(db),
+		billingapp.RandomHexID{},
+		nil,
+		billingOutbox,
+	)
+	if err != nil {
+		logging.Fatal(logger, "billing_capture_deposit_init_failed", "error", err)
+	}
+
 	runtime, err := integration.New(db, integration.Dependencies{
 		Catalog:        catalogService,
 		TradingUOW:     tradingUOW,
@@ -74,6 +100,7 @@ func main() {
 		BillingTx:      billingpg.NewTransactionManager(db, nil),
 		CreateAccount:  createBillingAccount,
 		ReleaseAuctionDepositsExceptCandidates: releaseExcept,
+		CaptureAuctionDeposit:                  captureDeposit,
 	})
 	if err != nil {
 		logging.Fatal(logger, "integration_runtime_init_failed", "error", err)
@@ -84,24 +111,19 @@ func main() {
 	closeLimit := envInt("AUCTION_CLOSE_BATCH", 100)
 	dealDeadlineInterval := envDurationSeconds("DEAL_DEADLINE_INTERVAL_SEC", 10)
 	dealDeadlineLimit := envInt("DEAL_DEADLINE_BATCH", 100)
-	go func() {
-		ticker := time.NewTicker(closeInterval)
-		defer ticker.Stop()
-		for range ticker.C {
-			if err := runtime.RunCloseExpired(ctx, time.Now().UTC(), closeLimit); err != nil {
-				logger.Error("close_expired_auctions_failed", "component", "scheduler", "error", err)
-			}
+
+	go runTicker(ctx, closeInterval, func(ctx context.Context) error {
+		if err := runtime.RunCloseExpired(ctx, time.Now().UTC(), closeLimit); err != nil {
+			logger.Error("close_expired_auctions_failed", "component", "scheduler", "error", err)
 		}
-	}()
-	go func() {
-		ticker := time.NewTicker(dealDeadlineInterval)
-		defer ticker.Stop()
-		for range ticker.C {
-			if err := runtime.RunCancelExpiredDeals(ctx, time.Now().UTC(), dealDeadlineLimit); err != nil {
-				logger.Error("cancel_expired_deals_failed", "component", "scheduler", "error", err)
-			}
+		return nil
+	})
+	go runTicker(ctx, dealDeadlineInterval, func(ctx context.Context) error {
+		if err := runtime.RunCancelExpiredDeals(ctx, time.Now().UTC(), dealDeadlineLimit); err != nil {
+			logger.Error("cancel_expired_deals_failed", "component", "scheduler", "error", err)
 		}
-	}()
+		return nil
+	})
 	for {
 		if err := runtime.Relay.RunOnce(ctx, runtime.Bus, 100); err != nil {
 			logger.Error("outbox_relay_run_failed", "component", "outbox.relay", "error", err)

@@ -5,8 +5,10 @@ import "time"
 type WinnerSelectionStatus string
 
 const (
-	WinnerSelectionActive    WinnerSelectionStatus = "active"
-	WinnerSelectionExhausted WinnerSelectionStatus = "exhausted"
+	WinnerSelectionActive                  WinnerSelectionStatus = "active"
+	WinnerSelectionConfirmedPendingPayment WinnerSelectionStatus = "confirmed_pending_payment"
+	WinnerSelectionFinalized               WinnerSelectionStatus = "finalized"
+	WinnerSelectionExhausted             WinnerSelectionStatus = "exhausted"
 )
 
 // WinnerSelection tracks post-auction candidate progression.
@@ -21,7 +23,10 @@ type WinnerSelection struct {
 
 	SupplierID      string
 	ProductSnapshot ProductSnapshot
-	DealID          string
+	// DealID is the authoritative pointer to the current active deal attempt for this auction (updated on each fallback).
+	// MarkCurrentConfirmed assigns DealID when it is still empty; otherwise it must match the deal being confirmed.
+	// When Status is WinnerSelectionExhausted, DealID is cleared.
+	DealID string
 }
 
 func NewWinnerSelection(
@@ -58,15 +63,38 @@ func (s *WinnerSelection) CurrentCandidate() (string, bool) {
 }
 
 func (s *WinnerSelection) Advance() bool {
-	if s == nil {
+	if s == nil || s.Status != WinnerSelectionActive {
 		return false
 	}
-	s.CurrentIndex++
-	if s.CurrentIndex >= len(s.Candidates) {
+	next := s.CurrentIndex + 1
+	if next >= len(s.Candidates) {
 		s.Status = WinnerSelectionExhausted
 		return false
 	}
+	s.CurrentIndex = next
 	return true
+}
+
+func (s *WinnerSelection) MarkCurrentConfirmed(dealID string) error {
+	if s == nil {
+		return ErrSelectionNotFound
+	}
+	if dealID == "" {
+		return ErrDealIDRequired
+	}
+	if s.Status != WinnerSelectionActive {
+		return ErrWinnerSelectionNotActive
+	}
+	if s.DealID == "" {
+		s.DealID = dealID
+	} else if s.DealID != dealID {
+		return ErrStaleWinnerSelection
+	}
+	if _, ok := s.CurrentCandidate(); !ok {
+		return ErrNoAvailableWinnerCandidate
+	}
+	s.Status = WinnerSelectionConfirmedPendingPayment
+	return nil
 }
 
 func (s *WinnerSelection) MarkExhausted() {

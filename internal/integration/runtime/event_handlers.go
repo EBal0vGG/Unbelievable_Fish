@@ -198,6 +198,28 @@ func newDealCancelledHandler(uc *dealsapp.HandleDealDeclined) *dealCancelledHand
 	return &dealCancelledHandler{handleDealDeclined: uc}
 }
 
+type winnerRejectedHandler struct {
+	deps Dependencies
+}
+
+func newWinnerRejectedHandler(deps Dependencies) *winnerRejectedHandler {
+	return &winnerRejectedHandler{deps: deps}
+}
+
+func (h *winnerRejectedHandler) Execute(ctx context.Context, envelope events.Envelope) error {
+	evt, ok := envelope.Payload.(deal.WinnerRejected)
+	if !ok {
+		return errors.New("unexpected payload for WinnerRejected")
+	}
+	if h.deps.CaptureAuctionDeposit == nil || h.deps.BillingTx == nil {
+		return errors.New("billing dependencies are required for WinnerRejected handling")
+	}
+	slog.InfoContext(ctx, "integration_winner_rejected", "component", "integration.runtime", "auction_id", evt.AuctionID, "company_id", evt.CompanyID, "deal_id", evt.DealID)
+	return h.deps.BillingTx.WithinTx(ctx, func(txCtx context.Context) error {
+		return h.deps.CaptureAuctionDeposit.Execute(txCtx, evt.CompanyID, evt.AuctionID, evt.Reason)
+	})
+}
+
 func (h *dealCancelledHandler) Execute(ctx context.Context, envelope events.Envelope) error {
 	evt, ok := envelope.Payload.(deal.DealCancelled)
 	if !ok {
@@ -264,6 +286,10 @@ func registerIntegrationHandlers(
 	if handleDealDeclined != nil {
 		dealH := newDealCancelledHandler(handleDealDeclined)
 		bus.Subscribe("deals.DealCancelled", dealH.Execute)
+	}
+	if deps.CaptureAuctionDeposit != nil && deps.BillingTx != nil {
+		wrH := newWinnerRejectedHandler(deps)
+		bus.Subscribe("deals.WinnerRejected", wrH.Execute)
 	}
 	if createAccount != nil {
 		ccH := newCompanyCreatedHandler(deps, createAccount)

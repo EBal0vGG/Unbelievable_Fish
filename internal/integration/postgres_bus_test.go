@@ -6,6 +6,7 @@ import (
 	"database/sql/driver"
 	"errors"
 	"io"
+	"sort"
 	"strings"
 	"sync"
 	"testing"
@@ -156,7 +157,7 @@ func TestPostgresOutboxBusChains(t *testing.T) {
 		t.Fatalf("relay auction won error: %v", err)
 	}
 
-	dealItem, err := dealspg.NewDealRepository(db).GetByAuctionID(context.Background(), auctionID)
+	dealItem, err := dealspg.NewDealRepository(db).GetActiveDealByAuctionID(context.Background(), auctionID)
 	if err != nil {
 		t.Fatalf("expected deal after auction won: %v", err)
 	}
@@ -269,6 +270,8 @@ func (c *combinedConn) QueryContext(_ context.Context, query string, args []driv
 		return c.queryTradingBids(arg.(string))
 	case strings.Contains(query, "FROM deals") && strings.Contains(query, "WHERE deal_id"):
 		return c.queryDealsByID(arg.(string))
+	case strings.Contains(query, "FROM deals") && strings.Contains(query, "SELECT deal_id") && strings.Contains(query, "status <> 'cancelled'"):
+		return c.queryActiveDealIDsByAuction(arg.(string))
 	case strings.Contains(query, "FROM deals") && strings.Contains(query, "WHERE auction_id"):
 		return c.queryDealsByAuctionID(arg.(string))
 	case strings.Contains(query, "FROM deal_projections"):
@@ -711,6 +714,32 @@ func (c *combinedConn) queryDealsByID(id string) (driver.Rows, error) {
 		return &combinedRows{}, nil
 	}
 	return &combinedRows{values: [][]driver.Value{dealRow(record)}}, nil
+}
+
+func (c *combinedConn) queryActiveDealIDsByAuction(auctionID string) (driver.Rows, error) {
+	c.store.mu.Lock()
+	var candidates []dealRecord
+	for _, record := range c.store.deals {
+		if record.auctionID == auctionID && record.status != "cancelled" {
+			candidates = append(candidates, record)
+		}
+	}
+	c.store.mu.Unlock()
+	sort.Slice(candidates, func(i, j int) bool {
+		if !candidates[i].createdAt.Equal(candidates[j].createdAt) {
+			return candidates[i].createdAt.After(candidates[j].createdAt)
+		}
+		return candidates[i].dealID > candidates[j].dealID
+	})
+	limit := 2
+	if len(candidates) > limit {
+		candidates = candidates[:limit]
+	}
+	values := make([][]driver.Value, 0, len(candidates))
+	for _, r := range candidates {
+		values = append(values, []driver.Value{r.dealID})
+	}
+	return &combinedRows{values: values}, nil
 }
 
 func (c *combinedConn) queryDealsByAuctionID(auctionID string) (driver.Rows, error) {

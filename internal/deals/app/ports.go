@@ -10,7 +10,10 @@ import (
 type DealRepository interface {
 	Save(ctx context.Context, item *deal.Deal) error
 	GetByID(ctx context.Context, dealID string) (*deal.Deal, error)
-	GetByAuctionID(ctx context.Context, auctionID string) (*deal.Deal, error)
+	GetByIDForUpdate(ctx context.Context, dealID string) (*deal.Deal, error)
+	// GetActiveDealByAuctionID returns the single non-cancelled deal for the auction.
+	// More than one such row is a consistency violation (ErrMultipleActiveDealsForAuction).
+	GetActiveDealByAuctionID(ctx context.Context, auctionID string) (*deal.Deal, error)
 }
 
 type DealConfirmationRepository interface {
@@ -30,6 +33,7 @@ type ProjectionRepository interface {
 type WinnerSelectionRepository interface {
 	Save(ctx context.Context, item *deal.WinnerSelection) error
 	GetByAuctionID(ctx context.Context, auctionID string) (*deal.WinnerSelection, error)
+	GetByAuctionIDForUpdate(ctx context.Context, auctionID string) (*deal.WinnerSelection, error)
 }
 
 // OutboxRepository persists deal events for publishing.

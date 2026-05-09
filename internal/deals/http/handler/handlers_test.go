@@ -33,10 +33,14 @@ func (s *spyDealRepo) GetByID(ctx context.Context, dealID string) (*deal.Deal, e
 	return s.deal, nil
 }
 
-func (s *spyDealRepo) GetByAuctionID(ctx context.Context, auctionID string) (*deal.Deal, error) {
+func (s *spyDealRepo) GetByIDForUpdate(ctx context.Context, dealID string) (*deal.Deal, error) {
+	return s.GetByID(ctx, dealID)
+}
+
+func (s *spyDealRepo) GetActiveDealByAuctionID(ctx context.Context, auctionID string) (*deal.Deal, error) {
 	_ = ctx
 	_ = auctionID
-	if s.deal == nil {
+	if s.deal == nil || s.deal.Status() == deal.DealStatusCancelled {
 		return nil, app.ErrDealNotFound
 	}
 	return s.deal, nil
@@ -111,6 +115,10 @@ func (spySelectionRepo) GetByAuctionID(ctx context.Context, auctionID string) (*
 	_ = ctx
 	_ = auctionID
 	return nil, deal.ErrSelectionNotFound
+}
+
+func (spySelectionRepo) GetByAuctionIDForUpdate(ctx context.Context, auctionID string) (*deal.WinnerSelection, error) {
+	return spySelectionRepo{}.GetByAuctionID(ctx, auctionID)
 }
 
 type spyOutbox struct{}

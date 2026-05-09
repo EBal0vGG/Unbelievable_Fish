@@ -142,6 +142,10 @@ func runChains(db *sql.DB) error {
 	if err != nil {
 		return err
 	}
+	bCapture, err := billingapp.NewCaptureAuctionDeposit(bAccounts, bDeposits, bLedger, billingapp.RandomHexID{}, nil, bEvents)
+	if err != nil {
+		return err
+	}
 
 	runtime, err := integration.New(db, integration.Dependencies{
 		Catalog:        catalogService,
@@ -153,6 +157,7 @@ func runChains(db *sql.DB) error {
 		BillingTx:      bTx,
 		CreateAccount:  bCreateAccount,
 		ReleaseAuctionDepositsExceptCandidates: bReleaseExcept,
+		CaptureAuctionDeposit:                  bCapture,
 	})
 	if err != nil {
 		return err
@@ -190,7 +195,7 @@ func runChains(db *sql.DB) error {
 		return fmt.Errorf("relay auction won: %w", err)
 	}
 
-	dealItem, err := dealspg.NewDealRepository(db).GetByAuctionID(context.Background(), auctionID)
+	dealItem, err := dealspg.NewDealRepository(db).GetActiveDealByAuctionID(context.Background(), auctionID)
 	if err != nil {
 		return fmt.Errorf("deal not created: %w", err)
 	}

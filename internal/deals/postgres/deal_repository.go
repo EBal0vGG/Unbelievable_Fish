@@ -154,7 +154,7 @@ WHERE deal_id = $1
 	return r.getOne(ctx, query, dealID)
 }
 
-func (r *DealRepository) GetByAuctionID(ctx context.Context, auctionID string) (*deal.Deal, error) {
+func (r *DealRepository) GetByIDForUpdate(ctx context.Context, dealID string) (*deal.Deal, error) {
 	const query = `
 SELECT deal_id, customer_id, supplier_id, auction_id, quantity, unit_price, status, type_name,
        created_at, confirmed_at, contract_sign_deadline, payment_deadline, contract_number, contract_prepared_at, contract_signed_at,
@@ -162,11 +162,45 @@ SELECT deal_id, customer_id, supplier_id, auction_id, quantity, unit_price, stat
        product_id, product_name, product_description, product_category, product_weight,
        product_unit, product_size, product_processing_type, product_volume, product_origin_country
 FROM deals
-WHERE auction_id = $1
-ORDER BY (status = 'cancelled') ASC, created_at DESC, deal_id DESC
-LIMIT 1
+WHERE deal_id = $1
+FOR UPDATE
 `
-	return r.getOne(ctx, query, auctionID)
+	return r.getOne(ctx, query, dealID)
+}
+
+func (r *DealRepository) GetActiveDealByAuctionID(ctx context.Context, auctionID string) (*deal.Deal, error) {
+	const idQuery = `
+SELECT deal_id FROM deals
+WHERE auction_id = $1 AND status <> 'cancelled'
+ORDER BY created_at DESC, deal_id DESC
+LIMIT 2
+`
+	dbtx := DBTXFromContext(ctx, r.db)
+	rows, err := dbtx.QueryContext(ctx, idQuery, auctionID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var ids []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	switch len(ids) {
+	case 0:
+		return nil, app.ErrDealNotFound
+	case 1:
+		return r.GetByID(ctx, ids[0])
+	default:
+		return nil, app.ErrMultipleActiveDealsForAuction
+	}
 }
 
 func (r *DealRepository) getOne(ctx context.Context, query string, arg string) (*deal.Deal, error) {

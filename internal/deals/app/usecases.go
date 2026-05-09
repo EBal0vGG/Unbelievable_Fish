@@ -263,26 +263,76 @@ func (uc *HandleDealDeclined) Execute(ctx context.Context, meta CommandMeta, auc
 		if err != nil {
 			return err
 		}
-		if dealID != "" && selection.DealID != "" && selection.DealID != dealID {
-			return nil
-		}
 		if selection == nil || selection.Status == deal.WinnerSelectionExhausted {
 			return ErrNoAvailableWinner
 		}
+		if selection.Status == deal.WinnerSelectionConfirmedPendingPayment {
+			return deal.ErrWinnerFallbackOnlyWhileActive
+		}
+
+		effectiveDealID := dealID
+		if effectiveDealID == "" {
+			effectiveDealID = selection.DealID
+		}
+		if effectiveDealID != "" && selection.DealID != "" && selection.DealID != effectiveDealID {
+			return deal.ErrStaleWinnerSelection
+		}
+
+		currentCand, ok := selection.CurrentCandidate()
+		if !ok {
+			return ErrNoAvailableWinner
+		}
+
+		if selection.DealID != "" {
+			curDeal, err := tx.Deals().GetByID(ctx, selection.DealID)
+			if err != nil {
+				return err
+			}
+			if curDeal.Status() != deal.DealStatusCancelled {
+				return deal.ErrDealNotCancelledForFallback
+			}
+			if curDeal.CustomerID() != currentCand {
+				return deal.ErrWrongSelectedCandidate
+			}
+		}
+
+		now := time.Now().UTC()
 		if !selection.Advance() {
+			selection.DealID = ""
 			if err := tx.Selections().Save(ctx, selection); err != nil {
 				return err
 			}
-			return ErrNoAvailableWinner
+			if err := tx.Outbox().Add(ctx, []deal.Event{
+				deal.WinnerSelectionFailed{
+					SelectionID: resolvedAuctionID,
+					AuctionID:   resolvedAuctionID,
+					FailedAt:    now,
+					Reason:      "NO_CANDIDATES_LEFT",
+				},
+			}); err != nil {
+				return err
+			}
+			return nil
 		}
 
 		next, ok := selection.CurrentCandidate()
 		if !ok {
 			selection.MarkExhausted()
+			selection.DealID = ""
 			if err := tx.Selections().Save(ctx, selection); err != nil {
 				return err
 			}
-			return ErrNoAvailableWinner
+			if err := tx.Outbox().Add(ctx, []deal.Event{
+				deal.WinnerSelectionFailed{
+					SelectionID: resolvedAuctionID,
+					AuctionID:   resolvedAuctionID,
+					FailedAt:    now,
+					Reason:      "NO_CANDIDATES_LEFT",
+				},
+			}); err != nil {
+				return err
+			}
+			return nil
 		}
 
 		item, events, err := uc.factory.CreateFromSelection(
@@ -306,6 +356,15 @@ func (uc *HandleDealDeclined) Execute(ctx context.Context, meta CommandMeta, auc
 		if err := tx.Selections().Save(ctx, selection); err != nil {
 			return err
 		}
+		rank := selection.CurrentIndex + 1
+		events = append(events, deal.NextWinnerSelected{
+			SelectionID: selection.AuctionID,
+			AuctionID:   selection.AuctionID,
+			CompanyID:   next,
+			Rank:        rank,
+			DealID:      item.ID(),
+			SelectedAt:  now,
+		})
 		return tx.Outbox().Add(ctx, events)
 	})
 }
@@ -326,18 +385,52 @@ func (uc *GetDealByID) Execute(ctx context.Context, dealID string) (*deal.Deal, 
 }
 
 type GetDealByAuctionID struct {
-	repo DealRepository
+	uow UnitOfWork
 }
 
-func NewGetDealByAuctionID(repo DealRepository) *GetDealByAuctionID {
-	return &GetDealByAuctionID{repo: repo}
+func NewGetDealByAuctionID(uow UnitOfWork) *GetDealByAuctionID {
+	return &GetDealByAuctionID{uow: uow}
 }
 
+// Execute resolves the current deal for an auction: WinnerSelection.DealID is authoritative when a selection exists;
+// otherwise falls back to GetActiveDealByAuctionID (e.g. legacy or no selection row yet).
 func (uc *GetDealByAuctionID) Execute(ctx context.Context, auctionID string) (*deal.Deal, error) {
 	if auctionID == "" {
 		return nil, ErrAuctionIDRequired
 	}
-	return uc.repo.GetByAuctionID(ctx, auctionID)
+	var out *deal.Deal
+	err := uc.uow.Do(ctx, func(tx Tx) error {
+		sel, err := tx.Selections().GetByAuctionID(ctx, auctionID)
+		if err != nil && !errors.Is(err, deal.ErrSelectionNotFound) {
+			return err
+		}
+		if err == nil {
+			if sel.Status == deal.WinnerSelectionExhausted {
+				return ErrDealNotFound
+			}
+			if sel.DealID != "" {
+				d, err := tx.Deals().GetByID(ctx, sel.DealID)
+				if err != nil {
+					return err
+				}
+				if d.Status() == deal.DealStatusCancelled {
+					return deal.ErrStaleWinnerSelection
+				}
+				out = d
+				return nil
+			}
+		}
+		d, err := tx.Deals().GetActiveDealByAuctionID(ctx, auctionID)
+		if err != nil {
+			return err
+		}
+		out = d
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 type ConfirmDeal struct {
@@ -353,8 +446,27 @@ func NewConfirmDeal(uow UnitOfWork) (*ConfirmDeal, error) {
 
 func (uc *ConfirmDeal) Execute(ctx context.Context, meta CommandMeta, dealID string) error {
 	_ = meta
-	return executeDealMutation(ctx, uc.uow, dealID, func(item *deal.Deal) ([]deal.Event, error) {
-		return item.Confirm()
+	if dealID == "" {
+		return ErrDealIDRequired
+	}
+	return uc.uow.Do(ctx, func(tx Tx) error {
+		item, err := tx.Deals().GetByIDForUpdate(ctx, dealID)
+		if err != nil {
+			return err
+		}
+		dealEvents, err := item.Confirm()
+		if err != nil {
+			return err
+		}
+		extra, err := appendAuctionWinnerConfirmedIfNeeded(ctx, tx, item)
+		if err != nil {
+			return err
+		}
+		dealEvents = append(dealEvents, extra...)
+		if err := tx.Deals().Save(ctx, item); err != nil {
+			return err
+		}
+		return tx.Outbox().Add(ctx, dealEvents)
 	})
 }
 
@@ -565,6 +677,46 @@ func (uc *UpdateDealPrice) Execute(ctx context.Context, meta CommandMeta, dealID
 	return executeDealMutation(ctx, uc.uow, dealID, func(item *deal.Deal) ([]deal.Event, error) {
 		return item.UpdatePrice(newPrice, updatedBy)
 	})
+}
+
+func appendAuctionWinnerConfirmedIfNeeded(ctx context.Context, tx Tx, d *deal.Deal) ([]deal.Event, error) {
+	if d.Type() != deal.DealTypeAuction || d.AuctionID() == "" {
+		return nil, nil
+	}
+	if d.Status() != deal.DealStatusConfirmed {
+		return nil, nil
+	}
+	// Row-lock selection together with locked deal so two confirms cannot both pass MarkCurrentConfirmed.
+	sel, err := tx.Selections().GetByAuctionIDForUpdate(ctx, d.AuctionID())
+	if err != nil {
+		if errors.Is(err, deal.ErrSelectionNotFound) {
+			return nil, deal.ErrWinnerSelectionMissingForAuctionDeal
+		}
+		return nil, err
+	}
+	if cand, ok := sel.CurrentCandidate(); !ok || cand != d.CustomerID() {
+		return nil, deal.ErrWrongSelectedCandidate
+	}
+	if err := sel.MarkCurrentConfirmed(d.ID()); err != nil {
+		return nil, err
+	}
+	if err := tx.Selections().Save(ctx, sel); err != nil {
+		return nil, err
+	}
+	at := d.ConfirmedAt()
+	if at == nil {
+		return nil, deal.ErrCannotConfirmDeal
+	}
+	return []deal.Event{
+		deal.WinnerConfirmed{
+			SelectionID: d.AuctionID(),
+			DealID:      d.ID(),
+			AuctionID:   d.AuctionID(),
+			CompanyID:   d.CustomerID(),
+			FinalPrice:  d.UnitPrice(),
+			ConfirmedAt: *at,
+		},
+	}, nil
 }
 
 func executeDealMutation(

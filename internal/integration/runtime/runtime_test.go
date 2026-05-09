@@ -29,13 +29,25 @@ func (r *dealRepoMem) GetByID(_ context.Context, dealID string) (*deal.Deal, err
 	return item, nil
 }
 
-func (r *dealRepoMem) GetByAuctionID(_ context.Context, auctionID string) (*deal.Deal, error) {
+func (r *dealRepoMem) GetByIDForUpdate(ctx context.Context, dealID string) (*deal.Deal, error) {
+	return r.GetByID(ctx, dealID)
+}
+
+func (r *dealRepoMem) GetActiveDealByAuctionID(_ context.Context, auctionID string) (*deal.Deal, error) {
+	var found []*deal.Deal
 	for _, item := range r.data {
-		if item.AuctionID() == auctionID {
-			return item, nil
+		if item.AuctionID() == auctionID && item.Status() != deal.DealStatusCancelled {
+			found = append(found, item)
 		}
 	}
-	return nil, dealsapp.ErrDealNotFound
+	switch len(found) {
+	case 0:
+		return nil, dealsapp.ErrDealNotFound
+	case 1:
+		return found[0], nil
+	default:
+		return nil, dealsapp.ErrMultipleActiveDealsForAuction
+	}
 }
 
 type projectionRepoMem struct {
@@ -106,6 +118,10 @@ func (r *selectionRepoMem) GetByAuctionID(_ context.Context, auctionID string) (
 		return nil, deal.ErrSelectionNotFound
 	}
 	return item, nil
+}
+
+func (r *selectionRepoMem) GetByAuctionIDForUpdate(ctx context.Context, auctionID string) (*deal.WinnerSelection, error) {
+	return r.GetByAuctionID(ctx, auctionID)
 }
 
 type outboxMem struct {
@@ -210,12 +226,30 @@ func TestDealCancelledEventMovesToNextWinner(t *testing.T) {
 	if err := createSelection.Execute(ctx, dealsapp.CommandMeta{}, auctionID, []string{"buyer-1", "buyer-2"}, 140, time.Now()); err != nil {
 		t.Fatalf("create selection deal: %v", err)
 	}
-	initial, err := deals.GetByAuctionID(ctx, auctionID)
+	initial, err := deals.GetActiveDealByAuctionID(ctx, auctionID)
 	if err != nil {
 		t.Fatalf("load initial deal: %v", err)
 	}
 	if initial.CustomerID() != "buyer-1" {
 		t.Fatalf("expected first deal for buyer-1, got %s", initial.CustomerID())
+	}
+
+	cancelUC, err := dealsapp.NewCancelDeal(uow)
+	if err != nil {
+		t.Fatalf("cancel deal constructor: %v", err)
+	}
+	cancelMeta := dealsapp.CommandMeta{CompanyID: "buyer-1", UserID: "user-1", CorrelationID: "test", CausationID: "test"}
+	if err := cancelUC.Execute(ctx, cancelMeta, initial.ID(), "manual cancellation"); err != nil {
+		t.Fatalf("cancel first deal: %v", err)
+	}
+	var cancelledEvt deal.DealCancelled
+	for _, e := range outbox.events {
+		if dc, ok := e.(deal.DealCancelled); ok {
+			cancelledEvt = dc
+		}
+	}
+	if cancelledEvt.DealID == "" {
+		t.Fatal("expected DealCancelled in outbox after cancel")
 	}
 
 	bus := inmemory.NewBus()
@@ -231,14 +265,14 @@ func TestDealCancelledEventMovesToNextWinner(t *testing.T) {
 
 	if err := bus.Publish(ctx, events.Envelope{
 		Type:       "deals.DealCancelled",
-		Payload:    deal.DealCancelled{DealID: initial.ID(), Reason: "manual cancellation"},
+		Payload:    cancelledEvt,
 		OccurredAt: time.Now().UTC(),
 		Meta:       map[string]string{"auction_id": auctionID},
 	}); err != nil {
 		t.Fatalf("publish deal cancelled: %v", err)
 	}
 
-	next, err := deals.GetByAuctionID(ctx, auctionID)
+	next, err := deals.GetActiveDealByAuctionID(ctx, auctionID)
 	if err != nil {
 		t.Fatalf("load next deal: %v", err)
 	}

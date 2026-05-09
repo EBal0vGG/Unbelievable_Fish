@@ -168,11 +168,28 @@ func TestUseCaseChainHappyPathAndWinnerFallback(t *testing.T) {
 			dealsRepos.selections,
 			dealsRepos.outbox,
 		)
+		firstWinner := dealsRepos.deals.lastSaved
+		if firstWinner == nil {
+			t.Fatal("expected deal from happy_path_chain")
+		}
+		cancelUC, err := dealsapp.NewCancelDeal(dealsUOW)
+		if err != nil {
+			t.Fatalf("cancel deal constructor error: %v", err)
+		}
+		cancelMeta := dealsapp.CommandMeta{
+			CompanyID:     firstWinner.CustomerID(),
+			UserID:        "user-cancel",
+			CorrelationID: "winner-decline-test",
+			CausationID:   "winner-decline-test",
+		}
+		if err := cancelUC.Execute(context.Background(), cancelMeta, firstWinner.ID(), "manual withdrawal"); err != nil {
+			t.Fatalf("cancel winner deal: %v", err)
+		}
 		ucDeclined, err := dealsapp.NewHandleDealDeclined(dealsUOW)
 		if err != nil {
 			t.Fatalf("declined constructor error: %v", err)
 		}
-		if err := ucDeclined.Execute(context.Background(), dealsMeta(), auctionID, ""); err != nil {
+		if err := ucDeclined.Execute(context.Background(), dealsMeta(), auctionID, firstWinner.ID()); err != nil {
 			t.Fatalf("declined error: %v", err)
 		}
 		if dealsRepos.deals.lastSaved == nil || dealsRepos.deals.lastSaved.CustomerID() != "buyer-1" {
@@ -575,14 +592,26 @@ func (r *dealRepoMemory) GetByID(ctx context.Context, dealID string) (*deal.Deal
 	return item, nil
 }
 
-func (r *dealRepoMemory) GetByAuctionID(ctx context.Context, auctionID string) (*deal.Deal, error) {
+func (r *dealRepoMemory) GetByIDForUpdate(ctx context.Context, dealID string) (*deal.Deal, error) {
+	return r.GetByID(ctx, dealID)
+}
+
+func (r *dealRepoMemory) GetActiveDealByAuctionID(ctx context.Context, auctionID string) (*deal.Deal, error) {
 	_ = ctx
+	var found []*deal.Deal
 	for _, item := range r.data {
-		if item.AuctionID() == auctionID {
-			return item, nil
+		if item.AuctionID() == auctionID && item.Status() != deal.DealStatusCancelled {
+			found = append(found, item)
 		}
 	}
-	return nil, dealsapp.ErrDealNotFound
+	switch len(found) {
+	case 0:
+		return nil, dealsapp.ErrDealNotFound
+	case 1:
+		return found[0], nil
+	default:
+		return nil, dealsapp.ErrMultipleActiveDealsForAuction
+	}
 }
 
 type projectionRepoMemory struct {
@@ -663,6 +692,10 @@ func (r *selectionRepoMemory) GetByAuctionID(ctx context.Context, auctionID stri
 		return nil, deal.ErrSelectionNotFound
 	}
 	return item, nil
+}
+
+func (r *selectionRepoMemory) GetByAuctionIDForUpdate(ctx context.Context, auctionID string) (*deal.WinnerSelection, error) {
+	return r.GetByAuctionID(ctx, auctionID)
 }
 
 type dealOutbox struct {

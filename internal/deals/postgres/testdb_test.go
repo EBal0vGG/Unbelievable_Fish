@@ -188,6 +188,17 @@ func (c *integrationConn) ExecContext(_ context.Context, query string, args []dr
 
 func (c *integrationConn) QueryContext(_ context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
 	switch {
+	case strings.Contains(query, "FROM deals") && strings.Contains(query, "SELECT deal_id") && strings.Contains(query, "status <> 'cancelled'"):
+		if len(args) != 1 {
+			return nil, errors.New("unexpected query args length")
+		}
+		arg := args[0].Value.(string)
+		ids := c.lookupActiveDealIDsByAuction(arg, 2)
+		values := make([][]driver.Value, 0, len(ids))
+		for _, id := range ids {
+			values = append(values, []driver.Value{id})
+		}
+		return &integrationRows{values: values}, nil
 	case strings.Contains(query, "FROM deals") && strings.Contains(query, "WHERE deal_id"):
 		if len(args) != 1 {
 			return nil, errors.New("unexpected query args length")
@@ -477,6 +488,28 @@ func (c *integrationConn) lookupDealByID(id string) (integrationDealRecord, bool
 	defer c.store.mu.Unlock()
 	record, ok := c.store.deals[id]
 	return record, ok
+}
+
+func (c *integrationConn) lookupActiveDealIDsByAuction(auctionID string, limit int) []string {
+	c.store.mu.Lock()
+	defer c.store.mu.Unlock()
+	var candidates []integrationDealRecord
+	for _, record := range c.store.deals {
+		if record.auctionID == auctionID && record.status != "cancelled" {
+			candidates = append(candidates, record)
+		}
+	}
+	sort.Slice(candidates, func(i, j int) bool {
+		if !candidates[i].createdAt.Equal(candidates[j].createdAt) {
+			return candidates[i].createdAt.After(candidates[j].createdAt)
+		}
+		return candidates[i].dealID > candidates[j].dealID
+	})
+	out := make([]string, 0, len(candidates))
+	for i := 0; i < len(candidates) && i < limit; i++ {
+		out = append(out, candidates[i].dealID)
+	}
+	return out
 }
 
 func (c *integrationConn) lookupDealByAuctionID(auctionID string) (integrationDealRecord, bool) {

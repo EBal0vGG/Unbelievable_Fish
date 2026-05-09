@@ -114,6 +114,19 @@ func MapError(err error) HTTPError {
 		errors.Is(err, deal.ErrProjectionRequired),
 		errors.Is(err, deal.ErrProjectionNotActive):
 		return HTTPError{http.StatusConflict, "INVALID_STAGE_TRANSITION", "invalid stage transition"}
+	case errors.Is(err, deal.ErrWinnerForfeitOnlyAuction):
+		return HTTPError{http.StatusBadRequest, "FORFEIT_NOT_AUCTION", "winner deposit forfeit applies only to auction deals"}
+	case errors.Is(err, deal.ErrCannotDeclineWinnerAfterConfirm),
+		errors.Is(err, deal.ErrDealNotCancelledForFallback),
+		errors.Is(err, deal.ErrWinnerFallbackOnlyWhileActive):
+		return HTTPError{http.StatusConflict, "WINNER_DECLINE_INVALID", "winner cannot decline in the current deal state"}
+	case errors.Is(err, app.ErrMultipleActiveDealsForAuction),
+		errors.Is(err, deal.ErrStaleWinnerSelection),
+		errors.Is(err, deal.ErrWrongSelectedCandidate),
+		errors.Is(err, deal.ErrWinnerSelectionMissingForAuctionDeal),
+		errors.Is(err, deal.ErrWinnerSelectionNotActive),
+		errors.Is(err, deal.ErrNoAvailableWinnerCandidate):
+		return HTTPError{http.StatusConflict, "DEAL_CONSISTENCY", "inconsistent deal state for this auction"}
 	case errors.Is(err, app.ErrNoAvailableWinner):
 		return HTTPError{http.StatusConflict, "NO_AVAILABLE_WINNER", "no available winner candidates"}
 	default:

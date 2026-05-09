@@ -146,6 +146,54 @@ type DealCancelled struct {
 
 func (DealCancelled) isDealEvent() {}
 
+// WinnerRejected — покупатель-участник топ-N отказался или просрочил подтверждение; billing удерживает депозит.
+// SelectionID совпадает с AuctionID (одна winner selection на аукцион).
+type WinnerRejected struct {
+	SelectionID string
+	DealID      string
+	AuctionID   string
+	CompanyID   string
+	RejectedAt  time.Time
+	Reason      string
+}
+
+func (WinnerRejected) isDealEvent() {}
+
+// WinnerConfirmed — текущий кандидат подтвердил намерение заключить сделку; депозиты и комиссия не меняются до финализации оплаты.
+// Keep this event small (ids, price, time only)—do not turn it into a snapshot/contract/invoice DTO.
+type WinnerConfirmed struct {
+	SelectionID string
+	DealID      string
+	AuctionID   string
+	CompanyID   string
+	FinalPrice  int64
+	ConfirmedAt time.Time
+}
+
+func (WinnerConfirmed) isDealEvent() {}
+
+// NextWinnerSelected — право покупки перешло следующему кандидату (новая сделка будет создана в том же или следующем шаге).
+type NextWinnerSelected struct {
+	SelectionID string
+	AuctionID   string
+	CompanyID   string
+	Rank        int
+	DealID      string
+	SelectedAt  time.Time
+}
+
+func (NextWinnerSelected) isDealEvent() {}
+
+// WinnerSelectionFailed — кандидаты исчерпаны, активной сделки по аукциону больше не будет.
+type WinnerSelectionFailed struct {
+	SelectionID string
+	AuctionID   string
+	FailedAt    time.Time
+	Reason      string
+}
+
+func (WinnerSelectionFailed) isDealEvent() {}
+
 // PriceUpdated - событие обновления цены
 type PriceUpdated struct {
 	DealID    string

@@ -359,18 +359,41 @@ func (d *Deal) Cancel(reason, cancelledBy string) ([]Event, error) {
 		return nil, ErrCannotCancelDeal
 	}
 
-	d.status = DealStatusCancelled
-
-	events := []Event{
-		DealCancelled{
-			DealID:      d.id,
-			Reason:      reason,
-			CancelledBy: cancelledBy,
-			CancelledAt: time.Now(),
-		},
+	now := time.Now()
+	cancelEv := DealCancelled{
+		DealID:      d.id,
+		Reason:      reason,
+		CancelledBy: cancelledBy,
+		CancelledAt: now,
 	}
 
-	return events, nil
+	if ReasonForfeitsWinnerDeposit(reason) {
+		if d.typeName != DealTypeAuction {
+			return nil, ErrWinnerForfeitOnlyAuction
+		}
+		if d.status != DealStatusPending {
+			return nil, ErrCannotDeclineWinnerAfterConfirm
+		}
+		if d.auctionID == "" {
+			return nil, ErrAuctionIDRequired
+		}
+		d.status = DealStatusCancelled
+		norm := NormalizeWinnerForfeitReason(reason)
+		return []Event{
+			cancelEv,
+			WinnerRejected{
+				SelectionID: d.auctionID,
+				DealID:      d.id,
+				AuctionID:   d.auctionID,
+				CompanyID:   d.customerID,
+				RejectedAt:  now,
+				Reason:      norm,
+			},
+		}, nil
+	}
+
+	d.status = DealStatusCancelled
+	return []Event{cancelEv}, nil
 }
 
 // UpdatePrice - обновляет цену за единицу

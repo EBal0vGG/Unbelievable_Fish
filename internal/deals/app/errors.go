@@ -14,6 +14,7 @@ var (
 	ErrWonAtRequired            = errors.New("app: won at is required")
 	ErrWinnerCandidatesRequired = errors.New("app: winner candidates are required")
 	ErrNoAvailableWinner        = errors.New("app: no available winner candidates")
+	ErrMultipleActiveDealsForAuction = errors.New("app: multiple non-cancelled deals for same auction")
 
 	ErrSupplierIDRequired       = errors.New("app: supplier ID is required")
 	ErrConfirmationIDRequired   = errors.New("app: confirmation ID is required")

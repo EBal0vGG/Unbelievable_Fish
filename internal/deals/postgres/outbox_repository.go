@@ -122,6 +122,14 @@ func dealIDFor(event deal.Event) string {
 		return e.DealID
 	case deal.DealCancelled:
 		return e.DealID
+	case deal.WinnerRejected:
+		return e.DealID
+	case deal.WinnerConfirmed:
+		return e.DealID
+	case deal.NextWinnerSelected:
+		return e.DealID
+	case deal.WinnerSelectionFailed:
+		return e.AuctionID
 	case deal.PriceUpdated:
 		return e.DealID
 	default:
