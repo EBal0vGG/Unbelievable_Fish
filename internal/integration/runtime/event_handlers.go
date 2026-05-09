@@ -227,6 +227,10 @@ func (h *dealCancelledHandler) Execute(ctx context.Context, envelope events.Enve
 	if !ok {
 		return errors.New("unexpected payload for DealCancelled")
 	}
+	if evt.Reason == deal.DealCancelReasonPaymentTimeout {
+		// Fallback is already applied in the same outbox batch as DealCancelled (HandleDealInvoiceExpired).
+		return nil
+	}
 	dealsMeta := dealsMetaFromEnvelope(envelope)
 	err := h.handleDealDeclined.Execute(ctx, dealsMeta, valueOrEmpty(envelope.Meta, "auction_id"), evt.DealID)
 	if err != nil {
@@ -305,6 +309,10 @@ func registerIntegrationHandlers(
 		dipH := newDealInvoicePaidHandler(deps)
 		bus.Subscribe("billing.DealInvoicePaid", dipH.Execute)
 	}
+	if deps.HandleDealInvoiceExpired != nil {
+		dieH := newDealInvoiceExpiredHandler(deps)
+		bus.Subscribe("billing.DealInvoiceExpired", dieH.Execute)
+	}
 	if deps.SettleWinnerDepositAfterInvoicePaid != nil && deps.ReleaseAuctionDepositsExceptCandidates != nil && deps.BillingTx != nil {
 		wsfH := newWinnerSelectionFinalizedHandler(deps)
 		bus.Subscribe("deals.WinnerSelectionFinalized", wsfH.Execute)
@@ -365,6 +373,26 @@ func (h *dealInvoicePaidHandler) Execute(ctx context.Context, envelope events.En
 	return h.deps.HandleDealInvoicePaid.Execute(ctx, evt)
 }
 
+type dealInvoiceExpiredHandler struct {
+	deps Dependencies
+}
+
+func newDealInvoiceExpiredHandler(deps Dependencies) *dealInvoiceExpiredHandler {
+	return &dealInvoiceExpiredHandler{deps: deps}
+}
+
+func (h *dealInvoiceExpiredHandler) Execute(ctx context.Context, envelope events.Envelope) error {
+	evt, ok := envelope.Payload.(wallet.DealInvoiceExpired)
+	if !ok {
+		return errors.New("unexpected payload for DealInvoiceExpired")
+	}
+	if h.deps.HandleDealInvoiceExpired == nil {
+		return errors.New("HandleDealInvoiceExpired is not configured")
+	}
+	slog.InfoContext(ctx, "integration_deal_invoice_expired", "component", "integration.runtime", "deal_id", evt.DealID, "invoice_id", evt.InvoiceID)
+	return h.deps.HandleDealInvoiceExpired.Execute(ctx, evt)
+}
+
 type winnerSelectionFinalizedHandler struct {
 	deps Dependencies
 }
@@ -381,10 +409,43 @@ func (h *winnerSelectionFinalizedHandler) Execute(ctx context.Context, envelope 
 	if h.deps.BillingTx == nil || h.deps.SettleWinnerDepositAfterInvoicePaid == nil || h.deps.ReleaseAuctionDepositsExceptCandidates == nil {
 		return errors.New("billing settlement dependencies are not configured")
 	}
+	if h.deps.CreateSellerPayout != nil && h.deps.DealInvoices == nil {
+		return errors.New("DealInvoices is required when CreateSellerPayout is configured")
+	}
 	return h.deps.BillingTx.WithinTx(ctx, func(txCtx context.Context) error {
+		if h.deps.CreateSellerPayout != nil {
+			inv, err := h.deps.DealInvoices.LoadByDealIDForUpdate(txCtx, evt.DealID)
+			if err != nil {
+				return err
+			}
+			if inv.Status != wallet.InvoicePaid {
+				return wallet.ErrInvoiceNotPayable
+			}
+			if inv.AuctionID != evt.AuctionID || inv.BuyerCompanyID != evt.CompanyID {
+				return billingapp.ErrSellerPayoutInvoiceMismatch
+			}
+			if inv.GoodsAmount != evt.GoodsAmount || inv.PlatformFeeDueAmount != evt.PlatformFeeDueAmount {
+				return billingapp.ErrSellerPayoutInvoiceMismatch
+			}
+		}
 		if err := h.deps.SettleWinnerDepositAfterInvoicePaid.Execute(txCtx, evt.AuctionID, evt.CompanyID, evt.GoodsAmount, evt.PlatformFeeDueAmount, "WINNER_FINALIZED"); err != nil {
 			return err
 		}
-		return h.deps.ReleaseAuctionDepositsExceptCandidates.Execute(txCtx, evt.AuctionID, []string{evt.CompanyID}, "WINNER_FINALIZED")
+		if err := h.deps.ReleaseAuctionDepositsExceptCandidates.Execute(txCtx, evt.AuctionID, []string{evt.CompanyID}, "WINNER_FINALIZED"); err != nil {
+			return err
+		}
+		if h.deps.CreateSellerPayout != nil {
+			_, err := h.deps.CreateSellerPayout.Execute(txCtx, billingapp.CreateSellerPayoutCommand{
+				DealID:               evt.DealID,
+				AuctionID:            evt.AuctionID,
+				BuyerCompanyID:       evt.CompanyID,
+				GoodsAmount:          evt.GoodsAmount,
+				PlatformFeeDueAmount: evt.PlatformFeeDueAmount,
+			})
+			if err != nil {
+				return err
+			}
+		}
+		return nil
 	})
 }

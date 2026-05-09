@@ -33,6 +33,7 @@ func main() {
 	ledgerLister := billingpg.NewLedgerLister(db)
 	deposits := billingpg.NewAuctionDepositRepository(db)
 	dealInvoices := billingpg.NewDealInvoiceRepository(db)
+	sellerPayouts := billingpg.NewSellerPayoutRepository(db)
 	events := billingpg.NewOutboxRepository(db)
 
 	createAccount, err := billingapp.NewCreateAccount(accounts, billingapp.RandomHexID{}, events)
@@ -86,6 +87,8 @@ func main() {
 		GetDealInvoiceByDeal:   authMiddleware.Wrap(handler.NewGetDealInvoiceByDealHandler(dealInvoices)),
 		ListMyDealInvoices:     authMiddleware.Wrap(handler.NewListMyDealInvoicesHandler(dealInvoices)),
 		FakeConfirmDealInvoice: authMiddleware.Wrap(handler.NewFakeConfirmDealInvoiceHandler(txm, confirmDealInvoice)),
+		ListMySellerPayouts:    authMiddleware.Wrap(handler.NewListMySellerPayoutsHandler(sellerPayouts)),
+		GetSellerPayout:        authMiddleware.Wrap(handler.NewGetSellerPayoutHandler(sellerPayouts)),
 	}, httplog.Middleware(logger))
 
 	r := http.NewServeMux()

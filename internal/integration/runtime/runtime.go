@@ -39,8 +39,18 @@ type Dependencies struct {
 	CreateDealInvoice *billingapp.CreateDealInvoice
 	// HandleDealInvoicePaid marks deal paid and finalizes winner selection (nil = skip).
 	HandleDealInvoicePaid *dealsapp.HandleDealInvoicePaid
+	// HandleDealInvoiceExpired cancels deal after invoice due, forfeits deposit, advances winner (nil = skip).
+	HandleDealInvoiceExpired *dealsapp.HandleDealInvoiceExpired
+	// ExpireDealInvoice marks invoice expired and publishes DealInvoiceExpired (nil = skip scheduler path).
+	ExpireDealInvoice *billingapp.ExpireDealInvoice
+	// ExpiredDealInvoiceLister lists PAYMENT_PENDING invoices past due (nil = skip).
+	ExpiredDealInvoiceLister billingapp.ExpiredDealInvoiceLister
 	// SettleWinnerDepositAfterInvoicePaid captures/releases winner HELD deposit after invoice (nil = skip).
 	SettleWinnerDepositAfterInvoicePaid *billingapp.SettleWinnerDepositAfterInvoicePaid
+	// DealInvoices load for WinnerSelectionFinalized → seller payout path (required if CreateSellerPayout is set).
+	DealInvoices billingapp.DealInvoiceRepository
+	// CreateSellerPayout records seller receivable after settlement on WinnerSelectionFinalized (nil = skip).
+	CreateSellerPayout *billingapp.CreateSellerPayout
 }
 
 type Runtime struct {
@@ -50,6 +60,10 @@ type Runtime struct {
 	cancelDeal    *dealsapp.CancelDeal
 	auctionLister ExpiredAuctionLister
 	dealLister    ExpiredDealLister
+	billingTx     billingapp.UnitOfWork
+
+	expireDealInvoice    *billingapp.ExpireDealInvoice
+	expiredInvoiceLister billingapp.ExpiredDealInvoiceLister
 }
 
 type ExpiredAuctionLister interface {
@@ -96,12 +110,15 @@ func New(db *sql.DB, deps Dependencies) (*Runtime, error) {
 	registerIntegrationHandlers(bus, deps, publishAuctionUC, createProjectionUC, createSelectionUC, handleDealDeclinedUC, deps.CreateAccount)
 
 	return &Runtime{
-		Bus:           bus,
-		Relay:         relay,
-		closeAuction:  closeAuctionUC,
-		cancelDeal:    cancelDealUC,
-		auctionLister: deps.AuctionLister,
-		dealLister:    deps.DealLister,
+		Bus:                  bus,
+		Relay:                relay,
+		closeAuction:         closeAuctionUC,
+		cancelDeal:           cancelDealUC,
+		auctionLister:        deps.AuctionLister,
+		dealLister:           deps.DealLister,
+		billingTx:            deps.BillingTx,
+		expireDealInvoice:    deps.ExpireDealInvoice,
+		expiredInvoiceLister: deps.ExpiredDealInvoiceLister,
 	}, nil
 }
 
@@ -153,6 +170,31 @@ func (r *Runtime) RunCancelExpiredDeals(ctx context.Context, now time.Time, limi
 	return nil
 }
 
+func (r *Runtime) RunExpireDealInvoices(ctx context.Context, now time.Time, limit int) error {
+	if r.billingTx == nil || r.expireDealInvoice == nil || r.expiredInvoiceLister == nil {
+		return nil
+	}
+	return r.billingTx.WithinTx(ctx, func(txCtx context.Context) error {
+		ids, err := r.expiredInvoiceLister.ListExpired(txCtx, now, limit)
+		if err != nil {
+			return err
+		}
+		for _, id := range ids {
+			slog.InfoContext(ctx, "scheduler_expire_invoice_attempt", "component", "scheduler", "operation", "expire_deal_invoice", "invoice_id", id)
+			if err := r.expireDealInvoice.Execute(txCtx, id); err != nil {
+				if errors.Is(err, billingapp.ErrInvoiceNotExpired) {
+					slog.InfoContext(ctx, "scheduler_expire_invoice_skip", "component", "scheduler", "operation", "expire_deal_invoice", "invoice_id", id, "reason", err.Error())
+					continue
+				}
+				slog.ErrorContext(ctx, "scheduler_expire_invoice_error", "component", "scheduler", "operation", "expire_deal_invoice", "invoice_id", id, "error", err)
+				return err
+			}
+			slog.InfoContext(ctx, "scheduler_expire_invoice_success", "component", "scheduler", "operation", "expire_deal_invoice", "invoice_id", id)
+		}
+		return nil
+	})
+}
+
 func DefaultDecoders() map[string]outbox.Decoder {
 	return map[string]outbox.Decoder{
 		"catalog.ProductCreated":          outbox.JSONDecoder[catalog.ProductCreated](),
@@ -198,6 +240,8 @@ func DefaultDecoders() map[string]outbox.Decoder {
 		"billing.PlatformFeeCaptured":     outbox.JSONDecoder[wallet.PlatformFeeCaptured](),
 		"billing.DealInvoiceCreated":      outbox.JSONDecoder[wallet.DealInvoiceCreated](),
 		"billing.DealInvoicePaid":         outbox.JSONDecoder[wallet.DealInvoicePaid](),
+		"billing.DealInvoiceExpired":      outbox.JSONDecoder[wallet.DealInvoiceExpired](),
+		"billing.SellerPayoutCreated":   outbox.JSONDecoder[wallet.SellerPayoutCreated](),
 	}
 }
 

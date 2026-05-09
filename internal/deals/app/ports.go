@@ -2,9 +2,19 @@ package app
 
 import (
 	"context"
+	"time"
 
 	"github.com/EBal0vGG/Unbelievable_Fish/internal/deals/deal"
 )
+
+// Clock supplies time for application use cases (inject a fixed clock in tests).
+type Clock interface {
+	Now() time.Time
+}
+
+type systemClock struct{}
+
+func (systemClock) Now() time.Time { return time.Now().UTC() }
 
 // DealRepository persists deal aggregates.
 type DealRepository interface {

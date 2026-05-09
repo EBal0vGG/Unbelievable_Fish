@@ -31,6 +31,10 @@ func (uc *ConfirmDealInvoicePaid) Execute(ctx context.Context, invoiceID string)
 	if err != nil {
 		return err
 	}
+	switch inv.Status {
+	case wallet.InvoiceExpired, wallet.InvoiceCancelled, wallet.InvoiceFailed:
+		return wallet.ErrInvoiceNotPayable
+	}
 	alreadyPaid := inv.Status == wallet.InvoicePaid
 	if err := inv.MarkPaidIdempotent(inv.TotalAmount, inv.Currency, paidAt); err != nil {
 		return err

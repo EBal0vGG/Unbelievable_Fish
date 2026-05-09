@@ -43,8 +43,9 @@ type DealInvoice struct {
 }
 
 var (
-	ErrInvalidDealInvoice     = errors.New("invalid deal invoice")
+	ErrInvalidDealInvoice      = errors.New("invalid deal invoice")
 	ErrInvoiceNotPayable       = errors.New("invoice cannot be paid in current status")
+	ErrInvoiceNotExpirable     = errors.New("invoice cannot be expired in current status")
 	ErrInvoiceAmountMismatch   = errors.New("payment amount does not match invoice")
 	ErrInvoiceCurrencyMismatch = errors.New("payment currency does not match invoice")
 )
@@ -121,6 +122,24 @@ func (inv *DealInvoice) MarkPaid(amount int64, currency Currency, paidAt time.Ti
 	inv.Status = InvoicePaid
 	inv.PaidAt = &paidAt
 	return nil
+}
+
+// MarkExpired transitions PAYMENT_PENDING → EXPIRED. PAID and EXPIRED are idempotent no-ops.
+func (inv *DealInvoice) MarkExpired(now time.Time) error {
+	if inv == nil {
+		return ErrInvalidDealInvoice
+	}
+	switch inv.Status {
+	case InvoicePaid, InvoiceExpired:
+		return nil
+	case InvoicePaymentPending:
+		inv.Status = InvoiceExpired
+		t := now.UTC()
+		inv.ExpiredAt = &t
+		return nil
+	default:
+		return ErrInvoiceNotExpirable
+	}
 }
 
 // MarkPaidIdempotent sets PAID or returns nil if already PAID with matching amount/currency.

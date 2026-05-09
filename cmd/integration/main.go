@@ -126,6 +126,26 @@ func main() {
 	if err != nil {
 		logging.Fatal(logger, "deals_handle_deal_invoice_paid_init_failed", "error", err)
 	}
+	handleDealInvoiceExpired, err := dealsapp.NewHandleDealInvoiceExpired(dealsUOW, nil)
+	if err != nil {
+		logging.Fatal(logger, "deals_handle_deal_invoice_expired_init_failed", "error", err)
+	}
+	sellerPayoutRepo := billingpg.NewSellerPayoutRepository(db)
+	createSellerPayout, err := billingapp.NewCreateSellerPayout(
+		sellerPayoutRepo,
+		dealInvoiceRepo,
+		billingapp.RandomHexID{},
+		nil,
+		billingOutbox,
+	)
+	if err != nil {
+		logging.Fatal(logger, "billing_create_seller_payout_init_failed", "error", err)
+	}
+	expireDealInvoice, err := billingapp.NewExpireDealInvoice(dealInvoiceRepo, billingOutbox, nil)
+	if err != nil {
+		logging.Fatal(logger, "billing_expire_deal_invoice_init_failed", "error", err)
+	}
+	invoiceDeadlineLister := billingpg.NewDealInvoiceLister(db)
 
 	runtime, err := integration.New(db, integration.Dependencies{
 		Catalog:        catalogService,
@@ -140,7 +160,12 @@ func main() {
 		CaptureAuctionDeposit:                  captureDeposit,
 		CreateDealInvoice:                      createDealInvoice,
 		HandleDealInvoicePaid:                  handleDealInvoicePaid,
+		HandleDealInvoiceExpired:               handleDealInvoiceExpired,
+		ExpireDealInvoice:                      expireDealInvoice,
+		ExpiredDealInvoiceLister:               invoiceDeadlineLister,
 		SettleWinnerDepositAfterInvoicePaid:    settleWinnerDeposit,
+		DealInvoices:                           dealInvoiceRepo,
+		CreateSellerPayout:                     createSellerPayout,
 	})
 	if err != nil {
 		logging.Fatal(logger, "integration_runtime_init_failed", "error", err)
@@ -151,6 +176,8 @@ func main() {
 	closeLimit := envInt("AUCTION_CLOSE_BATCH", 100)
 	dealDeadlineInterval := envDurationSeconds("DEAL_DEADLINE_INTERVAL_SEC", 10)
 	dealDeadlineLimit := envInt("DEAL_DEADLINE_BATCH", 100)
+	invoiceExpireInterval := envDurationSeconds("BILLING_INVOICE_EXPIRE_INTERVAL_SEC", 10)
+	invoiceExpireBatch := envInt("BILLING_INVOICE_EXPIRE_BATCH", 100)
 
 	go runTicker(ctx, closeInterval, func(ctx context.Context) error {
 		if err := runtime.RunCloseExpired(ctx, time.Now().UTC(), closeLimit); err != nil {
@@ -161,6 +188,12 @@ func main() {
 	go runTicker(ctx, dealDeadlineInterval, func(ctx context.Context) error {
 		if err := runtime.RunCancelExpiredDeals(ctx, time.Now().UTC(), dealDeadlineLimit); err != nil {
 			logger.Error("cancel_expired_deals_failed", "component", "scheduler", "error", err)
+		}
+		return nil
+	})
+	go runTicker(ctx, invoiceExpireInterval, func(ctx context.Context) error {
+		if err := runtime.RunExpireDealInvoices(ctx, time.Now().UTC(), invoiceExpireBatch); err != nil {
+			logger.Error("expire_deal_invoices_failed", "component", "scheduler", "error", err)
 		}
 		return nil
 	})

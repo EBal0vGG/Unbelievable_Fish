@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -206,5 +207,129 @@ func TestConfirmDealInvoicePaid_IdempotentNoExtraEvent(t *testing.T) {
 	}
 	if paid != 1 {
 		t.Fatalf("DealInvoicePaid events: want 1 got %d", paid)
+	}
+}
+
+func TestExpireDealInvoice_publishesOnceAndMarksExpired(t *testing.T) {
+	ctx := context.Background()
+	repo := newMemDealInvoiceRepo()
+	now := time.Date(2026, 2, 1, 12, 0, 0, 0, time.UTC)
+	inv, err := wallet.NewDealInvoice("inv-e1", "d1", "a1", "b1", "s1", 100, 10, wallet.CurrencyRUB, stubFakeProviderName, now.Add(time.Hour), now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := inv.AttachProvider("p1", "http://pay"); err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.Create(ctx, inv); err != nil {
+		t.Fatal(err)
+	}
+	pub := &capturePublisher{}
+	uc, err := NewExpireDealInvoice(repo, pub, fixedClock{t: now.Add(2 * time.Hour)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := uc.Execute(ctx, "inv-e1"); err != nil {
+		t.Fatal(err)
+	}
+	reloaded, err := repo.LoadByID(ctx, "inv-e1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if reloaded.Status != wallet.InvoiceExpired {
+		t.Fatalf("status: %s", reloaded.Status)
+	}
+	var expired int
+	for _, e := range pub.events {
+		if ev, ok := e.(wallet.DealInvoiceExpired); ok {
+			expired++
+			if ev.DealID != "d1" || ev.AuctionID != "a1" {
+				t.Fatalf("event fields: %+v", ev)
+			}
+		}
+	}
+	if expired != 1 {
+		t.Fatalf("DealInvoiceExpired count: %d", expired)
+	}
+}
+
+func TestExpireDealInvoice_paidNoOp(t *testing.T) {
+	ctx := context.Background()
+	repo := newMemDealInvoiceRepo()
+	now := time.Date(2026, 2, 1, 12, 0, 0, 0, time.UTC)
+	inv, err := wallet.NewDealInvoice("inv-e2", "d1", "a1", "b1", "s1", 100, 10, wallet.CurrencyRUB, stubFakeProviderName, now.Add(time.Hour), now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := inv.AttachProvider("p1", "http://pay"); err != nil {
+		t.Fatal(err)
+	}
+	if err := inv.MarkPaid(inv.TotalAmount, inv.Currency, now); err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.Create(ctx, inv); err != nil {
+		t.Fatal(err)
+	}
+	pub := &capturePublisher{}
+	uc, err := NewExpireDealInvoice(repo, pub, fixedClock{t: now.Add(99 * time.Hour)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := uc.Execute(ctx, "inv-e2"); err != nil {
+		t.Fatal(err)
+	}
+	if len(pub.events) != 0 {
+		t.Fatalf("expected no publish, got %d", len(pub.events))
+	}
+}
+
+func TestExpireDealInvoice_notYetDue(t *testing.T) {
+	ctx := context.Background()
+	repo := newMemDealInvoiceRepo()
+	now := time.Date(2026, 2, 1, 12, 0, 0, 0, time.UTC)
+	inv, err := wallet.NewDealInvoice("inv-e3", "d1", "a1", "b1", "s1", 100, 10, wallet.CurrencyRUB, stubFakeProviderName, now.Add(24*time.Hour), now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := inv.AttachProvider("p1", "http://pay"); err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.Create(ctx, inv); err != nil {
+		t.Fatal(err)
+	}
+	uc, err := NewExpireDealInvoice(repo, nil, fixedClock{t: now})
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = uc.Execute(ctx, "inv-e3")
+	if !errors.Is(err, ErrInvoiceNotExpired) {
+		t.Fatalf("want ErrInvoiceNotExpired got %v", err)
+	}
+}
+
+func TestConfirmDealInvoicePaid_expiredRejected(t *testing.T) {
+	ctx := context.Background()
+	repo := newMemDealInvoiceRepo()
+	now := time.Date(2026, 2, 1, 12, 0, 0, 0, time.UTC)
+	inv, err := wallet.NewDealInvoice("inv-x", "d1", "a1", "b1", "s1", 100, 10, wallet.CurrencyRUB, stubFakeProviderName, now.Add(time.Hour), now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := inv.AttachProvider("p1", "http://pay"); err != nil {
+		t.Fatal(err)
+	}
+	if err := inv.MarkExpired(now); err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.Create(ctx, inv); err != nil {
+		t.Fatal(err)
+	}
+	uc, err := NewConfirmDealInvoicePaid(repo, nil, fixedClock{t: now})
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = uc.Execute(ctx, "inv-x")
+	if !errors.Is(err, wallet.ErrInvoiceNotPayable) {
+		t.Fatalf("want ErrInvoiceNotPayable got %v", err)
 	}
 }

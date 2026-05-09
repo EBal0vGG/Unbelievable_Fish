@@ -354,6 +354,60 @@ WHERE company_id = $1 AND type = $2 AND reference_type = 'auction_deposit'
 	}
 }
 
+func TestDealInvoiceLister_ListExpired_SkipLocked_RealPG(t *testing.T) {
+	db, ok := openRealPostgres(t)
+	if !ok {
+		return
+	}
+	if err := applyMigrations(t, db); err != nil {
+		t.Fatalf("apply migrations: %v", err)
+	}
+	if err := truncateBillingTables(t, db); err != nil {
+		t.Fatalf("truncate billing tables: %v", err)
+	}
+
+	ctx := context.Background()
+	now := time.Date(2026, 4, 10, 12, 0, 0, 0, time.UTC)
+	duePast := now.Add(-time.Hour)
+	dueFuture := now.Add(time.Hour)
+
+	_, err := db.ExecContext(ctx, `
+INSERT INTO billing_deal_invoices (
+  id, deal_id, auction_id, buyer_company_id, seller_company_id,
+  goods_amount, platform_fee_due_amount, total_amount, currency, status,
+  provider, provider_invoice_id, payment_url, due_at, created_at
+) VALUES
+  ('inv-exp-1', 'deal-1', 'a1', 'b1', 's1', 100, 10, 110, 'RUB', 'PAYMENT_PENDING',
+   'fake', 'p1', 'http://x', $1, $3),
+  ('inv-exp-2', 'deal-2', 'a1', 'b2', 's1', 100, 10, 110, 'RUB', 'PAYMENT_PENDING',
+   'fake', 'p2', 'http://x', $2, $3),
+  ('inv-future', 'deal-3', 'a1', 'b3', 's1', 100, 10, 110, 'RUB', 'PAYMENT_PENDING',
+   'fake', 'p3', 'http://x', $4, $3),
+  ('inv-paid', 'deal-4', 'a1', 'b4', 's1', 100, 10, 110, 'RUB', 'PAID',
+   'fake', 'p4', 'http://x', $1, $3)
+`, duePast, duePast, now, dueFuture)
+	if err != nil {
+		t.Fatalf("insert invoices: %v", err)
+	}
+
+	lister := NewDealInvoiceLister(db)
+	txm := NewTransactionManager(db, nil)
+	var ids []string
+	if err := txm.WithinTx(ctx, func(txCtx context.Context) error {
+		var err error
+		ids, err = lister.ListExpired(txCtx, now, 10)
+		return err
+	}); err != nil {
+		t.Fatalf("list expired: %v", err)
+	}
+	if len(ids) != 2 {
+		t.Fatalf("expected 2 expired ids, got %v", ids)
+	}
+	if ids[0] != "inv-exp-1" || ids[1] != "inv-exp-2" {
+		t.Fatalf("order: want [inv-exp-1 inv-exp-2], got %v", ids)
+	}
+}
+
 func openRealPostgres(t *testing.T) (*sql.DB, bool) {
 	t.Helper()
 
@@ -415,6 +469,7 @@ TRUNCATE TABLE
     billing_processed_top_ups,
     billing_ledger_entries,
     billing_auction_deposits,
+    billing_seller_payouts,
     billing_deal_invoices,
     billing_top_ups,
     billing_accounts

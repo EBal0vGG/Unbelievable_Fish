@@ -399,6 +399,33 @@ func (d *Deal) Cancel(reason, cancelledBy string) ([]Event, error) {
 		}, nil
 	}
 
+	if reason == DealCancelReasonPaymentTimeout {
+		if d.typeName != DealTypeAuction {
+			return nil, ErrWinnerForfeitOnlyAuction
+		}
+		if d.auctionID == "" {
+			return nil, ErrAuctionIDRequired
+		}
+		switch d.status {
+		case DealStatusConfirmed, DealStatusContractPrepared, DealStatusContractSigned, DealStatusPaymentRequested:
+			// ok
+		default:
+			return nil, ErrCannotCancelForPaymentTimeout
+		}
+		d.status = DealStatusCancelled
+		return []Event{
+			cancelEv,
+			WinnerRejected{
+				SelectionID: d.auctionID,
+				DealID:      d.id,
+				AuctionID:   d.auctionID,
+				CompanyID:   d.customerID,
+				RejectedAt:  now,
+				Reason:      DealCancelReasonPaymentTimeout,
+			},
+		}, nil
+	}
+
 	d.status = DealStatusCancelled
 	return []Event{cancelEv}, nil
 }
@@ -593,6 +620,9 @@ func (d *Deal) counterpartyCompanyID(companyID string) (string, error) {
 
 // Private helpers
 
+// generateID assigns deal aggregate IDs. It uses wall-clock time with nanosecond
+// resolution as a pragmatic uniqueness source; for stronger guarantees (cluster-wide,
+// sortable IDs) prefer migrating to UUID / ULID / KSUID and injecting an ID generator.
 func generateID() string {
-	return "deal_" + time.Now().Format("20060102150405")
+	return "deal_" + time.Now().Format("20060102150405.000000000")
 }

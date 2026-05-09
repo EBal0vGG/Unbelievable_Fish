@@ -5,6 +5,8 @@ const (
 	DealCancelReasonWinnerRejected          = "WINNER_REJECTED"
 	DealCancelReasonConfirmationTimeout     = "CONFIRMATION_TIMEOUT"
 	DealCancelReasonLegacyDeadlineExceeded  = "deadline exceeded"
+	// DealCancelReasonPaymentTimeout — просрочка оплаты инвойса после подтверждения сделки (отдельная ветка Cancel, не ReasonForfeitsWinnerDeposit).
+	DealCancelReasonPaymentTimeout = "PAYMENT_TIMEOUT"
 )
 
 // ReasonForfeitsWinnerDeposit reports whether the buyer's auction deposit should be captured (integration → billing).

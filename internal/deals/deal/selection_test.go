@@ -93,6 +93,31 @@ func TestWinnerSelection_MarkExhausted_clearsDealID(t *testing.T) {
 	}
 }
 
+func TestWinnerSelection_ReopenAfterPaymentTimeout(t *testing.T) {
+	sel := NewWinnerSelection("auc-1", []string{"buyer-1", "buyer-2"}, 200, time.Now().UTC(), "sup-1", ProductSnapshot{Name: "x"})
+	sel.DealID = "deal-1"
+	sel.Status = WinnerSelectionConfirmedPendingPayment
+	if err := sel.ReopenAfterPaymentTimeout("deal-1"); err != nil {
+		t.Fatal(err)
+	}
+	if sel.Status != WinnerSelectionActive || sel.DealID != "" {
+		t.Fatalf("want active and empty DealID, got status=%s dealID=%q", sel.Status, sel.DealID)
+	}
+	if sel.CurrentIndex != 0 {
+		t.Fatalf("index should stay 0 before Advance, got %d", sel.CurrentIndex)
+	}
+}
+
+func TestWinnerSelection_ReopenAfterPaymentTimeout_wrongDeal(t *testing.T) {
+	sel := NewWinnerSelection("auc-1", []string{"buyer-1"}, 200, time.Now().UTC(), "sup-1", ProductSnapshot{Name: "x"})
+	sel.DealID = "deal-1"
+	sel.Status = WinnerSelectionConfirmedPendingPayment
+	err := sel.ReopenAfterPaymentTimeout("other")
+	if !errors.Is(err, ErrWinnerSelectionDealMismatch) {
+		t.Fatalf("want ErrWinnerSelectionDealMismatch got %v", err)
+	}
+}
+
 func TestWinnerSelection_MarkFinalized_finalizedOtherDeal(t *testing.T) {
 	sel := NewWinnerSelection("auc-1", []string{"buyer-1"}, 200, time.Now().UTC(), "sup-1", ProductSnapshot{Name: "x"})
 	sel.DealID = "deal-1"

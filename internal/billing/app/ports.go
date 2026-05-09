@@ -52,6 +52,16 @@ type DealInvoiceRepository interface {
 	ListByBuyerCompany(ctx context.Context, buyerCompanyID string, limit int) ([]*wallet.DealInvoice, error)
 }
 
+// SellerPayoutRepository persists seller receivable rows (Stage 12+).
+type SellerPayoutRepository interface {
+	Create(ctx context.Context, payout *wallet.SellerPayout) error
+	Save(ctx context.Context, payout *wallet.SellerPayout) error
+	LoadByID(ctx context.Context, id string) (*wallet.SellerPayout, error)
+	LoadByDealID(ctx context.Context, dealID string) (*wallet.SellerPayout, error)
+	LoadByDealIDForUpdate(ctx context.Context, dealID string) (*wallet.SellerPayout, error)
+	ListBySellerCompany(ctx context.Context, sellerCompanyID string, limit int) ([]*wallet.SellerPayout, error)
+}
+
 type TopUpRepository interface {
 	Create(ctx context.Context, topUp *wallet.TopUp) error
 	Save(ctx context.Context, topUp *wallet.TopUp) error
@@ -72,6 +82,12 @@ type Clock interface {
 
 type UnitOfWork interface {
 	WithinTx(ctx context.Context, fn func(ctx context.Context) error) error
+}
+
+// ExpiredDealInvoiceLister returns invoice IDs due for expiry (PAYMENT_PENDING, due_at <= now).
+// Intended for use inside BillingTx with FOR UPDATE SKIP LOCKED.
+type ExpiredDealInvoiceLister interface {
+	ListExpired(ctx context.Context, now time.Time, limit int) ([]string, error)
 }
 
 type DomainEventPublisher interface {

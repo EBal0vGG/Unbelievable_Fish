@@ -18,6 +18,8 @@ type Handlers struct {
 	GetDealInvoiceByDeal  http.Handler
 	ListMyDealInvoices    http.Handler
 	FakeConfirmDealInvoice http.Handler
+	ListMySellerPayouts   http.Handler
+	GetSellerPayout       http.Handler
 }
 
 func NewRouter(h Handlers, middlewares ...func(http.Handler) http.Handler) chi.Router {
@@ -39,6 +41,10 @@ func NewRouter(h Handlers, middlewares ...func(http.Handler) http.Handler) chi.R
 		r.Method(http.MethodGet, "/by-deal/{dealID}", h.GetDealInvoiceByDeal)
 		r.Method(http.MethodGet, "/{invoiceID}", h.GetDealInvoice)
 		r.Method(http.MethodPost, "/{invoiceID}/fake-confirm", h.FakeConfirmDealInvoice)
+	})
+	r.Route("/payouts", func(r chi.Router) {
+		r.Method(http.MethodGet, "/me", h.ListMySellerPayouts)
+		r.Method(http.MethodGet, "/{payoutID}", h.GetSellerPayout)
 	})
 	return r
 }

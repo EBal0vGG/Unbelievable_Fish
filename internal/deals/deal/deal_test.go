@@ -222,3 +222,33 @@ func TestDeal_Cancel_WinnerRejectRejectedAfterConfirm(t *testing.T) {
 		t.Fatalf("expected ErrCannotDeclineWinnerAfterConfirm, got %v", err)
 	}
 }
+
+func TestDeal_Cancel_PaymentTimeoutAfterPaymentRequested(t *testing.T) {
+	d := createTestDeal(t)
+	if _, err := d.Confirm(); err != nil {
+		t.Fatalf("confirm: %v", err)
+	}
+	if _, err := d.PrepareContract("C-1", ""); err != nil {
+		t.Fatalf("prepare: %v", err)
+	}
+	if _, err := d.SignContract("buyer", "sig"); err != nil {
+		t.Fatalf("sign: %v", err)
+	}
+	if _, err := d.RequestPayment("", nil); err != nil {
+		t.Fatalf("request payment: %v", err)
+	}
+	events, err := d.Cancel(DealCancelReasonPaymentTimeout, "system")
+	if err != nil {
+		t.Fatalf("cancel: %v", err)
+	}
+	if d.Status() != DealStatusCancelled {
+		t.Fatalf("status: %s", d.Status())
+	}
+	if len(events) != 2 {
+		t.Fatalf("events: %d", len(events))
+	}
+	wr := events[1].(WinnerRejected)
+	if wr.Reason != DealCancelReasonPaymentTimeout {
+		t.Fatalf("WinnerRejected reason: %q", wr.Reason)
+	}
+}

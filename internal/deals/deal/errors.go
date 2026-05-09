@@ -34,6 +34,7 @@ var (
 	ErrCannotCompleteDeal       = errors.New("deal: cannot complete deal in current status")
 	ErrCannotCancelDeal         = errors.New("deal: cannot cancel deal in current status")
 	ErrCannotDeclineWinnerAfterConfirm = errors.New("deal: winner can only forfeit before deal is confirmed")
+	ErrCannotCancelForPaymentTimeout   = errors.New("deal: PAYMENT_TIMEOUT cancel is only allowed after confirm and before paid shipment flow")
 	ErrWinnerForfeitOnlyAuction        = errors.New("deal: winner deposit forfeit applies only to auction deals")
 	ErrDealNotCancelledForFallback     = errors.New("deal: current deal must be cancelled before advancing winner selection")
 	ErrWrongSelectedCandidate          = errors.New("deal: company is not the current selected winner candidate")

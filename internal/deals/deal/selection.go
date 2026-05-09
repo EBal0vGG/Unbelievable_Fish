@@ -100,6 +100,25 @@ func (s *WinnerSelection) MarkCurrentConfirmed(dealID string) error {
 }
 
 // MarkFinalized closes the selection after invoice payment; DealID stays set.
+// ReopenAfterPaymentTimeout moves selection from confirmed_pending_payment back to active for the same candidate index (before Advance).
+func (s *WinnerSelection) ReopenAfterPaymentTimeout(dealID string) error {
+	if s == nil {
+		return ErrSelectionNotFound
+	}
+	if dealID == "" {
+		return ErrDealIDRequired
+	}
+	if s.Status != WinnerSelectionConfirmedPendingPayment {
+		return ErrWinnerSelectionNotAwaitingPayment
+	}
+	if s.DealID != dealID {
+		return ErrWinnerSelectionDealMismatch
+	}
+	s.Status = WinnerSelectionActive
+	s.DealID = ""
+	return nil
+}
+
 func (s *WinnerSelection) MarkFinalized(dealID string) error {
 	if s == nil {
 		return ErrSelectionNotFound
