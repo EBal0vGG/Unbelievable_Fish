@@ -46,19 +46,24 @@ export function SiteHeader() {
   return (
     <header className="site-header">
       <div className="brand-block">
-        <Link href="/" className="brand-mark">
+        <Link href="/" className="brand-mark" aria-label="Рыбная биржа">
           <Image alt="Рыбная биржа" height={54} priority src="/fish-exchange-logo.svg" width={54} />
         </Link>
         <div>
           <p className="brand-title">Рыбная биржа</p>
-          <p className="brand-subtitle">B2B marketplace</p>
+          <p className="brand-subtitle">Seafood commodity trading</p>
         </div>
       </div>
 
-      <nav className="main-nav">
+      <nav aria-label="Основная навигация" className="main-nav">
         {extendedNavItems.map((item) => (
           <Link
             key={item.href}
+            aria-current={
+              pathname === item.href || (item.href !== "/" && pathname.startsWith(`${item.href}/`))
+                ? "page"
+                : undefined
+            }
             className={cn(
               "nav-link",
               (pathname === item.href || (item.href !== "/" && pathname.startsWith(`${item.href}/`))) &&

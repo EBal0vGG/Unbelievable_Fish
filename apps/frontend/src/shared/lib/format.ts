@@ -11,7 +11,7 @@ const dateFormatter = new Intl.DateTimeFormat("ru-RU", {
 
 export function formatMoney(value?: number | null): string {
   if (value === null || value === undefined) {
-    return "н/д";
+    return "—";
   }
 
   return currencyFormatter.format(value);
@@ -19,7 +19,7 @@ export function formatMoney(value?: number | null): string {
 
 export function formatDateTime(value?: string | null): string {
   if (!value) {
-    return "н/д";
+    return "—";
   }
 
   const date = new Date(value);

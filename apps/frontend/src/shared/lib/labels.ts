@@ -1,10 +1,10 @@
 import type { AuctionState, LotStatus, ProductStatus, UserRole } from "@/shared/types/domain";
 
 export const roleLabels: Record<UserRole, string> = {
-  admin: "администратор",
-  seller: "продавец",
-  buyer: "покупатель",
-  buyer_seller: "без роли",
+  admin: "Администратор",
+  seller: "Продавец",
+  buyer: "Покупатель",
+  buyer_seller: "Роль не назначена",
 };
 
 export const productStatusLabels: Record<ProductStatus, string> = {

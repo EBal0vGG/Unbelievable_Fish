@@ -3,13 +3,20 @@
 import { useDeferredValue, useMemo, useState } from "react";
 
 import { useDealsQuery } from "@/entities/deal/model/hooks";
-import { DealCard, dealStatusLabels } from "@/entities/deal/ui/deal-card";
+import { dealStatusLabels } from "@/entities/deal/ui/deal-card";
 import { useAuth } from "@/entities/session/model/auth-context";
 import { FilterBar } from "@/features/marketplace/ui/filter-bar";
+import { displayCompany } from "@/shared/lib/display";
+import { formatDateTime, formatMoney, shortId } from "@/shared/lib/format";
+import { Badge } from "@/shared/ui/badge";
+import { buttonStyles } from "@/shared/ui/button";
 import { EmptyState } from "@/shared/ui/empty-state";
 import { Field } from "@/shared/ui/field";
+import { PageHeader } from "@/shared/ui/page-header";
+import { SectionCard } from "@/shared/ui/section-card";
 import { Select } from "@/shared/ui/select";
 import type { DealStatus } from "@/shared/types/domain";
+import Link from "next/link";
 
 const statuses: DealStatus[] = [
   "pending",
@@ -23,6 +30,21 @@ const statuses: DealStatus[] = [
   "completed",
   "cancelled",
 ];
+
+function dealTone(status: DealStatus) {
+  switch (status) {
+    case "completed":
+    case "paid":
+      return "success";
+    case "cancelled":
+      return "danger";
+    case "pending":
+    case "payment_requested":
+      return "warning";
+    default:
+      return "info";
+  }
+}
 
 export default function DealsPage() {
   const { session } = useAuth();
@@ -60,60 +82,91 @@ export default function DealsPage() {
 
   return (
     <div className="page-stack">
-      <section className="page-hero compact-hero">
-        <div>
-          <p className="eyebrow">Ваши сделки</p>
-          <h1>Контракты после торгов</h1>
-          <p className="hero-copy">
-            Подтверждение победителя, контракт, оплата и отгрузка в одном рабочем контуре.
-          </p>
-        </div>
-        <div className="hero-metrics">
-          <div>
-            <span>Активные</span>
-            <strong>{totals.active}</strong>
-          </div>
-          <div>
-            <span>В выборке</span>
-            <strong>{items.length}</strong>
-          </div>
-          <div>
-            <span>Оборот</span>
-            <strong>{new Intl.NumberFormat("ru-RU", { notation: "compact" }).format(totals.amount)} ₽</strong>
-          </div>
-        </div>
-      </section>
-
-      <FilterBar
-        search={search}
-        onSearchChange={setSearch}
-        status={status}
-        onStatusChange={setStatus}
-        statusOptions={[
-          { label: "Все статусы", value: "all" },
-          ...statuses.map((item) => ({ label: dealStatusLabels[item], value: item })),
-        ]}
-        source="all"
-        onSourceChange={() => undefined}
-        showSource={false}
-        searchPlaceholder="Ваша сделка, аукцион, продукт или компания"
-        extraFilters={
-          <Field label="Сторона">
-            <Select value={side} onChange={(event) => setSide(event.target.value)}>
-              <option value="all">Все</option>
-              <option value="supplier">Мы поставщик</option>
-              <option value="customer">Мы покупатель</option>
-            </Select>
-          </Field>
+      <PageHeader
+        compact
+        eyebrow="Ваши сделки"
+        title="Контракты после торгов"
+        description="Подтверждение победителя, контракт, оплата и отгрузка в одном рабочем контуре."
+        metrics={
+          <>
+            <div>
+              <span>Активные</span>
+              <strong>{totals.active}</strong>
+            </div>
+            <div>
+              <span>В выборке</span>
+              <strong>{items.length}</strong>
+            </div>
+            <div>
+              <span>Оборот</span>
+              <strong>{new Intl.NumberFormat("ru-RU", { notation: "compact" }).format(totals.amount)} ₽</strong>
+            </div>
+          </>
         }
       />
 
+      <SectionCard eyebrow="Фильтры" title="Рабочий список сделок">
+        <FilterBar
+          search={search}
+          onSearchChange={setSearch}
+          status={status}
+          onStatusChange={setStatus}
+          statusOptions={[
+            { label: "Все статусы", value: "all" },
+            ...statuses.map((item) => ({ label: dealStatusLabels[item], value: item })),
+          ]}
+          source="all"
+          onSourceChange={() => undefined}
+          showSource={false}
+          searchPlaceholder="Ваша сделка, аукцион, продукт или компания"
+          extraFilters={
+            <Field label="Сторона">
+              <Select value={side} onChange={(event) => setSide(event.target.value)}>
+                <option value="all">Все</option>
+                <option value="supplier">Мы поставщик</option>
+                <option value="customer">Мы покупатель</option>
+              </Select>
+            </Field>
+          }
+        />
+      </SectionCard>
+
       {items.length ? (
-        <div className="card-grid card-grid-3">
+        <section className="data-panel">
+          <div className="data-list">
           {items.map((item) => (
-            <DealCard key={item.id} deal={item} viewerCompanyId={session?.companyId} />
+            <div className="data-row" key={item.id}>
+              <div className="data-row-main">
+                <h3>{item.productSnapshot.name || `Сделка ${shortId(item.id)}`}</h3>
+                <p>Сделка #{shortId(item.id)} · аукцион {shortId(item.auctionId)}</p>
+              </div>
+              <div className="data-cell">
+                <span>Статус</span>
+                <strong>
+                  <Badge tone={dealTone(item.status)}>{dealStatusLabels[item.status]}</Badge>
+                </strong>
+              </div>
+              <div className="data-cell">
+                <span>Сумма / объем</span>
+                <strong>{formatMoney(item.totalAmount)} · {item.quantity} {item.productSnapshot.unit || "ед."}</strong>
+              </div>
+              <div className="data-cell">
+                <span>Стороны / дата</span>
+                <strong>
+                  {item.supplierId === session?.companyId ? "Продажа" : "Покупка"} ·{" "}
+                  {displayCompany(item.supplierId === session?.companyId ? item.customerId : item.supplierId)} ·{" "}
+                  {formatDateTime(item.createdAt)}
+                </strong>
+              </div>
+              <div className="data-actions">
+                <Link className={buttonStyles({ variant: "secondary", size: "sm" })} href={`/deals/${item.id}`}>
+                  Открыть
+                </Link>
+              </div>
+            </div>
           ))}
-        </div>
+          </div>
+        </section>
       ) : !session ? (
         <EmptyState
           title="Войдите, чтобы увидеть ваши сделки"

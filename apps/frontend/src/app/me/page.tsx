@@ -10,13 +10,16 @@ import { ApiError } from "@/shared/api/http-client";
 import { listUsers, promoteUserToAdmin } from "@/shared/api/identity-service";
 import { listActivitiesStore } from "@/shared/api/mock-store";
 import { isAdminSession, isOwnedLot, isOwnedProduct } from "@/shared/lib/access";
+import { displayCompany, displayId, displayPerson } from "@/shared/lib/display";
 import { formatDateTime } from "@/shared/lib/format";
 import { roleLabels } from "@/shared/lib/labels";
 import type { UserRole } from "@/shared/types/domain";
 import { Button } from "@/shared/ui/button";
 import { Card } from "@/shared/ui/card";
+import { EmptyState } from "@/shared/ui/empty-state";
 import { Field } from "@/shared/ui/field";
 import { Notice } from "@/shared/ui/notice";
+import { PageHeader } from "@/shared/ui/page-header";
 import { Select } from "@/shared/ui/select";
 
 export default function MyProfilePage() {
@@ -30,6 +33,8 @@ export default function MyProfilePage() {
   const productsQuery = useProductsQuery();
   const lotsQuery = useLotsQuery();
   const auctionsQuery = useAuctionsQuery(session);
+  const personName = displayPerson(session);
+  const companyName = session?.companyId ? displayCompany(session.companyId) : "Компания не привязана";
 
   const activities = useMemo(() => listActivitiesStore(session), [session]);
   const visibleProducts = useMemo(
@@ -104,31 +109,53 @@ export default function MyProfilePage() {
   return (
     <AuthGuard>
       <div className="page-stack">
-        <div className="page-heading">
-          <p className="eyebrow">Профиль</p>
-          <h1>Мой профиль</h1>
-        </div>
+        <PageHeader
+          compact
+          eyebrow="Профиль"
+          title={session?.companyId ? "Профиль компании" : "Мой профиль"}
+          description="Данные пользователя, роль, компания и операционная активность в бирже."
+          metrics={
+            <>
+              <div>
+                <span>Роль</span>
+                <strong>{session ? roleLabels[session.role] : "гость"}</strong>
+              </div>
+              <div>
+                <span>Рейтинг</span>
+                <strong>4.8</strong>
+              </div>
+            </>
+          }
+        />
 
-        <div className="info-grid">
-          <Card className="form-card">
+        <div className="profile-grid">
+          <div className="stack-lg">
+          <Card className="form-card profile-card profile-card-primary">
             <div className="stack-md">
-              <h2>{session?.companyId ? "Профиль компании" : "Профиль пользователя"}</h2>
+              <div className="profile-identity">
+                <span>{personName.slice(0, 2).toUpperCase()}</span>
+                <div>
+                  <p className="eyebrow">Профиль компании</p>
+                  <h2>{companyName}</h2>
+                  <p className="muted">Рабочий аккаунт: {personName}</p>
+                </div>
+              </div>
               <div className="metric-grid">
                 <div>
-                  <span>Компания</span>
-                  <strong>{session?.companyId ?? "не задана"}</strong>
-                </div>
-                <div>
                   <span>Пользователь</span>
-                  <strong>{session?.name ?? "не задан"}</strong>
-                </div>
-                <div>
-                  <span>Логин</span>
-                  <strong>{session?.login ?? "не задан"}</strong>
+                  <strong title={session?.login}>{personName}</strong>
                 </div>
                 <div>
                   <span>Роль</span>
-                  <strong>{session ? roleLabels[session.role] : "гость"}</strong>
+                  <strong>{session ? roleLabels[session.role] : "Гость"}</strong>
+                </div>
+                <div>
+                  <span>Логин</span>
+                  <strong title={session?.login}>{session?.login ?? "Не указан"}</strong>
+                </div>
+                <div>
+                  <span>Технический номер</span>
+                  <strong title={session?.companyId}>{displayId(session?.companyId, "")}</strong>
                 </div>
                 <div>
                   <span>Сценарий</span>
@@ -136,7 +163,7 @@ export default function MyProfilePage() {
                 </div>
                 <div>
                   <span>Обновлено</span>
-                  <strong>{session ? formatDateTime(session.updatedAt) : "н/д"}</strong>
+                  <strong>{session ? formatDateTime(session.updatedAt) : "—"}</strong>
                 </div>
               </div>
             </div>
@@ -144,7 +171,40 @@ export default function MyProfilePage() {
 
           <Card className="form-card">
             <div className="stack-md">
-              <h2>Рейтинг</h2>
+              <h2>Мои действия</h2>
+              {activities.length ? (
+                <div className="activity-list">
+                  {activities.map((activity) => (
+                    <div className="activity-item" key={activity.id}>
+                      <div>
+                        <strong>{activity.title}</strong>
+                        <p className="muted">{activity.description}</p>
+                      </div>
+                      <span className="muted">{formatDateTime(activity.at)}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <EmptyState
+                  title="Действия не записаны"
+                  description="Когда появятся новые продукты, лоты, торги или сделки, они будут видны в этом разделе."
+                  framed={false}
+                />
+              )}
+            </div>
+          </Card>
+          </div>
+
+          <div className="stack-lg">
+          <Card className="form-card profile-card rating-card">
+            <div className="stack-md">
+              <div className="rating-header">
+                <div>
+                  <p className="eyebrow">Рейтинг</p>
+                  <h2>Профиль надежности</h2>
+                </div>
+                <strong>4.8</strong>
+              </div>
               <div className="metric-grid">
                 <div>
                   <span>Общий рейтинг</span>
@@ -165,35 +225,24 @@ export default function MyProfilePage() {
               </div>
             </div>
           </Card>
-        </div>
 
-        <Card className="form-card">
-          <div className="stack-md">
-            <h2>Мои действия</h2>
-            {activities.length ? (
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Событие</th>
-                    <th>Описание</th>
-                    <th>Время</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {activities.map((activity) => (
-                    <tr key={activity.id}>
-                      <td>{activity.title}</td>
-                      <td>{activity.description}</td>
-                      <td>{formatDateTime(activity.at)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            ) : (
-              <p className="muted">Действия еще не записаны.</p>
-            )}
+          <Card className="form-card profile-card">
+            <div className="stack-md">
+              <h2>Доступ</h2>
+              <div className="metric-grid">
+                <div>
+                  <span>Роль</span>
+                  <strong>{session ? roleLabels[session.role] : "Гость"}</strong>
+                </div>
+                <div>
+                  <span>Технический номер</span>
+                  <strong title={session?.companyId}>{displayId(session?.companyId, "")}</strong>
+                </div>
+              </div>
+            </div>
+          </Card>
           </div>
-        </Card>
+        </div>
 
         {canPromoteAdmins ? (
           <Card className="form-card">
