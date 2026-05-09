@@ -58,6 +58,41 @@ func TestAuctionWithoutBidsIsCancelledOnClose(t *testing.T) {
 	}
 }
 
+func TestCloseUnorderedBidsProducesSortedWinnerCandidates(t *testing.T) {
+	logTest(t)
+	a := mustAuction(t)
+	_, _ = a.Publish()
+	t0 := time.Date(2026, 1, 1, 12, 0, 0, 0, time.UTC)
+	bC := mustBid(t, "c", 150, t0)
+	bA := mustBid(t, "a", 160, t0.Add(time.Hour))
+	bB := mustBid(t, "b", 170, t0.Add(2*time.Hour))
+	bD := mustBid(t, "d", 180, t0.Add(3*time.Hour))
+	for _, b := range []Bid{bC, bA, bB, bD} {
+		_, _ = a.PlaceBid(b)
+	}
+	// Close receives bids in an order different from ranking; domain must sort like TopBids.
+	shuffled := []Bid{bA, bC, bD, bB}
+
+	events, err := a.Close(shuffled)
+	if err != nil {
+		t.Fatalf("close: %v", err)
+	}
+	var won AuctionWon
+	for _, e := range events {
+		if w, ok := e.(AuctionWon); ok {
+			won = w
+			break
+		}
+	}
+	if len(won.WinnerCompanyID) != 3 {
+		t.Fatalf("expected 3 candidates, got %v", won.WinnerCompanyID)
+	}
+	// Top 3 by amount after domain sort: d, b, a (same as ORDER BY amount DESC, placed_at ASC).
+	if won.WinnerCompanyID[0] != "d" || won.WinnerCompanyID[1] != "b" || won.WinnerCompanyID[2] != "a" {
+		t.Fatalf("unexpected candidates order: %v", won.WinnerCompanyID)
+	}
+}
+
 func TestAuctionWithBidsIsWonOnClose(t *testing.T) {
 	logTest(t)
 	a := mustAuction(t)

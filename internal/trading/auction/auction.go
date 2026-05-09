@@ -26,7 +26,10 @@
 
 package auction
 
-import "time"
+import (
+	"sort"
+	"time"
+)
 
 type Auction struct {
 	ID    string
@@ -146,7 +149,9 @@ func (a *Auction) Close(bids []Bid) ([]Event, error) {
 			AuctionCancelled{AuctionID: a.ID},
 		}, nil
 	}
-	winner, _ := determineWinner(bids)
+	// Same ordering as trading TopBids (amount DESC, placed_at ASC); do not rely on caller order.
+	sortedBids := sortBidsForCloseRanking(bids)
+	winner, _ := determineWinner(sortedBids)
 	if err := a.transitionTo(StateClosed); err != nil {
 		return nil, err
 	}
@@ -160,7 +165,7 @@ func (a *Auction) Close(bids []Bid) ([]Event, error) {
 		AuctionWon{
 			AuctionID:       a.ID,
 			LotID:           a.LotID,
-			WinnerCompanyID: collectWinnerCompanyIDs(bids),
+			WinnerCompanyID: collectWinnerCompanyIDs(sortedBids),
 			FinalPrice:      a.currentPrice,
 		},
 	}, nil
@@ -211,6 +216,25 @@ func (a *Auction) LeaderCompanyID() string {
 
 // maxWinnerCandidatesInAuctionWon matches CloseAuction winner persistence (top bid rows).
 const maxWinnerCandidatesInAuctionWon = 3
+
+// sortBidsForCloseRanking matches SQL: ORDER BY amount DESC, placed_at ASC (see trading/postgres bid_repository).
+func sortBidsForCloseRanking(bids []Bid) []Bid {
+	if len(bids) <= 1 {
+		out := make([]Bid, len(bids))
+		copy(out, bids)
+		return out
+	}
+	out := make([]Bid, len(bids))
+	copy(out, bids)
+	sort.Slice(out, func(i, j int) bool {
+		ai, aj := out[i].Amount(), out[j].Amount()
+		if ai != aj {
+			return ai > aj
+		}
+		return out[i].PlacedAt().Before(out[j].PlacedAt())
+	})
+	return out
+}
 
 func collectWinnerCompanyIDs(bids []Bid) []string {
 	if len(bids) == 0 {

@@ -219,7 +219,7 @@ func TestDealCancelledEventMovesToNextWinner(t *testing.T) {
 	}
 
 	bus := inmemory.NewBus()
-	subscribeHandlers(
+	registerIntegrationHandlers(
 		bus,
 		Dependencies{AuctionLister: fakeAuctionLister{}, DealLister: fakeDealLister{}},
 		nil,
