@@ -7,7 +7,7 @@ test:
 	$(MAKE) frontend-typecheck
 
 backend-test:
-	go test ./...
+	go test ./... -v
 
 frontend-typecheck:
 	test -d apps/frontend/node_modules || npm --prefix apps/frontend ci

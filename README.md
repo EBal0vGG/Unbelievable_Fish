@@ -41,6 +41,8 @@ docker compose down -v
 go test ./...
 ```
 
+Тесты `*_RealPG` и часть `internal/billing/postgres` при отсутствии `PGHOST`/`PGUSER`/`PGDATABASE` подключаются к Postgres с **дефолтами как в `docker-compose.yml`**: `127.0.0.1:5433`, пользователь/пароль/БД `fish`. Перед прогоном: `docker compose up -d postgres`. Если база недоступна, такие тесты делают `Skip` с подсказкой, а не падают.
+
 ## Команды Makefile
 
 - `make test` — `go test ./...`

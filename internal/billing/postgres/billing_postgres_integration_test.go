@@ -10,8 +10,10 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	billingapp "github.com/EBal0vGG/Unbelievable_Fish/internal/billing/app"
+	"github.com/EBal0vGG/Unbelievable_Fish/internal/infra/dbconfig"
 	"github.com/EBal0vGG/Unbelievable_Fish/internal/billing/payment/fake"
 	"github.com/EBal0vGG/Unbelievable_Fish/internal/billing/wallet"
 	_ "github.com/jackc/pgx/v5/stdlib"
@@ -354,30 +356,16 @@ WHERE company_id = $1 AND type = $2 AND reference_type = 'auction_deposit'
 func openRealPostgres(t *testing.T) (*sql.DB, bool) {
 	t.Helper()
 
-	host := os.Getenv("PGHOST")
-	user := os.Getenv("PGUSER")
-	password := os.Getenv("PGPASSWORD")
-	database := os.Getenv("PGDATABASE")
-	port := os.Getenv("PGPORT")
-	sslmode := os.Getenv("PGSSLMODE")
-
-	if host == "" || user == "" || database == "" {
-		t.Skip("real pg not configured (PGHOST/PGUSER/PGDATABASE)")
-		return nil, false
-	}
-	if port == "" {
-		port = "5432"
-	}
-	if sslmode == "" {
-		sslmode = "disable"
-	}
-	dsn := "host=" + host + " user=" + user + " dbname=" + database + " port=" + port + " sslmode=" + sslmode
-	if password != "" {
-		dsn += " password=" + password
-	}
-	db, err := sql.Open("pgx", dsn)
+	db, err := dbconfig.OpenPostgresDockerComposeDefaults(5)
 	if err != nil {
 		t.Fatalf("open db: %v", err)
+	}
+	pingCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := db.PingContext(pingCtx); err != nil {
+		_ = db.Close()
+		t.Skipf("postgres not reachable (%v); start: docker compose up -d postgres", err)
+		return nil, false
 	}
 	t.Cleanup(func() { _ = db.Close() })
 	return db, true

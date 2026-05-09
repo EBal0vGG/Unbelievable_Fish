@@ -20,6 +20,7 @@ import (
 	dealsapp "github.com/EBal0vGG/Unbelievable_Fish/internal/deals/app"
 	deal "github.com/EBal0vGG/Unbelievable_Fish/internal/deals/deal"
 	dealspg "github.com/EBal0vGG/Unbelievable_Fish/internal/deals/postgres"
+	"github.com/EBal0vGG/Unbelievable_Fish/internal/infra/dbconfig"
 	"github.com/EBal0vGG/Unbelievable_Fish/internal/infra/eventbus/inmemory"
 	outbox "github.com/EBal0vGG/Unbelievable_Fish/internal/infra/outbox"
 	outboxpg "github.com/EBal0vGG/Unbelievable_Fish/internal/infra/outbox/postgres"
@@ -527,33 +528,17 @@ func (f fixedAuctionIDFactoryReal) NewID() (tradingapp.AuctionID, error) {
 func openRealPostgres(t *testing.T) (*sql.DB, bool) {
 	t.Helper()
 
-	host := os.Getenv("PGHOST")
-	user := os.Getenv("PGUSER")
-	password := os.Getenv("PGPASSWORD")
-	database := os.Getenv("PGDATABASE")
-	port := os.Getenv("PGPORT")
-	sslmode := os.Getenv("PGSSLMODE")
-
-	if host == "" || user == "" || database == "" {
-		t.Skip("real pg not configured (PGHOST/PGUSER/PGDATABASE)")
-		return nil, false
-	}
-	if port == "" {
-		port = "5432"
-	}
-	if sslmode == "" {
-		sslmode = "disable"
-	}
-
-	dsn := "host=" + host + " user=" + user + " dbname=" + database + " port=" + port + " sslmode=" + sslmode
-	if password != "" {
-		dsn += " password=" + password
-	}
-	db, err := sql.Open("pgx", dsn)
+	db, err := dbconfig.OpenPostgresDockerComposeDefaults(5)
 	if err != nil {
 		t.Fatalf("open db: %v", err)
 	}
-	db.SetMaxOpenConns(5)
+	pingCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := db.PingContext(pingCtx); err != nil {
+		_ = db.Close()
+		t.Skipf("postgres not reachable (%v); start: docker compose up -d postgres (defaults match docker-compose.yml)", err)
+		return nil, false
+	}
 	t.Cleanup(func() { _ = db.Close() })
 	return db, true
 }
