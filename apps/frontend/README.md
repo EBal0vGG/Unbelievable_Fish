@@ -62,12 +62,13 @@ NEXT_PUBLIC_CATALOG_API_URL=http://localhost:8081
 NEXT_PUBLIC_TRADING_API_URL=http://localhost:8082
 NEXT_PUBLIC_DEALS_API_URL=http://localhost:8083
 NEXT_PUBLIC_IDENTITY_API_URL=http://localhost:8084
+NEXT_PUBLIC_BILLING_URL=http://localhost:8085/billing
 NEXT_PUBLIC_ENABLE_API_FALLBACK=true
 ```
 
 Важно:
 
-- браузер не ходит напрямую в backend, а использует Next proxy routes `/api/catalog/*`, `/api/trading/*`, `/api/deals/*`, `/api/identity/*`
+- браузер не ходит напрямую в backend, а использует Next proxy routes `/api/catalog/*`, `/api/trading/*`, `/api/deals/*`, `/api/identity/*`, `/api/billing/*`
 - это снижает риск CORS-проблем и оставляет frontend тонким адаптером
 
 ## Backend matrix

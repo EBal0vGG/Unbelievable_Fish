@@ -2232,6 +2232,71 @@ WHERE event_type = 'billing.SellerPayoutCreated' AND aggregate_id = $1
 	if outboxPayoutReplay != outboxPayoutCreated {
 		t.Fatalf("SellerPayoutCreated outbox rows changed after replay: was %d now %d", outboxPayoutCreated, outboxPayoutReplay)
 	}
+
+	var payoutID string
+	if err := db.QueryRowContext(ctx, `SELECT id FROM billing_seller_payouts WHERE deal_id = $1 LIMIT 1`, d1.ID()).Scan(&payoutID); err != nil {
+		t.Fatalf("payout id: %v", err)
+	}
+	createAccUC, err := billingapp.NewCreateAccount(bAccounts, billingapp.RandomHexID{}, bEvents)
+	if err != nil {
+		t.Fatalf("create account uc: %v", err)
+	}
+	markReadyUC, err := billingapp.NewMarkSellerPayoutReady(sellerPayoutRepo, nil, bEvents)
+	if err != nil {
+		t.Fatalf("mark payout ready uc: %v", err)
+	}
+	markPaidUC, err := billingapp.NewMarkSellerPayoutPaid(
+		sellerPayoutRepo, bAccounts, bLedger, createAccUC, billingapp.RandomHexID{}, nil, bEvents,
+	)
+	if err != nil {
+		t.Fatalf("mark payout paid uc: %v", err)
+	}
+	if err := billingTx.WithinTx(ctx, func(txCtx context.Context) error {
+		_, err := markReadyUC.Execute(txCtx, payoutID)
+		return err
+	}); err != nil {
+		t.Fatalf("mark payout ready tx: %v", err)
+	}
+	if err := billingTx.WithinTx(ctx, func(txCtx context.Context) error {
+		_, err := markPaidUC.Execute(txCtx, payoutID)
+		return err
+	}); err != nil {
+		t.Fatalf("mark payout paid tx: %v", err)
+	}
+	if err := billingTx.WithinTx(ctx, func(txCtx context.Context) error {
+		_, err := markPaidUC.Execute(txCtx, payoutID)
+		return err
+	}); err != nil {
+		t.Fatalf("mark payout paid idempotent tx: %v", err)
+	}
+	var payoutSt string
+	if err := db.QueryRowContext(ctx, `SELECT status FROM billing_seller_payouts WHERE id = $1`, payoutID).Scan(&payoutSt); err != nil {
+		t.Fatalf("payout status reload: %v", err)
+	}
+	if payoutSt != "PAID" {
+		t.Fatalf("payout status after paid: want PAID got %s", payoutSt)
+	}
+	var sellerAvail int64
+	if err := db.QueryRowContext(ctx, `
+SELECT a.available_amount FROM billing_accounts a
+WHERE a.company_id = (SELECT seller_company_id FROM billing_seller_payouts WHERE id = $1)
+`, payoutID).Scan(&sellerAvail); err != nil {
+		t.Fatalf("seller available: %v", err)
+	}
+	if sellerAvail != goodsAmt {
+		t.Fatalf("seller available after payout: want %d got %d", goodsAmt, sellerAvail)
+	}
+	var creditLedger int
+	if err := db.QueryRowContext(ctx, `
+SELECT count(*) FROM billing_ledger_entries
+WHERE company_id = (SELECT seller_company_id FROM billing_seller_payouts WHERE id = $1)
+  AND type = $2 AND reference_type = 'seller_payout' AND reference_id = $1
+`, payoutID, string(wallet.LedgerSellerPayoutCredited)).Scan(&creditLedger); err != nil {
+		t.Fatalf("payout credit ledger count: %v", err)
+	}
+	if creditLedger != 1 {
+		t.Fatalf("SELLER_PAYOUT_CREDITED rows: want 1 got %d", creditLedger)
+	}
 }
 
 type fixedAuctionIDFactoryReal struct {

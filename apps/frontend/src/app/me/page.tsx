@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { useAuctionsQuery } from "@/entities/auction/model/hooks";
+import { useBillingBalanceQuery } from "@/entities/billing/model/hooks";
 import { useLotsQuery, useProductsQuery } from "@/entities/lot/model/hooks";
 import { useAuth } from "@/entities/session/model/auth-context";
 import { AuthGuard } from "@/features/auth/ui/auth-guard";
@@ -10,7 +11,7 @@ import { ApiError } from "@/shared/api/http-client";
 import { listUsers, promoteUserToAdmin } from "@/shared/api/identity-service";
 import { listActivitiesStore } from "@/shared/api/mock-store";
 import { isAdminSession, isOwnedLot, isOwnedProduct } from "@/shared/lib/access";
-import { formatDateTime } from "@/shared/lib/format";
+import { formatDateTime, formatMoney } from "@/shared/lib/format";
 import { roleLabels } from "@/shared/lib/labels";
 import type { UserRole } from "@/shared/types/domain";
 import { Button } from "@/shared/ui/button";
@@ -45,6 +46,7 @@ export default function MyProfilePage() {
     [auctionsQuery.data?.data],
   );
   const canPromoteAdmins = isAdminSession(session);
+  const balanceQuery = useBillingBalanceQuery(session);
 
   useEffect(() => {
     if (!session || !canPromoteAdmins) {
@@ -139,6 +141,39 @@ export default function MyProfilePage() {
                   <strong>{session ? formatDateTime(session.updatedAt) : "н/д"}</strong>
                 </div>
               </div>
+            </div>
+          </Card>
+
+          <Card className="form-card">
+            <div className="stack-md">
+              <h2>Billing</h2>
+              <p className="muted">Внутренний счёт компании (RUB).</p>
+              {balanceQuery.isLoading ? <p className="muted">Загрузка…</p> : null}
+              {balanceQuery.error ? (
+                <Notice tone="warning" title="Баланс недоступен">
+                  {balanceQuery.error instanceof ApiError ? balanceQuery.error.message : "Ошибка запроса к billing."}
+                </Notice>
+              ) : null}
+              {balanceQuery.data ? (
+                <div className="metric-grid">
+                  <div>
+                    <span>Доступно</span>
+                    <strong>{formatMoney(balanceQuery.data.available)}</strong>
+                  </div>
+                  <div>
+                    <span>Зарезервировано</span>
+                    <strong>{formatMoney(balanceQuery.data.held)}</strong>
+                  </div>
+                  <div>
+                    <span>Всего</span>
+                    <strong>{formatMoney(balanceQuery.data.total)}</strong>
+                  </div>
+                  <div>
+                    <span>Валюта</span>
+                    <strong>{balanceQuery.data.currency}</strong>
+                  </div>
+                </div>
+              ) : null}
             </div>
           </Card>
 

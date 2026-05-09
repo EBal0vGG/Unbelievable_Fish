@@ -15,6 +15,7 @@ STOP_COMPOSE="${STOP_COMPOSE:-}"
 CATALOG_URL="${CATALOG_URL:-http://localhost:8081}"
 TRADING_URL="${TRADING_URL:-http://localhost:8082}"
 IDENTITY_URL="${IDENTITY_URL:-http://localhost:8084}"
+BILLING_URL="${BILLING_URL:-http://localhost:8085/billing}"
 
 PGUSER="${PGUSER:-fish}"
 PGDATABASE="${PGDATABASE:-fish}"
@@ -70,6 +71,16 @@ login_token() {
   json_get "$resp" "token"
 }
 
+# Bidders need available balance to reserve the per-auction deposit (see trading reserve deposit).
+billing_test_topup() {
+  local token="$1"
+  local amount="$2"
+  curl -sS -o /dev/null -w "%{http_code}" -X POST "$BILLING_URL/accounts/me/top-up/test" \
+    -H "Authorization: Bearer $token" \
+    -H "Content-Type: application/json" \
+    -d "{\"amount\":$amount}"
+}
+
 if [[ "$START_COMPOSE" == "1" ]]; then
   docker compose up -d --build
 fi
@@ -83,6 +94,10 @@ if [[ -z "$PG_CONTAINER" ]]; then
 fi
 if [[ -z "$(docker compose ps -q integration)" ]]; then
   echo "Integration service is not running. Start it: docker compose up -d integration" >&2
+  exit 1
+fi
+if [[ -z "$(docker compose ps -q billing 2>/dev/null || true)" ]]; then
+  echo "Billing service is not running. Start it: docker compose up -d billing" >&2
   exit 1
 fi
 
@@ -122,6 +137,14 @@ register_user "$buyer2_company_id" "Demo Buyer Two" "buyer" "$buyer2_login" "$pa
 seller_token="$(login_token "$seller_login" "$password")"
 buyer1_token="$(login_token "$buyer1_login" "$password")"
 buyer2_token="$(login_token "$buyer2_login" "$password")"
+
+for _tok in "$buyer1_token" "$buyer2_token"; do
+  code="$(billing_test_topup "$_tok" 500000)"
+  if [[ "$code" != "204" ]]; then
+    echo "billing test top-up failed HTTP $code (need billing up and BILLING_ENABLE_FAKE_PROVIDER=true for /accounts/me/top-up/test)" >&2
+    exit 1
+  fi
+done
 
 if command -v gdate >/dev/null 2>&1; then
   starts_at="$(gdate -u -d "-1 min" +%Y-%m-%dT%H:%M:%SZ)"

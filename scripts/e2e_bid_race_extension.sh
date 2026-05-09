@@ -16,6 +16,7 @@ STOP_COMPOSE="${STOP_COMPOSE:-}"
 IDENTITY_URL="${IDENTITY_URL:-http://localhost:8084}"
 CATALOG_URL="${CATALOG_URL:-http://localhost:8081}"
 TRADING_URL="${TRADING_URL:-http://localhost:8082}"
+BILLING_URL="${BILLING_URL:-http://localhost:8085/billing}"
 
 PGUSER="${PGUSER:-fish}"
 PGDATABASE="${PGDATABASE:-fish}"
@@ -92,6 +93,15 @@ login() {
     -d "{\"login\":\"$login_value\",\"password\":\"pass12345\"}"
 }
 
+billing_test_topup() {
+  local token="$1"
+  local amount="$2"
+  curl -sS -o /dev/null -w "%{http_code}" -X POST "$BILLING_URL/accounts/me/top-up/test" \
+    -H "Authorization: Bearer $token" \
+    -H "Content-Type: application/json" \
+    -d "{\"amount\":$amount}"
+}
+
 db_scalar() {
   local sql="$1"
   PGPASSWORD="$PGPASSWORD" psql \
@@ -128,6 +138,14 @@ buyer2_company_id="$(json_get "$buyer2_company_resp" "id")"
 mk_user "$buyer2_company_id" "Buyer Two" "buyer" "buyer2_${TS}@example.com" >/dev/null
 buyer2_login_resp="$(login "buyer2_${TS}@example.com")"
 buyer2_token="$(json_get "$buyer2_login_resp" "token")"
+
+for _tok in "$buyer1_token" "$buyer2_token"; do
+  code="$(billing_test_topup "$_tok" 500000)"
+  if [[ "$code" != "204" ]]; then
+    echo "billing test top-up failed HTTP $code (start billing; BILLING_ENABLE_FAKE_PROVIDER=true for /accounts/me/top-up/test)" >&2
+    exit 1
+  fi
+done
 
 fish_resp="$(curl -s -X POST "$CATALOG_URL/fish" -H "Content-Type: application/json" -d '{"name":"Cod","description":"e2e"}')"
 fish_id="$(json_get "$fish_resp" "fish_id")"

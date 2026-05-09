@@ -7,6 +7,7 @@ import { useDealConfirmationsQuery, useDealDetailsQuery } from "@/entities/deal/
 import { dealStatusLabels } from "@/entities/deal/ui/deal-card";
 import { useAuth } from "@/entities/session/model/auth-context";
 import { DealActionPanel } from "@/features/deal/ui/deal-action-panel";
+import { DealBillingPanel } from "@/features/deal/ui/deal-billing-panel";
 import { getDealParticipantSide } from "@/shared/lib/access";
 import { formatDateTime, formatMoney, shortId } from "@/shared/lib/format";
 import { buttonStyles } from "@/shared/ui/button";
@@ -126,6 +127,8 @@ export default function DealDetailsPage() {
           Дальнейшие действия по контракту закрыты.
         </Notice>
       ) : null}
+
+      <DealBillingPanel deal={deal} />
 
       <Card className="timeline-card">
         <div className="deal-timeline">

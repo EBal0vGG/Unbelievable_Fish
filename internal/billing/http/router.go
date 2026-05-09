@@ -7,19 +7,23 @@ import (
 )
 
 type Handlers struct {
-	GetBalance            http.Handler
-	TestTopUp             http.Handler
-	GetLedger             http.Handler
-	GetDeposits           http.Handler
-	CreateTopUp           http.Handler
-	ListTopUps            http.Handler
-	FakeConfirmTopUp      http.Handler
-	GetDealInvoice        http.Handler
-	GetDealInvoiceByDeal  http.Handler
-	ListMyDealInvoices    http.Handler
+	GetBalance             http.Handler
+	TestTopUp              http.Handler
+	GetLedger              http.Handler
+	GetDeposits            http.Handler
+	CreateTopUp            http.Handler
+	ListTopUps             http.Handler
+	FakeConfirmTopUp       http.Handler
+	GetDealInvoice         http.Handler
+	GetDealInvoiceByDeal   http.Handler
+	ListMyDealInvoices     http.Handler
 	FakeConfirmDealInvoice http.Handler
-	ListMySellerPayouts   http.Handler
-	GetSellerPayout       http.Handler
+	ListMySellerPayouts    http.Handler
+	GetSellerPayout        http.Handler
+	AdminConfirmDealInvoice http.Handler
+	AdminExpireDealInvoice  http.Handler
+	AdminMarkPayoutReady    http.Handler
+	AdminMarkPayoutPaid     http.Handler
 }
 
 func NewRouter(h Handlers, middlewares ...func(http.Handler) http.Handler) chi.Router {
@@ -45,6 +49,18 @@ func NewRouter(h Handlers, middlewares ...func(http.Handler) http.Handler) chi.R
 	r.Route("/payouts", func(r chi.Router) {
 		r.Method(http.MethodGet, "/me", h.ListMySellerPayouts)
 		r.Method(http.MethodGet, "/{payoutID}", h.GetSellerPayout)
+	})
+	// /admin/* handlers are swapped in cmd/billing (RequireRole(admin) vs 404). When adding routes here,
+	// wire them the same way so auth is never only "forgotten" in the router layer.
+	r.Route("/admin", func(r chi.Router) {
+		r.Route("/invoices", func(r chi.Router) {
+			r.Method(http.MethodPost, "/{invoiceID}/confirm", h.AdminConfirmDealInvoice)
+			r.Method(http.MethodPost, "/{invoiceID}/expire", h.AdminExpireDealInvoice)
+		})
+		r.Route("/payouts", func(r chi.Router) {
+			r.Method(http.MethodPost, "/{payoutID}/ready", h.AdminMarkPayoutReady)
+			r.Method(http.MethodPost, "/{payoutID}/paid", h.AdminMarkPayoutPaid)
+		})
 	})
 	return r
 }

@@ -11,8 +11,8 @@ const (
 	SellerPayoutPending   SellerPayoutStatus = "PENDING"
 	SellerPayoutReady     SellerPayoutStatus = "READY"
 	SellerPayoutPaid      SellerPayoutStatus = "PAID"
-	SellerPayoutCancelled SellerPayoutStatus = "CANCELLED"
-	SellerPayoutFailed    SellerPayoutStatus = "FAILED"
+	SellerPayoutCancelled SellerPayoutStatus = "CANCELLED" // reserved for future ops / no Mark* yet
+	SellerPayoutFailed    SellerPayoutStatus = "FAILED"    // reserved for future ops / no Mark* yet
 )
 
 // SellerPayout — обязательство платформы выплатить продавцу сумму товара по оплаченной сделке (не wallet credit на Stage 12).
@@ -36,7 +36,8 @@ type SellerPayout struct {
 }
 
 var (
-	ErrInvalidSellerPayout = errors.New("invalid seller payout")
+	ErrInvalidSellerPayout      = errors.New("invalid seller payout")
+	ErrSellerPayoutWrongStatus  = errors.New("seller payout: invalid status for this operation")
 )
 
 func NewSellerPayout(
@@ -78,4 +79,38 @@ func NewSellerPayout(
 		Status:          status,
 		CreatedAt:       createdAt.UTC(),
 	}, nil
+}
+
+// MarkReady transitions PENDING → READY (admin / ops approval before crediting seller balance).
+func (p *SellerPayout) MarkReady(now time.Time) error {
+	if p == nil {
+		return ErrInvalidSellerPayout
+	}
+	if p.Status == SellerPayoutReady || p.Status == SellerPayoutPaid {
+		return nil // idempotent no-op
+	}
+	if p.Status != SellerPayoutPending {
+		return ErrSellerPayoutWrongStatus
+	}
+	t := now.UTC()
+	p.Status = SellerPayoutReady
+	p.ReadyAt = &t
+	return nil
+}
+
+// MarkPaid transitions READY → PAID (credits seller.available in application layer, not here).
+func (p *SellerPayout) MarkPaid(now time.Time) error {
+	if p == nil {
+		return ErrInvalidSellerPayout
+	}
+	if p.Status == SellerPayoutPaid {
+		return nil
+	}
+	if p.Status != SellerPayoutReady {
+		return ErrSellerPayoutWrongStatus
+	}
+	t := now.UTC()
+	p.Status = SellerPayoutPaid
+	p.PaidAt = &t
+	return nil
 }

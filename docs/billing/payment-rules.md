@@ -187,6 +187,10 @@
 - **Invoice** — для **полной оплаты товара** по сделке.
 - **Просрочка оплаты invoice:** если инвойс не оплачен к `due_at`, он переводится в `EXPIRED`, сделка отменяется с причиной `PAYMENT_TIMEOUT`, **весь HELD депозит победителя по аукциону захватывается** (`CAPTURED`), winner selection переходит к следующему кандидату. Подробнее и обоснование политики: [ADR-0009](../decisions/ADR-0009-invoice-payment-timeout-forfeits-deposit.md).
 - **Обязательство выплаты продавцу (Stage 12):** после оплаченного invoice и финализации winner selection в учёте появляется строка **`billing_seller_payouts`** со статусом **`PENDING`** на сумму **`goods_amount`** инвойса; до последующих этапов это **не** увеличение `seller.available` и не отдельная проводка «деньги у продавца» в ledger.
+- **Выплата на баланс продавца (Stage 13):** жизненный цикл payout **`PENDING → READY → PAID`**. Переход в **`READY`** — операторский шаг (HTTP admin). Переход в **`PAID`** атомарно зачисляет **`available`** продавца на **`goods_amount`**, пишет ledger **`SELLER_PAYOUT_CREDITED`** (`reference_type = seller_payout`, `reference_id = payout_id`, `reason = SELLER_PAYOUT_PAID`) и публикует outbox **`billing.SellerPayoutMarkedPaid`**. Повторный **`PAID`** идемпотентен (баланс и ledger не дублируются). Outbox при **`READY`**: **`billing.SellerPayoutMarkedReady`**.
+- **Демо / оператор vs fake:** `POST .../invoices/{id}/fake-confirm` (покупатель, JWT) эквивалентен по смыслу **`POST /billing/admin/invoices/{id}/confirm`** (оператор с ролью admin). Оба подтверждают оплаченность инвойса; **без включённых env-флагов** соответствующие маршруты отвечают **`404`**, чтобы не светить dev-only API в проде:
+  - **`BILLING_ENABLE_FAKE_PROVIDER`** — `fake-confirm` для top-up и deal-invoice, а также **`POST /billing/accounts/me/top-up/test`**.
+  - **`BILLING_ENABLE_ADMIN_ACTIONS`** — префикс **`/billing/admin/**`** (confirm/expire invoice, ready/paid payout). Требуется JWT с ролью **`admin`** (повышение через существующий admin API / dev-скрипт, не саморегистрация).
 
 ---
 
@@ -206,13 +210,13 @@
 
 ## 16. Выплата продавцу
 
-- Продавец получает деньги **не** сразу после победы аукциона, а после оплаты по сделке.
+- Продавец получает деньги **не** сразу после победы аукциона, а после оплаты по сделке и **операционного зачисления** payout в статусе **`PAID`** (см. раздел 14, Stage 13).
 
-**Базовый поток (первая версия):**
+**Базовый поток (актуальная модель):**
 
-- `DealPaid` → **payout seller** (доступность средств продавцу по правилам ledger).
+- Оплаченный invoice → сделка **`paid`** → запись **`billing_seller_payouts`** (**`PENDING`**) → **`READY`** (оператор) → **`PAID`** (зачисление **`available`** + ledger **`SELLER_PAYOUT_CREDITED`**).
 
-**Возможное усложнение позже:** `DealPaid` → подтверждение отгрузки → payout; для этапа 1 допускается упрощение «сразу после `DealPaid`», как согласовано в требованиях.
+**Возможное усложнение позже:** дополнительные шаги между `DealPaid` и **`PAID`** payout (например, отгрузка); текущая реализация разделяет «сделка оплачена» и «деньги на внутреннем счёте продавца».
 
 ---
 
@@ -245,8 +249,8 @@
 - `PLATFORM_FEE_CAPTURED`
 - `DEAL_PAYMENT_REQUESTED`
 - `DEAL_PAYMENT_CONFIRMED`
-- `SELLER_PAYOUT_CREATED`
-- `SELLER_PAYOUT_COMPLETED`
+- `SELLER_PAYOUT_CREATED` (outbox payload type `billing.SellerPayoutCreated`)
+- `SELLER_PAYOUT_CREDITED` (ledger `type`, привязка к `seller_payout` / `payout_id`; outbox для жизненного цикла — `billing.SellerPayoutMarkedReady` / `billing.SellerPayoutMarkedPaid`)
 
 Список может расширяться, но **принцип единый**: любое движение денег = проводка(и) в ledger.
 

@@ -1,13 +1,13 @@
 SHELL := /bin/bash
 
-.PHONY: test backend-test frontend-typecheck compose-up compose-down demo-happy demo-fallback demo-auto demo-all e2e-bid-race
+.PHONY: test backend-test frontend-typecheck compose-up compose-down demo-happy demo-fallback demo-auto demo-full-payment demo-all e2e-bid-race
 
 test:
 	$(MAKE) backend-test
 	$(MAKE) frontend-typecheck
 
 backend-test:
-	go test ./... -v
+	go test ./...
 
 frontend-typecheck:
 	test -d apps/frontend/node_modules || npm --prefix apps/frontend ci
@@ -27,6 +27,9 @@ demo-fallback:
 
 demo-auto:
 	./scripts/demo_auto_close.sh
+
+demo-full-payment:
+	./scripts/demo_full_payment_flow.sh
 
 demo-all: demo-happy demo-fallback demo-auto
 

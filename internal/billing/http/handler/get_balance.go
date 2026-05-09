@@ -10,13 +10,24 @@ import (
 )
 
 type GetBalanceHandler struct {
-	tx            TxRunner
-	accounts      billingapp.AccountRepository
-	createAccount *billingapp.CreateAccount
+	tx                              TxRunner
+	accounts                        billingapp.AccountRepository
+	createAccount                   *billingapp.CreateAccount
+	dealInvoiceFakeConfirmAvailable bool
 }
 
-func NewGetBalanceHandler(tx TxRunner, accounts billingapp.AccountRepository, create *billingapp.CreateAccount) *GetBalanceHandler {
-	return &GetBalanceHandler{tx: tx, accounts: accounts, createAccount: create}
+func NewGetBalanceHandler(
+	tx TxRunner,
+	accounts billingapp.AccountRepository,
+	create *billingapp.CreateAccount,
+	dealInvoiceFakeConfirmAvailable bool,
+) *GetBalanceHandler {
+	return &GetBalanceHandler{
+		tx:                              tx,
+		accounts:                        accounts,
+		createAccount:                   create,
+		dealInvoiceFakeConfirmAvailable: dealInvoiceFakeConfirmAvailable,
+	}
 }
 
 func (h *GetBalanceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -49,5 +60,7 @@ func (h *GetBalanceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		"available":  acc.Available(),
 		"held":       acc.Held(),
 		"total":      acc.Total(),
+		// Mirrors BILLING_ENABLE_FAKE_PROVIDER wiring in cmd/billing (demo / non-prod UX).
+		"deal_invoice_fake_confirm_enabled": h.dealInvoiceFakeConfirmAvailable,
 	})
 }

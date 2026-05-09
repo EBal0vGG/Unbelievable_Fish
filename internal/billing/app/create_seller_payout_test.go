@@ -41,6 +41,10 @@ func (m *memSellerPayoutRepo) LoadByID(_ context.Context, id string) (*wallet.Se
 	return p, nil
 }
 
+func (m *memSellerPayoutRepo) LoadByIDForUpdate(ctx context.Context, id string) (*wallet.SellerPayout, error) {
+	return m.LoadByID(ctx, id)
+}
+
 func (m *memSellerPayoutRepo) LoadByDealID(_ context.Context, dealID string) (*wallet.SellerPayout, error) {
 	return m.loadDeal(dealID)
 }

@@ -57,6 +57,7 @@ type SellerPayoutRepository interface {
 	Create(ctx context.Context, payout *wallet.SellerPayout) error
 	Save(ctx context.Context, payout *wallet.SellerPayout) error
 	LoadByID(ctx context.Context, id string) (*wallet.SellerPayout, error)
+	LoadByIDForUpdate(ctx context.Context, id string) (*wallet.SellerPayout, error)
 	LoadByDealID(ctx context.Context, dealID string) (*wallet.SellerPayout, error)
 	LoadByDealIDForUpdate(ctx context.Context, dealID string) (*wallet.SellerPayout, error)
 	ListBySellerCompany(ctx context.Context, sellerCompanyID string, limit int) ([]*wallet.SellerPayout, error)

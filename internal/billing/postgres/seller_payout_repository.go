@@ -70,6 +70,10 @@ func (r *SellerPayoutRepository) LoadByID(ctx context.Context, id string) (*wall
 	return r.loadByID(ctx, id, false)
 }
 
+func (r *SellerPayoutRepository) LoadByIDForUpdate(ctx context.Context, id string) (*wallet.SellerPayout, error) {
+	return r.loadByID(ctx, id, true)
+}
+
 func (r *SellerPayoutRepository) LoadByDealID(ctx context.Context, dealID string) (*wallet.SellerPayout, error) {
 	return r.loadByDealID(ctx, dealID, false)
 }

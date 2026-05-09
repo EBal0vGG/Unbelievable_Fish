@@ -9,6 +9,7 @@ import (
 	"github.com/EBal0vGG/Unbelievable_Fish/internal/billing/payment/fake"
 	billingpg "github.com/EBal0vGG/Unbelievable_Fish/internal/billing/postgres"
 	identityauth "github.com/EBal0vGG/Unbelievable_Fish/internal/identity/auth"
+	identity "github.com/EBal0vGG/Unbelievable_Fish/internal/identity/domain"
 	"github.com/EBal0vGG/Unbelievable_Fish/internal/infra/dbconfig"
 	"github.com/EBal0vGG/Unbelievable_Fish/internal/infra/httpauth"
 	"github.com/EBal0vGG/Unbelievable_Fish/internal/infra/httplog"
@@ -69,26 +70,76 @@ func main() {
 		logging.Fatal(logger, "confirm_deal_invoice_init_failed", "error", err)
 	}
 
+	expireDealInvoice, err := billingapp.NewExpireDealInvoice(dealInvoices, events, nil)
+	if err != nil {
+		logging.Fatal(logger, "expire_deal_invoice_init_failed", "error", err)
+	}
+
+	markPayoutReady, err := billingapp.NewMarkSellerPayoutReady(sellerPayouts, nil, events)
+	if err != nil {
+		logging.Fatal(logger, "mark_seller_payout_ready_init_failed", "error", err)
+	}
+	markPayoutPaid, err := billingapp.NewMarkSellerPayoutPaid(
+		sellerPayouts,
+		accounts,
+		ledger,
+		createAccount,
+		billingapp.RandomHexID{},
+		nil,
+		events,
+	)
+	if err != nil {
+		logging.Fatal(logger, "mark_seller_payout_paid_init_failed", "error", err)
+	}
+
 	tokenProvider := identityauth.NewTokenProvider(
 		dbconfig.EnvOrDefault("IDENTITY_TOKEN_SECRET", "dev-secret"),
 		dbconfig.EnvDurationMinutes("IDENTITY_TOKEN_TTL_MINUTES", 24*60),
 	)
 	authMiddleware := identityauth.NewMiddleware(tokenProvider, httpauth.JSONErrorHandler("billing_auth_error"))
 
+	var notFound http.Handler = http.NotFoundHandler()
+	enableFake := dbconfig.EnvBool("BILLING_ENABLE_FAKE_PROVIDER", false)
+	enableAdmin := dbconfig.EnvBool("BILLING_ENABLE_ADMIN_ACTIONS", false)
+
+	testTopUpH := notFound
+	fakeTopUpH := notFound
+	fakeInvoiceH := notFound
+	if enableFake {
+		testTopUpH = authMiddleware.Wrap(handler.NewTestTopUpHandler(txm, createAccount, confirmTopUp, billingapp.RandomHexID{}))
+		fakeTopUpH = authMiddleware.Wrap(handler.NewFakeConfirmTopUpHandler(txm, confirmTopUpByProvider))
+		fakeInvoiceH = authMiddleware.Wrap(handler.NewFakeConfirmDealInvoiceHandler(txm, confirmDealInvoice))
+	}
+
+	adminConfirmInv := notFound
+	adminExpireInv := notFound
+	adminPayoutReady := notFound
+	adminPayoutPaid := notFound
+	if enableAdmin {
+		adminConfirmInv = authMiddleware.RequireRole(identity.RoleAdmin, handler.NewAdminConfirmDealInvoiceHandler(txm, confirmDealInvoice))
+		adminExpireInv = authMiddleware.RequireRole(identity.RoleAdmin, handler.NewAdminExpireDealInvoiceHandler(txm, expireDealInvoice))
+		adminPayoutReady = authMiddleware.RequireRole(identity.RoleAdmin, handler.NewAdminMarkSellerPayoutReadyHandler(txm, markPayoutReady))
+		adminPayoutPaid = authMiddleware.RequireRole(identity.RoleAdmin, handler.NewAdminMarkSellerPayoutPaidHandler(txm, markPayoutPaid))
+	}
+
 	inner := httpapi.NewRouter(httpapi.Handlers{
-		GetBalance:             authMiddleware.Wrap(handler.NewGetBalanceHandler(txm, accounts, createAccount)),
-		TestTopUp:              authMiddleware.Wrap(handler.NewTestTopUpHandler(txm, createAccount, confirmTopUp, billingapp.RandomHexID{})),
-		GetLedger:              authMiddleware.Wrap(handler.NewGetLedgerHandler(ledgerLister)),
-		GetDeposits:            authMiddleware.Wrap(handler.NewGetDepositsHandler(deposits)),
-		CreateTopUp:            authMiddleware.Wrap(handler.NewCreateTopUpHandler(txm, createTopUpUC)),
-		ListTopUps:             authMiddleware.Wrap(handler.NewListTopUpsHandler(topUps)),
-		FakeConfirmTopUp:       authMiddleware.Wrap(handler.NewFakeConfirmTopUpHandler(txm, confirmTopUpByProvider)),
-		GetDealInvoice:         authMiddleware.Wrap(handler.NewGetDealInvoiceHandler(dealInvoices)),
-		GetDealInvoiceByDeal:   authMiddleware.Wrap(handler.NewGetDealInvoiceByDealHandler(dealInvoices)),
-		ListMyDealInvoices:     authMiddleware.Wrap(handler.NewListMyDealInvoicesHandler(dealInvoices)),
-		FakeConfirmDealInvoice: authMiddleware.Wrap(handler.NewFakeConfirmDealInvoiceHandler(txm, confirmDealInvoice)),
-		ListMySellerPayouts:    authMiddleware.Wrap(handler.NewListMySellerPayoutsHandler(sellerPayouts)),
-		GetSellerPayout:        authMiddleware.Wrap(handler.NewGetSellerPayoutHandler(sellerPayouts)),
+		GetBalance:              authMiddleware.Wrap(handler.NewGetBalanceHandler(txm, accounts, createAccount, enableFake)),
+		TestTopUp:               testTopUpH,
+		GetLedger:               authMiddleware.Wrap(handler.NewGetLedgerHandler(ledgerLister)),
+		GetDeposits:             authMiddleware.Wrap(handler.NewGetDepositsHandler(deposits)),
+		CreateTopUp:             authMiddleware.Wrap(handler.NewCreateTopUpHandler(txm, createTopUpUC)),
+		ListTopUps:              authMiddleware.Wrap(handler.NewListTopUpsHandler(topUps)),
+		FakeConfirmTopUp:        fakeTopUpH,
+		GetDealInvoice:          authMiddleware.Wrap(handler.NewGetDealInvoiceHandler(dealInvoices)),
+		GetDealInvoiceByDeal:    authMiddleware.Wrap(handler.NewGetDealInvoiceByDealHandler(dealInvoices)),
+		ListMyDealInvoices:      authMiddleware.Wrap(handler.NewListMyDealInvoicesHandler(dealInvoices)),
+		FakeConfirmDealInvoice:  fakeInvoiceH,
+		ListMySellerPayouts:     authMiddleware.Wrap(handler.NewListMySellerPayoutsHandler(sellerPayouts)),
+		GetSellerPayout:         authMiddleware.Wrap(handler.NewGetSellerPayoutHandler(sellerPayouts)),
+		AdminConfirmDealInvoice: adminConfirmInv,
+		AdminExpireDealInvoice:  adminExpireInv,
+		AdminMarkPayoutReady:    adminPayoutReady,
+		AdminMarkPayoutPaid:     adminPayoutPaid,
 	}, httplog.Middleware(logger))
 
 	r := http.NewServeMux()

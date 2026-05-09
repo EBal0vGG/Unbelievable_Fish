@@ -15,7 +15,7 @@ export class ApiError extends Error {
   }
 }
 
-type ServiceName = "catalog" | "trading" | "deals" | "identity";
+type ServiceName = "catalog" | "trading" | "deals" | "identity" | "billing";
 
 interface RequestOptions {
   method?: "GET" | "POST" | "PUT";

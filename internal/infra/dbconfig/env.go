@@ -3,6 +3,7 @@ package dbconfig
 import (
 	"os"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -25,4 +26,22 @@ func EnvDurationMinutes(key string, def int) time.Duration {
 		return time.Duration(def) * time.Minute
 	}
 	return time.Duration(minutes) * time.Minute
+}
+
+// EnvBool parses common truthy/falsey strings; empty or invalid returns def.
+func EnvBool(key string, def bool) bool {
+	v := strings.TrimSpace(os.Getenv(key))
+	if v == "" {
+		return def
+	}
+	switch strings.ToLower(v) {
+	case "1", "true", "t", "yes", "y", "on":
+		return true
+	case "0", "false", "f", "no", "n", "off":
+		return false
+	}
+	if b, err := strconv.ParseBool(v); err == nil {
+		return b
+	}
+	return def
 }

@@ -20,6 +20,9 @@ The scripts can also manage this for you if you set `START_COMPOSE=1` and/or `ST
 Common defaults (you can override as needed):
 - `CATALOG_URL` (default `http://localhost:8081`)
 - `TRADING_URL` (default `http://localhost:8082`)
+- `DEALS_URL` (default `http://localhost:8083`)
+- `IDENTITY_URL` (default `http://localhost:8084`)
+- `BILLING_URL` (default `http://localhost:8085/billing` — include `/billing` prefix)
 - `PGUSER` (default `fish`)
 - `PGPASSWORD` (default `fish`)
 - `PGDATABASE` (default `fish`)
@@ -36,9 +39,22 @@ Logging:
 - `VERBOSE=1` to show full command traces (default is quiet).
 
 Admin idempotency:
-- `DEAL_ID` is used by `demo_fallback_winner.sh` to make `decline-deal` idempotent.
+- `DEAL_ID` / `COMPANY_ID` for `cmd/admin cancel-deal` are derived inside `demo_fallback_winner.sh` from the DB (winning buyer cancels with `WINNER_REJECTED`).
 
 ## Scripts and what they demonstrate
+
+### `scripts/demo_full_payment_flow.sh`
+Flow:
+- Same catalog/trading setup as happy path (fish → product → lot → publish → bids → `cmd/admin close-auction`)
+- Billing test top-ups for bidders, full **deals** confirmation + contract path to `payment/request`
+- `GET` deal invoice, `POST` **fake-confirm** invoice (requires `BILLING_ENABLE_FAKE_PROVIDER` on billing)
+- Wait for relay: deal **`paid`**, seller payout **`PENDING`**
+- Promote a dedicated ops user to **admin** (SQL; self-registration as admin is forbidden), then `POST /billing/admin/payouts/{id}/ready` and `/paid` (requires `BILLING_ENABLE_ADMIN_ACTIONS`)
+- Assert seller **`available`** equals invoice **`goods_amount`** and exactly one ledger row **`SELLER_PAYOUT_CREDITED`**; second `/paid` is idempotent
+
+Expected effects:
+- `billing_seller_payouts.status`: `PENDING` → `READY` → `PAID`
+- `billing_accounts.available` for seller matches goods amount only after **`PAID`**
 
 ### `scripts/demo_happy_path.sh`
 Flow:
@@ -55,9 +71,9 @@ Expected effects:
 
 ### `scripts/demo_fallback_winner.sh`
 Flow:
-- Same setup and bids as happy path
+- Same setup and bids as happy path (including billing test top-ups)
 - Close auction
-- Decline the first deal (`DEAL_ID` taken from selection)
+- Cancel the first winning deal as the deal customer via `cmd/admin cancel-deal` (`CANCEL_REASON` defaults to `WINNER_REJECTED`); integration handles `deals.DealCancelled` and advances the winner selection
 
 Expected effects:
 - DB: `deal_winner_selections.current_index` increments to `1`.

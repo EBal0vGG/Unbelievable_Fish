@@ -15,6 +15,7 @@ STOP_COMPOSE="${STOP_COMPOSE:-}"
 CATALOG_URL="${CATALOG_URL:-http://localhost:8081}"
 TRADING_URL="${TRADING_URL:-http://localhost:8082}"
 IDENTITY_URL="${IDENTITY_URL:-http://localhost:8084}"
+BILLING_URL="${BILLING_URL:-http://localhost:8085/billing}"
 
 PGUSER="${PGUSER:-fish}"
 PGDATABASE="${PGDATABASE:-fish}"
@@ -66,6 +67,15 @@ login_token() {
   json_get "$resp" "token"
 }
 
+billing_test_topup() {
+  local token="$1"
+  local amount="$2"
+  curl -sS -o /dev/null -w "%{http_code}" -X POST "$BILLING_URL/accounts/me/top-up/test" \
+    -H "Authorization: Bearer $token" \
+    -H "Content-Type: application/json" \
+    -d "{\"amount\":$amount}"
+}
+
 if [[ "$START_COMPOSE" == "1" ]]; then
   docker compose up -d --build
 fi
@@ -79,6 +89,10 @@ if [[ -z "$PG_CONTAINER" ]]; then
 fi
 if [[ -z "$(docker compose ps -q integration)" ]]; then
   echo "Integration service is not running. Start it: docker compose up -d integration" >&2
+  exit 1
+fi
+if [[ -z "$(docker compose ps -q billing 2>/dev/null || true)" ]]; then
+  echo "Billing service is not running. Start it: docker compose up -d billing" >&2
   exit 1
 fi
 
@@ -112,6 +126,14 @@ seller_token="$(login_token "$seller_login" "$password")"
 buyer1_token="$(login_token "$buyer1_login" "$password")"
 buyer2_token="$(login_token "$buyer2_login" "$password")"
 
+for _tok in "$buyer1_token" "$buyer2_token"; do
+  code="$(billing_test_topup "$_tok" 500000)"
+  if [[ "$code" != "204" ]]; then
+    echo "billing test top-up failed HTTP $code (need billing up and BILLING_ENABLE_FAKE_PROVIDER=true)" >&2
+    exit 1
+  fi
+done
+
 if command -v gdate >/dev/null 2>&1; then
   starts_at="$(gdate -u -d "-1 min" +%Y-%m-%dT%H:%M:%SZ)"
 elif date -u -d "-1 min" +%Y-%m-%dT%H:%M:%SZ >/dev/null 2>&1; then
@@ -139,8 +161,16 @@ if [[ -z "$auction_id" ]]; then
   exit 1
 fi
 
-curl -s -o /dev/null -w "%{http_code}\n" -X POST "$TRADING_URL/auctions/$auction_id/bids" -H "Content-Type: application/json" -H "Authorization: Bearer $buyer1_token" -d '{"amount":120}' | grep -q "202"
-curl -s -o /dev/null -w "%{http_code}\n" -X POST "$TRADING_URL/auctions/$auction_id/bids" -H "Content-Type: application/json" -H "Authorization: Bearer $buyer2_token" -d '{"amount":150}' | grep -q "202"
+code="$(curl -sS -o /dev/null -w "%{http_code}" -X POST "$TRADING_URL/auctions/$auction_id/bids" -H "Content-Type: application/json" -H "Authorization: Bearer $buyer1_token" -d '{"amount":120}')"
+if [[ "$code" != "202" ]]; then
+  echo "expected bid1 HTTP 202, got $code" >&2
+  exit 1
+fi
+code="$(curl -sS -o /dev/null -w "%{http_code}" -X POST "$TRADING_URL/auctions/$auction_id/bids" -H "Content-Type: application/json" -H "Authorization: Bearer $buyer2_token" -d '{"amount":150}')"
+if [[ "$code" != "202" ]]; then
+  echo "expected bid2 HTTP 202, got $code" >&2
+  exit 1
+fi
 
 PGHOST="localhost" PGUSER="$PGUSER" PGPASSWORD="$PGPASSWORD" PGDATABASE="$PGDATABASE" PGPORT="$PGPORT" PGSSLMODE="$PGSSLMODE" AUCTION_ID="$auction_id" go run ./cmd/admin close-auction >/dev/null
 
@@ -158,12 +188,36 @@ if [[ -z "$deal_id" ]]; then
   exit 1
 fi
 
-PGHOST="localhost" PGUSER="$PGUSER" PGPASSWORD="$PGPASSWORD" PGDATABASE="$PGDATABASE" PGPORT="$PGPORT" PGSSLMODE="$PGSSLMODE" AUCTION_ID="$auction_id" DEAL_ID="$deal_id" go run ./cmd/admin decline-deal >/dev/null
+winner_company_id="$(docker exec -i "$PG_CONTAINER" psql -U "$PGUSER" -d "$PGDATABASE" -t -A -c "select customer_id from deals where deal_id = '$deal_id' limit 1;")"
+winner_company_id="$(echo "$winner_company_id" | tr -d '[:space:]')"
+if [[ -z "$winner_company_id" ]]; then
+  echo "Could not resolve deal customer (customer_id) for deal_id=$deal_id" >&2
+  exit 1
+fi
+
+# Cancel as the winning buyer (WINNER_REJECTED). Integration consumes deals.DealCancelled and advances selection.
+PGHOST="localhost" PGUSER="$PGUSER" PGPASSWORD="$PGPASSWORD" PGDATABASE="$PGDATABASE" PGPORT="$PGPORT" PGSSLMODE="$PGSSLMODE" \
+  COMPANY_ID="$winner_company_id" DEAL_ID="$deal_id" \
+  go run ./cmd/admin cancel-deal >/dev/null
+
+idx=""
+for _ in $(seq 1 30); do
+  idx="$(docker exec -i "$PG_CONTAINER" psql -U "$PGUSER" -d "$PGDATABASE" -t -A -c "select current_index from deal_winner_selections where auction_id = '$auction_id' limit 1;")"
+  idx="$(echo "$idx" | tr -d '[:space:]')"
+  if [[ "$idx" == "1" ]]; then
+    break
+  fi
+  sleep 1
+done
+if [[ "$idx" != "1" ]]; then
+  echo "Winner selection did not advance (current_index=${idx:-empty}, want 1). Check integration relay logs." >&2
+  exit 1
+fi
 
 docker exec -i "$PG_CONTAINER" psql -U "$PGUSER" -d "$PGDATABASE" -c "select auction_id, status, current_index, deal_id from deal_winner_selections where auction_id = '$auction_id';"
 docker exec -i "$PG_CONTAINER" psql -U "$PGUSER" -d "$PGDATABASE" -c "select deal_id, customer_id, status from deals where auction_id = '$auction_id' order by deal_id;"
 
-echo "OK: fish_id=$fish_id product_id=$product_id lot_id=$lot_id auction_id=$auction_id declined_deal_id=$deal_id"
+echo "OK: fish_id=$fish_id product_id=$product_id lot_id=$lot_id auction_id=$auction_id cancelled_first_deal_id=$deal_id"
 
 if [[ "$STOP_COMPOSE" == "1" ]]; then
   docker compose down

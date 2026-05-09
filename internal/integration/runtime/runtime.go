@@ -242,6 +242,8 @@ func DefaultDecoders() map[string]outbox.Decoder {
 		"billing.DealInvoicePaid":         outbox.JSONDecoder[wallet.DealInvoicePaid](),
 		"billing.DealInvoiceExpired":      outbox.JSONDecoder[wallet.DealInvoiceExpired](),
 		"billing.SellerPayoutCreated":   outbox.JSONDecoder[wallet.SellerPayoutCreated](),
+		"billing.SellerPayoutMarkedReady": outbox.JSONDecoder[wallet.SellerPayoutMarkedReady](),
+		"billing.SellerPayoutMarkedPaid":  outbox.JSONDecoder[wallet.SellerPayoutMarkedPaid](),
 	}
 }
 

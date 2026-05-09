@@ -49,6 +49,7 @@ go test ./...
 - `make compose-up` — запуск compose с build
 - `make compose-down` — остановка compose и удаление volume
 - `make demo-happy` — позитивный сценарий
+- `make demo-full-payment` — полный платёжный поток: инвойс (fake), payout admin ready/paid, баланс продавца
 - `make demo-fallback` — fallback на следующего победителя
 - `make demo-auto` — автозакрытие аукциона
 - `make e2e-bid-race` — race + extension для ставок

@@ -145,6 +145,8 @@ services:
       PGPORT: "5432"
       PGSSLMODE: disable
       BILLING_PORT: "8085"
+      BILLING_ENABLE_FAKE_PROVIDER: "true"
+      BILLING_ENABLE_ADMIN_ACTIONS: "true"
       IDENTITY_TOKEN_SECRET: dev-secret
       IDENTITY_TOKEN_TTL_MINUTES: "120"
     ports:
@@ -186,6 +188,7 @@ services:
       NEXT_PUBLIC_TRADING_API_URL: http://trading:8082
       NEXT_PUBLIC_DEALS_API_URL: http://deals:8083
       NEXT_PUBLIC_IDENTITY_API_URL: http://identity:8084
+      NEXT_PUBLIC_BILLING_URL: http://billing:8085/billing
       NEXT_PUBLIC_ENABLE_API_FALLBACK: "true"
     ports:
       - "3000:3000"
@@ -197,6 +200,8 @@ services:
       trading:
         condition: service_started
       deals:
+        condition: service_started
+      billing:
         condition: service_started
 
 volumes:

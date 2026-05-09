@@ -106,3 +106,25 @@ type SellerPayoutCreated struct {
 	Currency        Currency
 	CreatedAt       time.Time
 }
+
+// SellerPayoutMarkedReady — payout разрешён к зачислению (PENDING → READY). Distinct name avoids clash with status const SellerPayoutReady.
+type SellerPayoutMarkedReady struct {
+	PayoutID        string
+	DealID          string
+	InvoiceID       string
+	SellerCompanyID string
+	Amount          int64
+	Currency        Currency
+	ReadyAt         time.Time
+}
+
+// SellerPayoutMarkedPaid — payout зачислен на внутренний баланс продавца (READY → PAID).
+type SellerPayoutMarkedPaid struct {
+	PayoutID        string
+	DealID          string
+	InvoiceID       string
+	SellerCompanyID string
+	Amount          int64
+	Currency        Currency
+	PaidAt          time.Time
+}

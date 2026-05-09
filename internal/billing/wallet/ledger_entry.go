@@ -11,6 +11,8 @@ const (
 	LedgerBidDepositCaptured  LedgerEntryType = "BID_DEPOSIT_CAPTURED"
 	LedgerPlatformFeeCaptured LedgerEntryType = "PLATFORM_FEE_CAPTURED"
 	LedgerPlatformFeeDue      LedgerEntryType = "PLATFORM_FEE_DUE"
+	// LedgerSellerPayoutCredited — зачисление на available продавца при переводе payout в PAID (Stage 13+).
+	LedgerSellerPayoutCredited LedgerEntryType = "SELLER_PAYOUT_CREDITED"
 )
 
 type LedgerEntry struct {
