@@ -2,6 +2,7 @@ import type { DealRecord, DealStatus } from "@/shared/types/domain";
 
 /** Deal stages where billing UI (invoice / payout) is meaningful. Prefer API capabilities when available. */
 const DEAL_STATUSES_WITH_BILLING_UI: ReadonlySet<DealStatus> = new Set([
+  "contract_signed",
   "payment_requested",
   "paid",
   "shipment_requested",

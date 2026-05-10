@@ -1,14 +1,25 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { useAuctionsQuery } from "@/entities/auction/model/hooks";
-import { useBillingBalanceQuery } from "@/entities/billing/model/hooks";
+import { BILLING_POLL_MS, useBillingBalanceQuery, useTopUpsQuery } from "@/entities/billing/model/hooks";
 import { useLotsQuery, useProductsQuery } from "@/entities/lot/model/hooks";
 import { useAuth } from "@/entities/session/model/auth-context";
 import { AuthGuard } from "@/features/auth/ui/auth-guard";
 import { ApiError } from "@/shared/api/http-client";
+import {
+  adminConfirmDealInvoice,
+  adminExpireDealInvoice,
+  adminMarkPayoutPaid,
+  adminMarkPayoutReady,
+  createTopUp,
+  fakeConfirmTopUp,
+} from "@/shared/api/billing-service";
 import { listUsers, promoteUserToAdmin } from "@/shared/api/identity-service";
+import { env, isFakeBillingUiAllowed } from "@/shared/config/env";
 import { listActivitiesStore } from "@/shared/api/mock-store";
 import { isAdminSession, isOwnedLot, isOwnedProduct } from "@/shared/lib/access";
 import { displayCompany, displayId, displayPerson } from "@/shared/lib/display";
@@ -22,15 +33,20 @@ import { Field } from "@/shared/ui/field";
 import { Notice } from "@/shared/ui/notice";
 import { PageHeader } from "@/shared/ui/page-header";
 import { Select } from "@/shared/ui/select";
+import { Input } from "@/shared/ui/input";
 
 export default function MyProfilePage() {
   const { session } = useAuth();
+  const queryClient = useQueryClient();
   const [targetUserID, setTargetUserID] = useState("");
   const [availableUsers, setAvailableUsers] = useState<Array<{ id: string; login: string; role: UserRole }>>([]);
   const [loadUsersError, setLoadUsersError] = useState<string | null>(null);
   const [promoteError, setPromoteError] = useState<string | null>(null);
   const [promoteSuccess, setPromoteSuccess] = useState<string | null>(null);
   const [promotePending, setPromotePending] = useState(false);
+  const [topUpAmount, setTopUpAmount] = useState("");
+  const [adminInvoiceId, setAdminInvoiceId] = useState("");
+  const [adminPayoutId, setAdminPayoutId] = useState("");
   const productsQuery = useProductsQuery();
   const lotsQuery = useLotsQuery();
   const auctionsQuery = useAuctionsQuery(session);
@@ -52,6 +68,89 @@ export default function MyProfilePage() {
   );
   const canPromoteAdmins = isAdminSession(session);
   const balanceQuery = useBillingBalanceQuery(session);
+  const topUpsQuery = useTopUpsQuery(session);
+
+  useEffect(() => {
+    const list = topUpsQuery.data?.top_ups ?? [];
+    if (!list.some((t) => t.status === "PENDING")) {
+      return;
+    }
+    const id = window.setInterval(() => {
+      void queryClient.invalidateQueries({ queryKey: ["billing-balance"] });
+    }, BILLING_POLL_MS);
+    return () => window.clearInterval(id);
+  }, [topUpsQuery.data?.top_ups, queryClient]);
+
+  const createTopUpMu = useMutation({
+    mutationFn: async () => {
+      if (!session) {
+        throw new Error("Нет сессии");
+      }
+      const rub = Math.round(Number.parseFloat(topUpAmount.replace(",", ".")));
+      if (!Number.isFinite(rub) || rub <= 0) {
+        throw new Error("Укажите сумму пополнения (руб., целое число).");
+      }
+      await createTopUp(rub, session);
+    },
+    onSuccess: async () => {
+      setTopUpAmount("");
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["billing-topups"] }),
+        queryClient.invalidateQueries({ queryKey: ["billing-balance"] }),
+      ]);
+    },
+  });
+
+  const fakeTopUpMu = useMutation({
+    mutationFn: async (topUpId: string) => {
+      if (!session) {
+        throw new Error("Нет сессии");
+      }
+      await fakeConfirmTopUp(topUpId, session);
+    },
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["billing-topups"] }),
+        queryClient.invalidateQueries({ queryKey: ["billing-balance"] }),
+      ]);
+    },
+  });
+
+  const adminConfirmInvMu = useMutation({
+    mutationFn: async () => {
+      if (!session || !adminInvoiceId.trim()) {
+        throw new Error("Укажите invoice id");
+      }
+      await adminConfirmDealInvoice(adminInvoiceId.trim(), session);
+    },
+  });
+
+  const adminExpireInvMu = useMutation({
+    mutationFn: async () => {
+      if (!session || !adminInvoiceId.trim()) {
+        throw new Error("Укажите invoice id");
+      }
+      await adminExpireDealInvoice(adminInvoiceId.trim(), session);
+    },
+  });
+
+  const adminPayoutReadyMu = useMutation({
+    mutationFn: async () => {
+      if (!session || !adminPayoutId.trim()) {
+        throw new Error("Укажите payout id");
+      }
+      await adminMarkPayoutReady(adminPayoutId.trim(), session);
+    },
+  });
+
+  const adminPayoutPaidMu = useMutation({
+    mutationFn: async () => {
+      if (!session || !adminPayoutId.trim()) {
+        throw new Error("Укажите payout id");
+      }
+      await adminMarkPayoutPaid(adminPayoutId.trim(), session);
+    },
+  });
 
   useEffect(() => {
     if (!session || !canPromoteAdmins) {
@@ -277,8 +376,137 @@ export default function MyProfilePage() {
                   </div>
                 </div>
               ) : null}
+
+              <div className="stack-md border-t border-white/10 pt-4">
+                <h3 className="text-sm font-medium">Пополнение счёта</h3>
+                <p className="muted text-sm">
+                  Создание заявки на пополнение (провайдер / fake-flow на стороне billing). Если на сервере включён
+                  авто-колбэк fake-провайдера (<code className="text-xs">BILLING_FAKE_PROVIDER_AUTO_CONFIRM</code>
+                  ), заявка подтвердится вебхуком через несколько секунд и баланс обновится без кнопки ниже.
+                </p>
+                <div className="flex flex-wrap items-end gap-2">
+                  <Field label="Сумма (руб.)" className="min-w-[10rem]">
+                    <Input
+                      value={topUpAmount}
+                      onChange={(e) => setTopUpAmount(e.target.value)}
+                      inputMode="numeric"
+                      placeholder="1000"
+                    />
+                  </Field>
+                  <Button
+                    type="button"
+                    onClick={() => createTopUpMu.mutate()}
+                    disabled={createTopUpMu.isPending || !session}
+                  >
+                    {createTopUpMu.isPending ? "Создаём…" : "Создать пополнение"}
+                  </Button>
+                </div>
+                {createTopUpMu.error ? (
+                  <p className="text-sm text-amber-600">{createTopUpMu.error.message}</p>
+                ) : null}
+                {topUpsQuery.isLoading ? <p className="muted text-sm">Загрузка заявок…</p> : null}
+                {topUpsQuery.data?.top_ups?.length ? (
+                  <ul className="stack-sm text-sm">
+                    {topUpsQuery.data.top_ups.map((tu) => (
+                      <li key={tu.id} className="flex flex-wrap items-center justify-between gap-2">
+                        <span>
+                          {formatMoney(tu.amount)} {tu.currency} · {tu.status} ·{" "}
+                          <code className="text-xs">{tu.id}</code>
+                        </span>
+                        {isFakeBillingUiAllowed(balanceQuery.data?.top_up_fake_confirm_enabled) &&
+                        tu.status === "PENDING" ? (
+                          <Button
+                            type="button"
+                            variant="secondary"
+                            size="sm"
+                            disabled={fakeTopUpMu.isPending}
+                            onClick={() => fakeTopUpMu.mutate(tu.id)}
+                          >
+                            Fake confirm
+                          </Button>
+                        ) : null}
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+              </div>
             </div>
           </Card>
+
+          {canPromoteAdmins && env.enableBillingAdminUI ? (
+            <Card className="form-card profile-card">
+              <div className="stack-md">
+                <Notice tone="warning" title="Demo / admin billing">
+                  Операции ниже обходят реальный платёжный провайдер. Включайте только вместе с{" "}
+                  <code>BILLING_ENABLE_ADMIN_ACTIONS</code> на сервере.
+                </Notice>
+                <p className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
+                  <Link className="underline" href="/admin/billing/invoices">
+                    Счета в ожидании оплаты (список + подтверждение)
+                  </Link>
+                  <Link className="underline" href="/admin/billing/payouts">
+                    Очередь выплат продавцам
+                  </Link>
+                </p>
+                <h2>Billing (admin)</h2>
+                <Field label="Invoice ID">
+                  <Input value={adminInvoiceId} onChange={(e) => setAdminInvoiceId(e.target.value)} placeholder="inv-…" />
+                </Field>
+                <div className="inline-actions">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    disabled={adminConfirmInvMu.isPending}
+                    onClick={() => adminConfirmInvMu.mutate()}
+                  >
+                    Confirm invoice (высокий риск)
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    disabled={adminExpireInvMu.isPending}
+                    onClick={() => adminExpireInvMu.mutate()}
+                  >
+                    Expire invoice
+                  </Button>
+                </div>
+                {(adminConfirmInvMu.error || adminExpireInvMu.error) && (
+                  <p className="text-sm text-amber-600">
+                    {adminConfirmInvMu.error?.message ?? adminExpireInvMu.error?.message}
+                  </p>
+                )}
+                <Field label="Payout ID">
+                  <Input value={adminPayoutId} onChange={(e) => setAdminPayoutId(e.target.value)} placeholder="pay-…" />
+                </Field>
+                <p className="muted text-sm">
+                  <strong>PAID</strong> здесь зачисляет средства на <strong>внутренний баланс</strong> продавца в billing, а не в банк.
+                </p>
+                <div className="inline-actions">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    disabled={adminPayoutReadyMu.isPending}
+                    onClick={() => adminPayoutReadyMu.mutate()}
+                  >
+                    Mark payout ready
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    disabled={adminPayoutPaidMu.isPending}
+                    onClick={() => adminPayoutPaidMu.mutate()}
+                  >
+                    Mark payout paid
+                  </Button>
+                </div>
+                {(adminPayoutReadyMu.error || adminPayoutPaidMu.error) && (
+                  <p className="text-sm text-amber-600">
+                    {adminPayoutReadyMu.error?.message ?? adminPayoutPaidMu.error?.message}
+                  </p>
+                )}
+              </div>
+            </Card>
+          ) : null}
           </div>
         </div>
 

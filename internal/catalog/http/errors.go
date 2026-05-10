@@ -35,6 +35,10 @@ func MapError(err error) HTTPError {
 		return HTTPError{http.StatusForbidden, "FORBIDDEN", "forbidden"}
 	case errors.Is(err, catalogapp.ErrMissingCompanyID):
 		return HTTPError{http.StatusBadRequest, "MISSING_COMPANY_ID", "missing company id"}
+	case errors.Is(err, catalogapp.ErrForbiddenOwner):
+		return HTTPError{http.StatusForbidden, "FORBIDDEN_OWNER", "company does not own this resource"}
+	case errors.Is(err, catalogapp.ErrCatalogListForbidden):
+		return HTTPError{http.StatusForbidden, "FORBIDDEN", "cannot list catalog for this role"}
 	case errors.Is(err, catalog.ErrInvalidIdentifier):
 		return HTTPError{http.StatusBadRequest, "INVALID_PATH", "invalid path"}
 	case errors.Is(err, catalogapp.ErrNotFound),

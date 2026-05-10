@@ -107,7 +107,7 @@ func TestUseCaseChainHappyPathAndWinnerFallback(t *testing.T) {
 		}
 
 		ucClose, _ := tradingapp.NewCloseAuction(tradingUOW)
-		if err := ucClose.Execute(context.Background(), tradingMeta(), tradingapp.AuctionID(auctionID)); err != nil {
+		if err := ucClose.Execute(context.Background(), tradingMetaAdmin(), tradingapp.AuctionID(auctionID)); err != nil {
 			t.Fatalf("close auction error: %v", err)
 		}
 
@@ -397,6 +397,26 @@ func (r *memoryProductRepo) Save(ctx context.Context, product *catalog.Product) 
 	return nil
 }
 
+func (r *memoryProductRepo) List(ctx context.Context) ([]*catalog.Product, error) {
+	_ = ctx
+	out := make([]*catalog.Product, 0, len(r.data))
+	for _, p := range r.data {
+		out = append(out, p)
+	}
+	return out, nil
+}
+
+func (r *memoryProductRepo) ListBySellerCompany(ctx context.Context, sellerCompanyID string) ([]*catalog.Product, error) {
+	_ = ctx
+	var out []*catalog.Product
+	for _, p := range r.data {
+		if p.SellerCompanyID() == sellerCompanyID {
+			out = append(out, p)
+		}
+	}
+	return out, nil
+}
+
 type memoryLotRepo struct {
 	data map[string]*catalog.Lot
 }
@@ -424,6 +444,26 @@ func (r *memoryLotRepo) Save(ctx context.Context, lot *catalog.Lot) error {
 	_ = ctx
 	r.data[lot.ID()] = lot
 	return nil
+}
+
+func (r *memoryLotRepo) List(ctx context.Context) ([]*catalog.Lot, error) {
+	_ = ctx
+	out := make([]*catalog.Lot, 0, len(r.data))
+	for _, l := range r.data {
+		out = append(out, l)
+	}
+	return out, nil
+}
+
+func (r *memoryLotRepo) ListBySellerCompany(ctx context.Context, sellerCompanyID string) ([]*catalog.Lot, error) {
+	_ = ctx
+	var out []*catalog.Lot
+	for _, l := range r.data {
+		if l.SellerCompanyID() == sellerCompanyID {
+			out = append(out, l)
+		}
+	}
+	return out, nil
 }
 
 type memoryUnitRepo struct {
@@ -740,6 +780,16 @@ func tradingMetaWithCompany(companyID string) tradingapp.CommandMeta {
 	return tradingapp.CommandMeta{
 		CompanyID:     companyID,
 		UserID:        companyID,
+		CorrelationID: "corr-1",
+		CausationID:   "cause-1",
+	}
+}
+
+func tradingMetaAdmin() tradingapp.CommandMeta {
+	return tradingapp.CommandMeta{
+		CompanyID:     "admin-1",
+		UserID:        "admin-1",
+		ActorKind:     tradingapp.ActorKindPlatformAdmin,
 		CorrelationID: "corr-1",
 		CausationID:   "cause-1",
 	}

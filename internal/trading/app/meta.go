@@ -5,6 +5,7 @@ import "context"
 type CommandMeta struct {
 	CompanyID     string
 	UserID        string
+	ActorKind     ActorKind
 	CorrelationID string
 	CausationID   string
 }

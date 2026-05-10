@@ -16,12 +16,16 @@ type FishRepository interface {
 
 type ProductRepository interface {
 	Get(ctx context.Context, productID string) (*catalog.Product, error)
+	List(ctx context.Context) ([]*catalog.Product, error)
+	ListBySellerCompany(ctx context.Context, sellerCompanyID string) ([]*catalog.Product, error)
 	Save(ctx context.Context, product *catalog.Product) error
 }
 
 type LotRepository interface {
 	Get(ctx context.Context, lotID string) (*catalog.Lot, error)
 	GetByAuctionID(ctx context.Context, auctionID string) (*catalog.Lot, error)
+	List(ctx context.Context) ([]*catalog.Lot, error)
+	ListBySellerCompany(ctx context.Context, sellerCompanyID string) ([]*catalog.Lot, error)
 	Save(ctx context.Context, lot *catalog.Lot) error
 }
 

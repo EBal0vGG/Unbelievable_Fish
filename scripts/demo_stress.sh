@@ -23,6 +23,10 @@ require curl
 require python3
 require docker
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC1091
+source "$SCRIPT_DIR/lib/catalog_demo_fish.sh"
+
 START_COMPOSE="${START_COMPOSE:-}"
 STOP_COMPOSE="${STOP_COMPOSE:-}"
 RESET_DB="${RESET_DB:-}"
@@ -35,6 +39,7 @@ WAVE_SLEEP_MS="${WAVE_SLEEP_MS:-200}"
 
 CATALOG_URL="${CATALOG_URL:-http://localhost:8081}"
 TRADING_URL="${TRADING_URL:-http://localhost:8082}"
+IDENTITY_URL="${IDENTITY_URL:-http://localhost:8084}"
 
 PGUSER="${PGUSER:-fish}"
 PGDATABASE="${PGDATABASE:-fish}"
@@ -141,6 +146,47 @@ post_expect_not_202() {
   fi
 }
 
+stress_valid_requisites() {
+  python3 -c 'import sys,random
+seed=sys.argv[1]
+r=random.Random(seed)
+inn_base=[r.randint(0,9) for _ in range(9)]
+weights=[2,4,10,3,5,9,4,6,8]
+checksum=(sum(a*b for a,b in zip(inn_base,weights))%11)%10
+inn="".join(map(str,inn_base+[checksum]))
+ogrn_base=[1]+[r.randint(0,9) for _ in range(11)]
+base=int("".join(map(str,ogrn_base)))
+ogrn=str(base)+str((base%11)%10)
+print(inn,ogrn)' "$1"
+}
+
+stress_register_company() {
+  local name="$1"
+  local inn="$2"
+  local ogrn="$3"
+  local resp
+  resp="$(curl_cmd -fsS -X POST "$IDENTITY_URL/companies" -H "Content-Type: application/json" -d "{\"name\":\"$name\",\"inn\":\"$inn\",\"ogrn\":\"$ogrn\"}")"
+  json_get "$resp" "id"
+}
+
+stress_register_user() {
+  local company_id="$1"
+  local name="$2"
+  local role="$3"
+  local login="$4"
+  local password="$5"
+  curl_cmd -fsS -X POST "$IDENTITY_URL/users" -H "Content-Type: application/json" \
+    -d "{\"company_id\":\"$company_id\",\"name\":\"$name\",\"role\":\"$role\",\"login\":\"$login\",\"password\":\"$password\",\"accepted_terms\":true,\"terms_version\":\"2026-04-24\"}" >/dev/null
+}
+
+stress_login_token() {
+  local login="$1"
+  local password="$2"
+  local resp
+  resp="$(curl_cmd -fsS -X POST "$IDENTITY_URL/auth/login" -H "Content-Type: application/json" -d "{\"login\":\"$login\",\"password\":\"$password\"}")"
+  json_get "$resp" "token"
+}
+
 require_catalog_up() {
   local code ec=0
   code="$(curl_cmd -sS -o /dev/null -w "%{http_code}" "$CATALOG_URL/health")" || ec=$?
@@ -205,13 +251,21 @@ fi
 
 banner "Create fish and product"
 require_catalog_up
-fish_resp="$(curl_post_json "$CATALOG_URL/fish" '{"name":"StressFish","description":"desc"}')"
-fish_id="$(json_get "$fish_resp" "fish_id")"
+fish_id="$(catalog_demo_fish_id "$CATALOG_URL")"
 
-product_resp="$(curl_post_json "$CATALOG_URL/products" "{\"fish_id\":\"$fish_id\",\"weight\":5,\"unit\":\"kg\",\"size\":\"M\",\"processing_type\":\"frozen\"}")"
+stress_suffix="$(date +%s)"
+read -r _stress_inn _stress_ogrn <<< "$(stress_valid_requisites "stress-seller-$stress_suffix")"
+stress_seller_company_id="$(stress_register_company "Stress Seller $stress_suffix" "$_stress_inn" "$_stress_ogrn")"
+stress_seller_login="stress.seller.$stress_suffix@example.com"
+stress_password="secret123"
+stress_register_user "$stress_seller_company_id" "Stress Seller" "seller" "$stress_seller_login" "$stress_password"
+stress_seller_token="$(stress_login_token "$stress_seller_login" "$stress_password")"
+
+product_resp="$(curl_post_json "$CATALOG_URL/products" "{\"fish_id\":\"$fish_id\",\"weight\":5,\"unit\":\"kg\",\"size\":\"M\",\"processing_type\":\"frozen\"}" \
+  -H "Authorization: Bearer $stress_seller_token")"
 product_id="$(json_get "$product_resp" "product_id")"
 
-curl_post_json "$CATALOG_URL/products/$product_id/publish" "{}" >/dev/null
+curl_post_json "$CATALOG_URL/products/$product_id/publish" "{}" -H "Authorization: Bearer $stress_seller_token"
 
 declare -a LOT_IDS
 declare -a AUCTION_IDS
@@ -224,12 +278,13 @@ for i in $(seq 1 "$LOT_COUNT"); do
     starts_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   fi
 
-  lot_resp="$(curl_post_json "$CATALOG_URL/lots" "{\"product_id\":\"$product_id\",\"photo\":\"photo\",\"quantity\":10,\"start_price\":100,\"auction_starts_at\":\"$starts_at\",\"auction_duration_minutes\":$AUCTION_DURATION_MINUTES}" -H "X-Company-ID: seller-1")"
+  lot_resp="$(curl_post_json "$CATALOG_URL/lots" "{\"product_id\":\"$product_id\",\"photo\":\"photo\",\"quantity\":10,\"start_price\":100,\"auction_starts_at\":\"$starts_at\",\"auction_duration_minutes\":$AUCTION_DURATION_MINUTES}" \
+    -H "Authorization: Bearer $stress_seller_token")"
   lot_id="$(json_get "$lot_resp" "lot_id")"
   LOT_IDS+=("$lot_id")
 
-  post_expect_202 "$CATALOG_URL/lots/$lot_id/publish" "{}"
-  post_expect_not_202 "$CATALOG_URL/lots/$lot_id/publish" "{}"
+  post_expect_202 "$CATALOG_URL/lots/$lot_id/publish" "{}" -H "Authorization: Bearer $stress_seller_token"
+  post_expect_not_202 "$CATALOG_URL/lots/$lot_id/publish" "{}" -H "Authorization: Bearer $stress_seller_token"
 done
 
 banner "Resolve auctions"

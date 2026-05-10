@@ -7,6 +7,10 @@
 - bash
 - Go toolchain (for `go run ./cmd/admin` used by scripts)
 
+Demo scripts use **`GET /fish`** and the first bootstrapped fish id (`scripts/lib/catalog_demo_fish.sh`). **`POST /fish` is admin-only** (JWT), so unauthenticated create in older scripts used to fail with `KeyError: 'fish_id'`.
+
+**`POST /products`** and **`POST /products/{id}/publish`** require a **seller JWT** (`Authorization: Bearer …`). Scripts create a seller user first, then create/publish the product.
+
 ## How to bring the system up
 From repo root:
 - `docker compose up -d --build`

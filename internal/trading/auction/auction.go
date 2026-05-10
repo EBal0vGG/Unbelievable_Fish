@@ -171,19 +171,42 @@ func (a *Auction) Close(bids []Bid) ([]Event, error) {
 	}, nil
 }
 
-func (a *Auction) Cancel() ([]Event, error) {
+// CancelAsSellerOrDraft cancels a draft auction or a published auction with no bids yet
+// (leaderCompanyID is set when at least one bid has been accepted).
+func (a *Auction) CancelAsSellerOrDraft() ([]Event, error) {
+	if a.state == StateDraft {
+		if err := a.transitionTo(StateCancelled); err != nil {
+			return nil, err
+		}
+		return []Event{AuctionCancelled{AuctionID: a.ID}}, nil
+	}
 	if a.state != StatePublished {
 		return nil, ErrInvalidStateTransition
 	}
-	if a.currentPrice > 0 {
+	if a.leaderCompanyID != "" {
 		return nil, ErrCannotCancelWithBids
 	}
 	if err := a.transitionTo(StateCancelled); err != nil {
 		return nil, err
 	}
-	return []Event{
-		AuctionCancelled{AuctionID: a.ID},
-	}, nil
+	return []Event{AuctionCancelled{AuctionID: a.ID}}, nil
+}
+
+// CancelAsAdmin cancels a published auction even when bids exist (support / emergency).
+func (a *Auction) CancelAsAdmin() ([]Event, error) {
+	if a.state == StateDraft {
+		if err := a.transitionTo(StateCancelled); err != nil {
+			return nil, err
+		}
+		return []Event{AuctionCancelled{AuctionID: a.ID}}, nil
+	}
+	if a.state != StatePublished {
+		return nil, ErrInvalidStateTransition
+	}
+	if err := a.transitionTo(StateCancelled); err != nil {
+		return nil, err
+	}
+	return []Event{AuctionCancelled{AuctionID: a.ID}}, nil
 }
 
 func (a *Auction) State() State {

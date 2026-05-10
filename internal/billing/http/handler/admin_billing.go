@@ -157,3 +157,43 @@ func (h *AdminMarkSellerPayoutPaidHandler) ServeHTTP(w http.ResponseWriter, r *h
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(sellerPayoutJSON(out))
 }
+
+// AdminMarkSellerPayoutFailedHandler marks payout FAILED from PENDING or READY (no balance credit).
+type AdminMarkSellerPayoutFailedHandler struct {
+	tx TxRunner
+	uc *billingapp.MarkSellerPayoutFailed
+}
+
+func NewAdminMarkSellerPayoutFailedHandler(tx TxRunner, uc *billingapp.MarkSellerPayoutFailed) *AdminMarkSellerPayoutFailedHandler {
+	return &AdminMarkSellerPayoutFailedHandler{tx: tx, uc: uc}
+}
+
+func (h *AdminMarkSellerPayoutFailedHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	payoutID := chi.URLParam(r, "payoutID")
+	if payoutID == "" {
+		http.Error(w, `{"error":"MISSING_PAYOUT_ID"}`, http.StatusBadRequest)
+		return
+	}
+	var out *wallet.SellerPayout
+	if err := h.tx.WithinTx(r.Context(), func(ctx context.Context) error {
+		p, err := h.uc.Execute(ctx, payoutID)
+		if err != nil {
+			return err
+		}
+		out = p
+		return nil
+	}); err != nil {
+		if errors.Is(err, billingapp.ErrSellerPayoutNotFound) {
+			http.Error(w, `{"error":"PAYOUT_NOT_FOUND"}`, http.StatusNotFound)
+			return
+		}
+		if errors.Is(err, wallet.ErrSellerPayoutWrongStatus) || errors.Is(err, wallet.ErrInvalidIdentifier) {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(sellerPayoutJSON(out))
+}

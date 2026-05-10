@@ -7,6 +7,12 @@ require python3
 if [[ $# -lt 1 ]]; then
   print_usage_header
   echo "Usage: $0 <fish_id> [weight] [unit] [size] [processing_type]"
+  echo "Requires CATALOG_SELLER_TOKEN (seller JWT) — POST /products is authenticated."
+  exit 2
+fi
+
+if [[ -z "${CATALOG_SELLER_TOKEN:-}" ]]; then
+  echo "Set CATALOG_SELLER_TOKEN to a seller JWT (login via identity)." >&2
   exit 2
 fi
 
@@ -18,6 +24,7 @@ PROCESSING_TYPE="${5:-frozen}"
 
 resp="$(curl -sS -X POST "$CATALOG_URL/products" \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $CATALOG_SELLER_TOKEN" \
   -d "{\"fish_id\":\"$FISH_ID\",\"weight\":$WEIGHT,\"unit\":\"$UNIT\",\"size\":\"$SIZE\",\"processing_type\":\"$PROCESSING_TYPE\"}")"
 
 echo "$resp"

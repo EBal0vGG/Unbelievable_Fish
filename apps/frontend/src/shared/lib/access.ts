@@ -59,7 +59,7 @@ export function isOwnedProduct(product: ProductRecord, session: UserSession | nu
     return false;
   }
 
-  return product.ownerCompanyId === session.companyId && product.ownerUserId === session.userId;
+  return product.ownerCompanyId === session.companyId;
 }
 
 export function isOwnedLot(lot: LotRecord, session: UserSession | null): boolean {
@@ -67,7 +67,7 @@ export function isOwnedLot(lot: LotRecord, session: UserSession | null): boolean
     return false;
   }
 
-  return lot.sellerCompanyId === session.companyId && lot.creatorUserId === session.userId;
+  return lot.sellerCompanyId === session.companyId;
 }
 
 export function getDealParticipantSide(deal: DealRecord, session: UserSession | null): DealParticipantSide {

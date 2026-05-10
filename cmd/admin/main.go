@@ -79,6 +79,7 @@ func closeAuction(db *sql.DB, auctionID string) error {
 	meta := tradingapp.CommandMeta{
 		CompanyID:     dbconfig.EnvOrDefault("COMPANY_ID", "system"),
 		UserID:        dbconfig.EnvOrDefault("USER_ID", "system"),
+		ActorKind:     tradingapp.ActorKindPlatformAdmin,
 		CorrelationID: dbconfig.EnvOrDefault("CORRELATION_ID", "admin-close"),
 		CausationID:   dbconfig.EnvOrDefault("CAUSATION_ID", "admin-close"),
 	}

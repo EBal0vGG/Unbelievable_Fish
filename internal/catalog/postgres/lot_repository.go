@@ -40,6 +40,62 @@ WHERE auction_id = $1
 	return r.getOne(ctx, query, auctionID)
 }
 
+func (r *LotRepository) List(ctx context.Context) ([]*catalog.Lot, error) {
+	const query = `
+SELECT lot_id, product_id, auction_id, seller_company_id, photo, quantity, start_price, min_bid_step, cur_price, final_price, status, auction_starts_at, auction_duration_minutes
+FROM catalog_lots
+ORDER BY lot_id
+`
+	return r.scanLots(ctx, query)
+}
+
+func (r *LotRepository) ListBySellerCompany(ctx context.Context, sellerCompanyID string) ([]*catalog.Lot, error) {
+	const query = `
+SELECT lot_id, product_id, auction_id, seller_company_id, photo, quantity, start_price, min_bid_step, cur_price, final_price, status, auction_starts_at, auction_duration_minutes
+FROM catalog_lots
+WHERE seller_company_id = $1
+ORDER BY lot_id
+`
+	return r.scanLots(ctx, query, sellerCompanyID)
+}
+
+func (r *LotRepository) scanLots(ctx context.Context, query string, args ...any) ([]*catalog.Lot, error) {
+	dbtx := DBTXFromContext(ctx, r.db)
+	rows, err := dbtx.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []*catalog.Lot
+	for rows.Next() {
+		var row lotRow
+		if err := rows.Scan(
+			&row.LotID,
+			&row.ProductID,
+			&row.AuctionID,
+			&row.SellerCompanyID,
+			&row.Photo,
+			&row.Quantity,
+			&row.StartPrice,
+			&row.MinBidStep,
+			&row.CurPrice,
+			&row.FinalPrice,
+			&row.Status,
+			&row.AuctionStartsAt,
+			&row.AuctionDurationMinutes,
+		); err != nil {
+			return nil, err
+		}
+		lot, err := row.toAggregate()
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, lot)
+	}
+	return out, rows.Err()
+}
+
 func (r *LotRepository) Save(ctx context.Context, lot *catalog.Lot) error {
 	const query = `
 INSERT INTO catalog_lots (

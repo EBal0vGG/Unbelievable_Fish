@@ -426,8 +426,33 @@ func (d *Deal) Cancel(reason, cancelledBy string) ([]Event, error) {
 		}, nil
 	}
 
+	if d.typeName == DealTypeAuction && d.auctionID != "" && cancelledBy == d.customerID &&
+		statusEligibleForBuyerInitiatedDepositForfeit(d.status) {
+		d.status = DealStatusCancelled
+		return []Event{
+			cancelEv,
+			WinnerRejected{
+				SelectionID: d.auctionID,
+				DealID:      d.id,
+				AuctionID:   d.auctionID,
+				CompanyID:   d.customerID,
+				RejectedAt:  now,
+				Reason:      DealCancelReasonBuyerInitiatedCancel,
+			},
+		}, nil
+	}
+
 	d.status = DealStatusCancelled
 	return []Event{cancelEv}, nil
+}
+
+func statusEligibleForBuyerInitiatedDepositForfeit(st DealStatus) bool {
+	switch st {
+	case DealStatusPending, DealStatusConfirmed, DealStatusContractPrepared, DealStatusContractSigned, DealStatusPaymentRequested:
+		return true
+	default:
+		return false
+	}
 }
 
 // UpdatePrice - обновляет цену за единицу
@@ -527,7 +552,7 @@ func (d *Deal) ApplyApprovedConfirmation(confirmation *DealConfirmation) ([]Even
 	case DealConfirmationStageConfirmed:
 		return d.Confirm()
 	case DealConfirmationStagePaid:
-		return d.MarkAsPaid("", "")
+		return nil, ErrPaidOnlyThroughBilling
 	case DealConfirmationStageShipped:
 		return d.MarkAsShipped("", "")
 	case DealConfirmationStageCompleted:
@@ -595,7 +620,7 @@ func (d *Deal) canRequestConfirmationStage(stage DealConfirmationStage) bool {
 	case DealConfirmationStageConfirmed:
 		return d.status == DealStatusPending
 	case DealConfirmationStagePaid:
-		return d.status == DealStatusPaymentRequested
+		return false
 	case DealConfirmationStageShipped:
 		return d.status == DealStatusShipmentRequested
 	case DealConfirmationStageCompleted:

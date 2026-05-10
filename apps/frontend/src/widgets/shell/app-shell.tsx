@@ -33,6 +33,7 @@ const sectionMeta: Record<string, { title: string; subtitle: string }> = {
   "/create/lot": { title: "Новый лот", subtitle: "Сборка продукта, партии и торгов" },
   "/me": { title: "Профиль", subtitle: "Компания, доступы и активность" },
   "/create/fish": { title: "Новая рыба", subtitle: "Администрирование каталога" },
+  "/admin/billing/payouts": { title: "Billing: выплаты", subtitle: "Очередь seller payout для оператора" },
 };
 
 function routeMeta(pathname: string) {

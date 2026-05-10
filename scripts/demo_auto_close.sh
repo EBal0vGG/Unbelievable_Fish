@@ -23,6 +23,10 @@ require curl
 require python3
 require docker
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC1091
+source "$SCRIPT_DIR/lib/catalog_demo_fish.sh"
+
 START_COMPOSE="${START_COMPOSE:-}"
 STOP_COMPOSE="${STOP_COMPOSE:-}"
 
@@ -98,13 +102,7 @@ if [[ -z "$(docker compose ps -q integration)" ]]; then
 fi
 
 banner "Create fish/product/lot and publish"
-fish_resp="$(curl -s -X POST "$CATALOG_URL/fish" -H "Content-Type: application/json" -d '{"name":"Pollock","description":"desc"}')"
-fish_id="$(json_get "$fish_resp" "fish_id")"
-
-product_resp="$(curl -s -X POST "$CATALOG_URL/products" -H "Content-Type: application/json" -d "{\"fish_id\":\"$fish_id\",\"weight\":12,\"unit\":\"kg\",\"size\":\"M\",\"processing_type\":\"frozen\"}")"
-product_id="$(json_get "$product_resp" "product_id")"
-
-curl -s -X POST "$CATALOG_URL/products/$product_id/publish" >/dev/null
+fish_id="$(catalog_demo_fish_id "$CATALOG_URL")"
 
 suffix="$(date +%s)"
 seller_creds="$(valid_requisites "auto-seller-$suffix")"
@@ -113,6 +111,14 @@ seller_login="auto.seller.$suffix@example.com"
 password="secret123"
 register_user "$seller_company_id" "Auto Seller" "seller" "$seller_login" "$password"
 seller_token="$(login_token "$seller_login" "$password")"
+
+product_resp="$(curl -fsS -X POST "$CATALOG_URL/products" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $seller_token" \
+  -d "{\"fish_id\":\"$fish_id\",\"weight\":12,\"unit\":\"kg\",\"size\":\"M\",\"processing_type\":\"frozen\"}")"
+product_id="$(json_get "$product_resp" "product_id")"
+
+curl -fsS -X POST "$CATALOG_URL/products/$product_id/publish" -H "Authorization: Bearer $seller_token" >/dev/null
 
 if command -v gdate >/dev/null 2>&1; then
   starts_at="$(gdate -u -d "-2 min" +%Y-%m-%dT%H:%M:%SZ)"

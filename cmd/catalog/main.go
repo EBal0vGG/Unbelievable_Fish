@@ -48,11 +48,13 @@ func main() {
 
 	router := httpapi.NewRouter(httpapi.Handlers{
 		ListFish:       handler.NewListFishHandler(service),
-		CreateFish:     handler.NewCreateFishHandler(service),
-		CreateProduct:  handler.NewCreateProductHandler(service),
-		PublishProduct: handler.NewPublishProductHandler(service),
+		CreateFish:     authMiddleware.RequireRole(identity.RoleAdmin, handler.NewCreateFishHandler(service)),
+		CreateProduct:  authMiddleware.RequireRole(identity.RoleSeller, handler.NewCreateProductHandler(service)),
+		PublishProduct: authMiddleware.RequireRole(identity.RoleSeller, handler.NewPublishProductHandler(service)),
+		ListProducts:   authMiddleware.Wrap(handler.NewListProductsHandler(service)),
 		CreateLot:      authMiddleware.RequireRole(identity.RoleSeller, handler.NewCreateLotHandler(service)),
 		PublishLot:     authMiddleware.RequireRole(identity.RoleSeller, handler.NewPublishLotHandler(service)),
+		ListLots:       authMiddleware.Wrap(handler.NewListLotsHandler(service)),
 	}, httplog.Middleware(logger))
 
 	port := dbconfig.EnvOrDefault("CATALOG_PORT", "8081")

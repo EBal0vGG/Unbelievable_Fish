@@ -95,26 +95,24 @@ go test ./...
 
 ### Catalog
 
-- `POST /fish`
-- `POST /products`
-- `POST /products/{id}/publish`
-- `POST /lots`
-- `POST /lots/{id}/publish`
+- `GET /fish` — справочник (без JWT).
+- `POST /fish` — только **admin** (справочник платформы).
+- `GET /products`, `GET /lots` — **JWT обязателен**; выдача фильтруется по компании/роли; владение продуктом/лотом проверяется в домене при мутациях.
+- `POST /products`, `POST /products/{id}/publish`, `POST /lots`, `POST /lots/{id}/publish` — **seller** (и выше по политике identity) + проверки владения на сервере.
 
 ### Trading
 
-- `GET /auctions`
-- `POST /auctions/{id}/publish`
-- `POST /auctions/{id}/bids`
-- `POST /auctions/{id}/close`
-- `POST /auctions/{id}/cancel`
-- `GET /auctions/{id}`
-- `GET /auctions/by-lot/{lotId}`
+- `GET /auctions`, `GET /auctions/{id}`, `GET /auctions/by-lot/{lotId}` — чтение (с JWT).
+- `POST /auctions/{id}/publish` — seller.
+- `POST /auctions/{id}/bids` — buyer.
+- `POST /auctions/{id}/close` — только **admin** (или внутренний **system**-метаданные в домене); продавец не может досрочно закрыть активные торги со ставками.
+- `POST /auctions/{id}/cancel` — **seller или admin**; продавец: черновик или опубликованный лот **без ставок**; при ставках — отмена через админа / системные правила.
 
 ### Billing
 
-- `GET /billing/accounts/me` — баланс (`available`, `held`, `total`).
-- `POST /billing/accounts/me/top-up/test` — тело `{"amount": <int64>}` (тестовое зачисление).
+- `GET /billing/accounts/me` — баланс (`available`, `held`, `total`); при fake-провайдере в ответе может быть `top_up_fake_confirm_enabled` / `deal_invoice_fake_confirm_enabled` для UI.
+- `POST /billing/top-ups` — создание заявки на пополнение (авторизованная компания); при fake — `POST /billing/top-ups/{id}/fake-confirm`.
+- `POST /billing/accounts/me/top-up/test` — **только dev/тест**, не основной UX.
 - `GET /billing/accounts/me/ledger` — последние записи ledger (до 100).
 
 ### Deals
@@ -126,7 +124,7 @@ go test ./...
 - `POST /deals/{dealId}/contract/prepare`
 - `POST /deals/{dealId}/contract/sign`
 - `POST /deals/{dealId}/payment/request`
-- `POST /deals/{dealId}/payment/mark-paid`
+- Переход сделки в оплаченное состояние — **только из биллинга** (событие «invoice paid» → домен deals). Отдельного публичного HTTP `mark-paid` нет.
 - `POST /deals/{dealId}/shipment/request`
 - `POST /deals/{dealId}/shipment/mark-shipped`
 - `POST /deals/{dealId}/complete`
@@ -164,6 +162,9 @@ Frontend:
 - `NEXT_PUBLIC_TRADING_API_URL`
 - `NEXT_PUBLIC_DEALS_API_URL`
 - `NEXT_PUBLIC_IDENTITY_API_URL`
-- `NEXT_PUBLIC_BILLING_API_URL` (опционально, для следующего этапа UI)
+- `NEXT_PUBLIC_BILLING_URL` (база billing API, см. `apps/frontend/.env.example`)
+- `NEXT_PUBLIC_ENABLE_API_FALLBACK` — локальный fallback при недоступности API
+- `NEXT_PUBLIC_ENABLE_FAKE_BILLING=true` — показывать кнопки fake-confirm только вместе с fake-провайдером на сервере
+- `NEXT_PUBLIC_ENABLE_BILLING_ADMIN=true` — секция админ-операций биллинга в UI (нужны admin JWT и `BILLING_ENABLE_ADMIN_ACTIONS`)
 
 Детали по frontend: `apps/frontend/README.md`.

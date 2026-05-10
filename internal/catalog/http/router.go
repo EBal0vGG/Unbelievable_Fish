@@ -12,8 +12,10 @@ type Handlers struct {
 	CreateFish     http.Handler
 	CreateProduct  http.Handler
 	PublishProduct http.Handler
+	ListProducts   http.Handler
 	CreateLot      http.Handler
 	PublishLot     http.Handler
+	ListLots       http.Handler
 }
 
 // NewRouter registers catalog HTTP routes. Protected lot routes should be wrapped
@@ -32,11 +34,13 @@ func NewRouter(h Handlers, middlewares ...func(http.Handler) http.Handler) chi.R
 	})
 
 	r.Route("/products", func(r chi.Router) {
+		r.Method(http.MethodGet, "/", h.ListProducts)
 		r.Method(http.MethodPost, "/", h.CreateProduct)
 		r.Method(http.MethodPost, "/{productID}/publish", h.PublishProduct)
 	})
 
 	r.Route("/lots", func(r chi.Router) {
+		r.Method(http.MethodGet, "/", h.ListLots)
 		r.Method(http.MethodPost, "/", h.CreateLot)
 		r.Method(http.MethodPost, "/{lotID}/publish", h.PublishLot)
 	})

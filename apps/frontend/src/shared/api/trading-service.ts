@@ -1,7 +1,11 @@
+/**
+ * Trading HTTP: ставки, чтение аукциона, `closeAuction` (admin), `cancelAuction` (seller/admin).
+ * Досрочное закрытие со ставками запрещено доменом для не-admin/system — ошибки пробрасываются как от API.
+ */
 import { ApiError, apiRequest, isRecoverableApiGap } from "@/shared/api/http-client";
 import { getProjectionByAuctionId, getDealByAuctionId } from "@/shared/api/deals-service";
 import { canFallbackCommand, mixedMeta, mockMeta } from "@/shared/api/service-helpers";
-import { isSellerSession } from "@/shared/lib/access";
+import { isAdminSession, isSellerSession } from "@/shared/lib/access";
 import {
   addActivity,
   appendBidStore,
@@ -60,7 +64,7 @@ interface AuctionSummaryDTO {
 }
 
 function getAuctionFallbackNote(): string {
-  return "Trading query endpoints for auction list/details are not exposed in the current backend build, using local auction mirror.";
+  return "Trading GET /auctions или детали недоступны — показан локальный mirror аукционов.";
 }
 
 function deriveAuctionFromLot(lot: ReturnType<typeof listLotsStore>[number]): AuctionRecord {
@@ -427,4 +431,26 @@ export async function placeBid(
       ),
     };
   }
+}
+
+/** Admin-only on backend: closes auction (including early close with bids). */
+export async function closeAuction(auctionId: string, session: UserSession): Promise<void> {
+  if (!isAdminSession(session)) {
+    throw new ApiError("Закрытие аукциона доступно только администратору", 403, "ADMIN_ONLY");
+  }
+  await apiRequest("trading", `/auctions/${encodeURIComponent(auctionId)}/close`, {
+    method: "POST",
+    session,
+  });
+}
+
+/** Seller or admin: cancel per backend rules (seller: draft / published without bids). */
+export async function cancelAuction(auctionId: string, session: UserSession): Promise<void> {
+  if (!isSellerSession(session) && !isAdminSession(session)) {
+    throw new ApiError("Отмена аукциона недоступна для этой роли", 403, "FORBIDDEN");
+  }
+  await apiRequest("trading", `/auctions/${encodeURIComponent(auctionId)}/cancel`, {
+    method: "POST",
+    session,
+  });
 }

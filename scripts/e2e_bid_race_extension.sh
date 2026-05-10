@@ -10,6 +10,10 @@ require python3
 require docker
 require psql
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC1091
+source "$SCRIPT_DIR/lib/catalog_demo_fish.sh"
+
 START_COMPOSE="${START_COMPOSE:-}"
 STOP_COMPOSE="${STOP_COMPOSE:-}"
 
@@ -147,11 +151,13 @@ for _tok in "$buyer1_token" "$buyer2_token"; do
   fi
 done
 
-fish_resp="$(curl -s -X POST "$CATALOG_URL/fish" -H "Content-Type: application/json" -d '{"name":"Cod","description":"e2e"}')"
-fish_id="$(json_get "$fish_resp" "fish_id")"
-product_resp="$(curl -s -X POST "$CATALOG_URL/products" -H "Content-Type: application/json" -d "{\"fish_id\":\"$fish_id\",\"weight\":10,\"unit\":\"kg\",\"size\":\"M\",\"processing_type\":\"frozen\"}")"
+fish_id="$(catalog_demo_fish_id "$CATALOG_URL")"
+product_resp="$(curl -fsS -X POST "$CATALOG_URL/products" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $seller_token" \
+  -d "{\"fish_id\":\"$fish_id\",\"weight\":10,\"unit\":\"kg\",\"size\":\"M\",\"processing_type\":\"frozen\"}")"
 product_id="$(json_get "$product_resp" "product_id")"
-curl -s -X POST "$CATALOG_URL/products/$product_id/publish" >/dev/null
+curl -fsS -X POST "$CATALOG_URL/products/$product_id/publish" -H "Authorization: Bearer $seller_token" >/dev/null
 
 starts_at="$(date -u -d "-1 min" +%Y-%m-%dT%H:%M:%SZ)"
 lot_resp="$(curl -s -X POST "$CATALOG_URL/lots" \

@@ -61,6 +61,7 @@ func (h *GetBalanceHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		"held":       acc.Held(),
 		"total":      acc.Total(),
 		// Mirrors BILLING_ENABLE_FAKE_PROVIDER wiring in cmd/billing (demo / non-prod UX).
-		"deal_invoice_fake_confirm_enabled": h.dealInvoiceFakeConfirmAvailable,
+		"deal_invoice_fake_confirm_enabled":  h.dealInvoiceFakeConfirmAvailable,
+		"top_up_fake_confirm_enabled":        h.dealInvoiceFakeConfirmAvailable,
 	})
 }

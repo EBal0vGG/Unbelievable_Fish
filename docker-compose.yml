@@ -147,6 +147,9 @@ services:
       BILLING_PORT: "8085"
       BILLING_ENABLE_FAKE_PROVIDER: "true"
       BILLING_ENABLE_ADMIN_ACTIONS: "true"
+      # Async fake-provider callback hits the same webhook as production would (reachable from this container).
+      BILLING_FAKE_PROVIDER_AUTO_CONFIRM: "true"
+      BILLING_FAKE_WEBHOOK_BASE_URL: http://billing:8085/billing
       IDENTITY_TOKEN_SECRET: dev-secret
       IDENTITY_TOKEN_TTL_MINUTES: "120"
     ports:
@@ -190,6 +193,10 @@ services:
       NEXT_PUBLIC_IDENTITY_API_URL: http://identity:8084
       NEXT_PUBLIC_BILLING_URL: http://billing:8085/billing
       NEXT_PUBLIC_ENABLE_API_FALLBACK: "true"
+      # Must match BILLING_ENABLE_FAKE_PROVIDER on billing so SSR/build sees opt-in; UI also follows GET /accounts/me when unset.
+      NEXT_PUBLIC_ENABLE_FAKE_BILLING: "true"
+      # Admin payout queue + billing operator UI (needs admin JWT + BILLING_ENABLE_ADMIN_ACTIONS above).
+      NEXT_PUBLIC_ENABLE_BILLING_ADMIN: "true"
     ports:
       - "3000:3000"
     depends_on:

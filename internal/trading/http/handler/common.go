@@ -16,10 +16,11 @@ import (
 const maxBodyBytes = 1 << 20
 
 func readCommandMeta(r *http.Request) (app.CommandMeta, error) {
-	if identity, ok := identityauth.IdentityFromContext(r.Context()); ok {
+	if ident, ok := identityauth.IdentityFromContext(r.Context()); ok {
 		return app.CommandMeta{
-			CompanyID:     identity.CompanyID,
-			UserID:        identity.UserID,
+			CompanyID:     ident.CompanyID,
+			UserID:        ident.UserID,
+			ActorKind:     app.ActorKindCompany,
 			CorrelationID: r.Header.Get("X-Correlation-ID"),
 			CausationID:   r.Header.Get("X-Causation-ID"),
 		}, nil
@@ -35,6 +36,7 @@ func readCommandMeta(r *http.Request) (app.CommandMeta, error) {
 	return app.CommandMeta{
 		CompanyID:     companyID,
 		UserID:        userID,
+		ActorKind:     app.ActorKindCompany,
 		CorrelationID: r.Header.Get("X-Correlation-ID"),
 		CausationID:   r.Header.Get("X-Causation-ID"),
 	}, nil

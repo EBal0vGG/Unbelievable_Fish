@@ -1,4 +1,4 @@
-import { ApiError, apiRequest, isRecoverableApiGap } from "@/shared/api/http-client";
+import { ApiError, apiRequest, isRecoverableApiGap, isRecoverableDealCommandGap } from "@/shared/api/http-client";
 import { mixedMeta, mockMeta } from "@/shared/api/service-helpers";
 import {
   addActivity,
@@ -306,12 +306,16 @@ export async function getDealByAuctionId(
     if (!isRecoverableApiGap(error)) {
       throw error;
     }
-    const fallback = listDealsStore().find((item) => item.auctionId === auctionId && canViewDeal(item, session)) ?? null;
+    const candidates = listDealsStore().filter((item) => item.auctionId === auctionId && canViewDeal(item, session));
+    const active = candidates.filter((item) => item.status !== "cancelled");
+    const pool = active.length > 0 ? active : candidates;
+    const fallback =
+      pool.slice().sort((left, right) => right.createdAt.localeCompare(left.createdAt))[0] ?? null;
     return {
       data: fallback,
       meta: mockMeta(
         fallback
-          ? "Deal by auction API is unavailable, using local deal mirror."
+          ? "Deal by auction API is unavailable, using local deal mirror (preferring latest non-cancelled deal for this auction)."
           : "Deal by auction is not available yet. Showing auction-only context.",
       ),
     };
@@ -644,7 +648,7 @@ export async function runDealAction(
       body: request.body,
     });
   } catch (error) {
-    if (!isRecoverableApiGap(error)) {
+    if (!isRecoverableDealCommandGap(error)) {
       throw error;
     }
 

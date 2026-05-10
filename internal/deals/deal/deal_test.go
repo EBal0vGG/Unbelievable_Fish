@@ -151,19 +151,19 @@ func TestDeal_Cancel(t *testing.T) {
 	deal := createTestDeal(t)
 	logMsg(t, "deal id="+deal.ID()+" status="+string(deal.Status()))
 
-	events, err := deal.Cancel("buyer changed mind", "customer")
+	events, err := deal.Cancel("buyer changed mind", deal.CustomerID())
 
 	if err != nil {
 		logMsg(t, "cancel error="+err.Error())
 		t.Fatalf("unexpected error: %v", err)
 	}
-	logMsg(t, "deal cancelled reason=buyer changed mind cancelled_by=customer")
+	logMsg(t, "deal cancelled reason=buyer changed mind cancelled_by="+deal.CustomerID())
 
 	if deal.Status() != DealStatusCancelled {
 		t.Errorf("expected status cancelled, got %s", deal.Status())
 	}
-	if len(events) != 1 {
-		t.Fatalf("expected 1 event, got %d", len(events))
+	if len(events) != 2 {
+		t.Fatalf("expected 2 events (cancel + deposit forfeit), got %d", len(events))
 	}
 	event, ok := events[0].(DealCancelled)
 	if !ok {
@@ -171,6 +171,45 @@ func TestDeal_Cancel(t *testing.T) {
 	}
 	if event.Reason != "buyer changed mind" {
 		t.Errorf("expected reason 'buyer changed mind', got '%s'", event.Reason)
+	}
+	wr, ok := events[1].(WinnerRejected)
+	if !ok {
+		t.Fatalf("expected WinnerRejected, got %T", events[1])
+	}
+	if wr.Reason != DealCancelReasonBuyerInitiatedCancel {
+		t.Fatalf("expected %q, got %q", DealCancelReasonBuyerInitiatedCancel, wr.Reason)
+	}
+}
+
+func TestDeal_Cancel_SupplierInitiatedDoesNotForfeitBuyerDeposit(t *testing.T) {
+	d := createTestDeal(t)
+	events, err := d.Cancel("Отмена по соглашению сторон", d.SupplierID())
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(events) != 1 {
+		t.Fatalf("expected 1 event, got %d", len(events))
+	}
+	if _, ok := events[0].(DealCancelled); !ok {
+		t.Fatalf("expected DealCancelled, got %T", events[0])
+	}
+}
+
+func TestDeal_Cancel_BuyerInitiatedAfterConfirmStillForfeits(t *testing.T) {
+	d := createTestDeal(t)
+	if _, err := d.Confirm(); err != nil {
+		t.Fatalf("confirm: %v", err)
+	}
+	events, err := d.Cancel("Отмена по соглашению сторон", d.CustomerID())
+	if err != nil {
+		t.Fatalf("cancel: %v", err)
+	}
+	if len(events) != 2 {
+		t.Fatalf("expected 2 events, got %d", len(events))
+	}
+	wr := events[1].(WinnerRejected)
+	if wr.Reason != DealCancelReasonBuyerInitiatedCancel {
+		t.Fatalf("reason: %q", wr.Reason)
 	}
 }
 

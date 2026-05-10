@@ -61,9 +61,13 @@ func main() {
 	if err != nil {
 		logging.Fatal(logger, "close_auction_usecase_init_failed", "error", err)
 	}
-	cancelAuctionUC, err := tradingapp.NewCancelAuction(uow)
+	sellerCancelUC, err := tradingapp.NewSellerCancelAuction(uow)
 	if err != nil {
-		logging.Fatal(logger, "cancel_auction_usecase_init_failed", "error", err)
+		logging.Fatal(logger, "seller_cancel_auction_usecase_init_failed", "error", err)
+	}
+	adminCancelUC, err := tradingapp.NewAdminCancelAuction(uow)
+	if err != nil {
+		logging.Fatal(logger, "admin_cancel_auction_usecase_init_failed", "error", err)
 	}
 	getAuctionByLotUC, err := tradingapp.NewGetAuctionByLot(tradingpg.NewAuctionReadRepository(db))
 	if err != nil {
@@ -87,8 +91,8 @@ func main() {
 		ListAuctions:   authMiddleware.Wrap(handler.NewListAuctionsHandler(listAuctionsUC)),
 		PublishAuction: authMiddleware.RequireRole(identity.RoleSeller, handler.NewPublishAuctionHandler(publishAuctionUC)),
 		PlaceBid:       authMiddleware.RequireRole(identity.RoleBuyer, handler.NewPlaceBidHandler(placeBidUC)),
-		CloseAuction:   authMiddleware.RequireRole(identity.RoleSeller, handler.NewCloseAuctionHandler(closeAuctionUC)),
-		CancelAuction:  authMiddleware.RequireRole(identity.RoleSeller, handler.NewCancelAuctionHandler(cancelAuctionUC)),
+		CloseAuction:  authMiddleware.RequireRole(identity.RoleAdmin, handler.NewCloseAuctionHandler(closeAuctionUC)),
+		CancelAuction: authMiddleware.RequireOneOfRoles(handler.NewCancelAuctionHandler(sellerCancelUC, adminCancelUC), identity.RoleSeller, identity.RoleAdmin),
 		GetByID:        authMiddleware.Wrap(handler.NewGetAuctionByIDHandler(getAuctionByIDUC)),
 		GetByLot:       authMiddleware.Wrap(handler.NewGetAuctionByLotHandler(getAuctionByLotUC)),
 	}, httplog.Middleware(logger))
@@ -141,6 +145,7 @@ func closeExpiredAuctionsOnce(
 		meta := tradingapp.CommandMeta{
 			CompanyID:     "system",
 			UserID:        "system",
+			ActorKind:     tradingapp.ActorKindSystem,
 			CorrelationID: "trading-close-expired",
 			CausationID:   "trading-close-expired",
 		}

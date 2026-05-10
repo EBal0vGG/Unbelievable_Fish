@@ -9,7 +9,8 @@ import { useBillingBalanceQuery, useDealInvoiceBillingQuery, useSellerPayoutsQue
 import { useAuth } from "@/entities/session/model/auth-context";
 import { ApiError } from "@/shared/api/http-client";
 import { fakeConfirmDealInvoice } from "@/shared/api/billing-service";
-import { getDealParticipantSide } from "@/shared/lib/access";
+import { env, isFakeBillingUiAllowed } from "@/shared/config/env";
+import { getDealParticipantSide, isAdminSession } from "@/shared/lib/access";
 import { formatDateTime, formatMoney } from "@/shared/lib/format";
 import { buttonStyles } from "@/shared/ui/button";
 import { Card } from "@/shared/ui/card";
@@ -63,7 +64,10 @@ export function DealBillingPanel({ deal }: Props) {
   const invErr = invoiceQuery.error;
   const invoiceNotReady =
     invErr instanceof ApiError && invErr.status === 404 && side === "customer";
-  const fakeConfirmEnabled = balanceQuery.data?.deal_invoice_fake_confirm_enabled === true;
+  const fakeConfirmEnabled = isFakeBillingUiAllowed(balanceQuery.data?.deal_invoice_fake_confirm_enabled);
+  const fakeUiHardOff = process.env.NEXT_PUBLIC_ENABLE_FAKE_BILLING === "false";
+  const serverSaysNoFake =
+    balanceQuery.isSuccess && balanceQuery.data?.deal_invoice_fake_confirm_enabled !== true;
 
   return (
     <Card className="form-card">
@@ -72,8 +76,22 @@ export function DealBillingPanel({ deal }: Props) {
           <p className="eyebrow">Оплата (billing)</p>
           <h2>Инвойс и выплата</h2>
           <p className="muted">
-            Демо: при включённом fake-provider на billing появляется кнопка подтверждения оплаты (флаг приходит с балансом).
+            Инвойс в системе создаётся не кнопкой покупателя: после подписания контракта продавец нажимает «Запросить оплату» — тогда
+            здесь появится счёт. Демо: при fake-provider доступна кнопка подтверждения оплаты (флаг с баланса).
           </p>
+          {session && isAdminSession(session) && env.enableBillingAdminUI ? (
+            <p className="muted">
+              Админ:{" "}
+              <Link className="underline" href="/admin/billing/invoices">
+                счета в ожидании
+              </Link>
+              ,{" "}
+              <Link className="underline" href="/admin/billing/payouts">
+                выплаты
+              </Link>
+              .
+            </p>
+          ) : null}
         </div>
 
         {side === "customer" ? (
@@ -118,12 +136,18 @@ export function DealBillingPanel({ deal }: Props) {
                     </button>
                   ) : null}
                   {deal.status === "payment_requested" && inv.status === "PAYMENT_PENDING" && balanceQuery.isSuccess && !fakeConfirmEnabled ? (
-                    <p className="muted">Подтверждение fake-pay на сервере выключено (нет BILLING_ENABLE_FAKE_PROVIDER).</p>
+                    <p className="muted">
+                      {fakeUiHardOff
+                        ? "Кнопка демо-оплаты отключена во фронте (NEXT_PUBLIC_ENABLE_FAKE_BILLING=false)."
+                        : serverSaysNoFake
+                          ? "Billing не сообщает fake-confirm: проверьте BILLING_ENABLE_FAKE_PROVIDER на сервисе billing и перезапуск."
+                          : "Оплата через демо-кнопку недоступна."}
+                    </p>
                   ) : null}
                   {fakePay.error ? (
                     <Notice tone="warning" title="Не удалось подтвердить оплату">
                       {fakePay.error instanceof ApiError && fakePay.error.status === 404
-                        ? "Эндпоинт недоступен (на сервере выключен BILLING_ENABLE_FAKE_PROVIDER)."
+                        ? "Запрос отклонён: на billing выключен fake-provider или нет прав (ожидается BILLING_ENABLE_FAKE_PROVIDER и покупатель той же компании)."
                         : fakePay.error instanceof ApiError
                           ? fakePay.error.message
                           : String(fakePay.error)}

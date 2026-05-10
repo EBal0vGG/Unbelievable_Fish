@@ -8,6 +8,14 @@ import (
 	"github.com/EBal0vGG/Unbelievable_Fish/internal/catalog/domain"
 )
 
+func testCtxSeller(company string) context.Context {
+	return WithActor(context.Background(), Actor{
+		CompanyID:           company,
+		Kind:                ActorKindCompany,
+		SellerCatalogAccess: true,
+	})
+}
+
 type memoryFishRepo struct {
 	data map[string]*catalog.Fish
 }
@@ -120,6 +128,26 @@ func (r *memoryProductRepo) Save(ctx context.Context, product *catalog.Product) 
 	return nil
 }
 
+func (r *memoryProductRepo) List(ctx context.Context) ([]*catalog.Product, error) {
+	_ = ctx
+	out := make([]*catalog.Product, 0, len(r.data))
+	for _, p := range r.data {
+		out = append(out, p)
+	}
+	return out, nil
+}
+
+func (r *memoryProductRepo) ListBySellerCompany(ctx context.Context, sellerCompanyID string) ([]*catalog.Product, error) {
+	_ = ctx
+	var out []*catalog.Product
+	for _, p := range r.data {
+		if p.SellerCompanyID() == sellerCompanyID {
+			out = append(out, p)
+		}
+	}
+	return out, nil
+}
+
 func (r *memoryLotRepo) Get(ctx context.Context, lotID string) (*catalog.Lot, error) {
 	lot, ok := r.data[lotID]
 	if !ok {
@@ -140,6 +168,26 @@ func (r *memoryLotRepo) GetByAuctionID(ctx context.Context, auctionID string) (*
 func (r *memoryLotRepo) Save(ctx context.Context, lot *catalog.Lot) error {
 	r.data[lot.ID()] = lot
 	return nil
+}
+
+func (r *memoryLotRepo) List(ctx context.Context) ([]*catalog.Lot, error) {
+	_ = ctx
+	out := make([]*catalog.Lot, 0, len(r.data))
+	for _, l := range r.data {
+		out = append(out, l)
+	}
+	return out, nil
+}
+
+func (r *memoryLotRepo) ListBySellerCompany(ctx context.Context, sellerCompanyID string) ([]*catalog.Lot, error) {
+	_ = ctx
+	var out []*catalog.Lot
+	for _, l := range r.data {
+		if l.SellerCompanyID() == sellerCompanyID {
+			out = append(out, l)
+		}
+	}
+	return out, nil
 }
 
 func (r *memoryUnitRepo) Exists(ctx context.Context, unit string) (bool, error) {
@@ -288,7 +336,7 @@ func TestCreateProductRequiresFish(t *testing.T) {
 	deps := newTestDeps()
 	seedRefs(deps, "kg", "frozen")
 
-	_, _, err := deps.svc.CreateProduct(context.Background(), CreateProductCommand{
+	_, _, err := deps.svc.CreateProduct(testCtxSeller("co"), CreateProductCommand{
 		FishID:         "fish-1",
 		Weight:         10,
 		Unit:           "kg",
@@ -316,7 +364,7 @@ func TestCreateProductRequiresUnit(t *testing.T) {
 	}
 	deps.processingTypeRepo.Add("frozen")
 
-	_, _, err = deps.svc.CreateProduct(ctx, CreateProductCommand{
+	_, _, err = deps.svc.CreateProduct(testCtxSeller("co"), CreateProductCommand{
 		FishID:         "fish-1",
 		Weight:         10,
 		Unit:           "kg",
@@ -341,7 +389,7 @@ func TestCreateProductRequiresProcessingType(t *testing.T) {
 	}
 	deps.unitRepo.Add("kg")
 
-	_, _, err = deps.svc.CreateProduct(ctx, CreateProductCommand{
+	_, _, err = deps.svc.CreateProduct(testCtxSeller("co"), CreateProductCommand{
 		FishID:         "fish-1",
 		Weight:         10,
 		Unit:           "kg",
@@ -366,7 +414,7 @@ func TestCreateProductWritesOutbox(t *testing.T) {
 	}
 	seedRefs(deps, "kg", "frozen")
 
-	productID, events, err := deps.svc.CreateProduct(ctx, CreateProductCommand{
+	productID, events, err := deps.svc.CreateProduct(testCtxSeller("seller-1"), CreateProductCommand{
 		FishID:         "fish-1",
 		Weight:         10,
 		Unit:           "kg",
@@ -420,7 +468,7 @@ func TestCreateProductUsesTransactionBoundary(t *testing.T) {
 	unitRepo.Add("kg")
 	processingTypeRepo.Add("frozen")
 
-	_, _, err = svc.CreateProduct(context.Background(), CreateProductCommand{
+	_, _, err = svc.CreateProduct(testCtxSeller("seller-1"), CreateProductCommand{
 		FishID:         "fish-1",
 		Weight:         10,
 		Unit:           "kg",
@@ -439,7 +487,7 @@ func TestCreateLotGeneratesID(t *testing.T) {
 	deps := newTestDeps()
 	ctx := WithCompanyID(context.Background(), "seller-1")
 
-	product, _, err := catalog.NewProduct("prod-existing", "fish-1", 10, "kg", "M", catalog.ProcessingType("frozen"))
+	product, _, err := catalog.NewProduct("prod-existing", "fish-1", "seller-1", 10, "kg", "M", catalog.ProcessingType("frozen"))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -483,7 +531,7 @@ func TestCreateLotRequiresCompanyIDInContext(t *testing.T) {
 	deps := newTestDeps()
 	ctx := context.Background()
 
-	product, _, err := catalog.NewProduct("prod-existing", "fish-1", 10, "kg", "M", catalog.ProcessingType("frozen"))
+	product, _, err := catalog.NewProduct("prod-existing", "fish-1", "seller-1", 10, "kg", "M", catalog.ProcessingType("frozen"))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -507,7 +555,7 @@ func TestUpdateProductRequiresFish(t *testing.T) {
 	deps := newTestDeps()
 	ctx := context.Background()
 
-	product, _, err := catalog.NewProduct("prod-1", "fish-1", 10, "kg", "M", catalog.ProcessingType("frozen"))
+	product, _, err := catalog.NewProduct("prod-1", "fish-1", "co", 10, "kg", "M", catalog.ProcessingType("frozen"))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -542,7 +590,7 @@ func TestUpdateProductRequiresUnit(t *testing.T) {
 	}
 	deps.processingTypeRepo.Add("frozen")
 
-	product, _, err := catalog.NewProduct("prod-1", "fish-1", 10, "kg", "M", catalog.ProcessingType("frozen"))
+	product, _, err := catalog.NewProduct("prod-1", "fish-1", "co", 10, "kg", "M", catalog.ProcessingType("frozen"))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -576,7 +624,7 @@ func TestUpdateProductRequiresProcessingType(t *testing.T) {
 	}
 	deps.unitRepo.Add("kg")
 
-	product, _, err := catalog.NewProduct("prod-1", "fish-1", 10, "kg", "M", catalog.ProcessingType("frozen"))
+	product, _, err := catalog.NewProduct("prod-1", "fish-1", "co", 10, "kg", "M", catalog.ProcessingType("frozen"))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -610,7 +658,7 @@ func TestUpdateProductWritesOutbox(t *testing.T) {
 	}
 	seedRefs(deps, "kg", "frozen")
 
-	product, _, err := catalog.NewProduct("prod-1", "fish-1", 10, "kg", "M", catalog.ProcessingType("frozen"))
+	product, _, err := catalog.NewProduct("prod-1", "fish-1", "co", 10, "kg", "M", catalog.ProcessingType("frozen"))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -648,7 +696,7 @@ func TestPublishLotRequiresPublishedProduct(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	product, _, err := catalog.NewProduct("prod-2", "fish-2", 10, "kg", "M", catalog.ProcessingType("frozen"))
+	product, _, err := catalog.NewProduct("prod-2", "fish-2", "seller-2", 10, "kg", "M", catalog.ProcessingType("frozen"))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -669,7 +717,7 @@ func TestPublishLotRequiresPublishedProduct(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	err = deps.svc.PublishLot(ctx, "lot-2")
+	err = deps.svc.PublishLot(testCtxSeller("seller-2"), "lot-2")
 	if err != catalog.ErrPublishingRuleViolation {
 		t.Fatalf("expected ErrPublishingRuleViolation, got %v", err)
 	}
@@ -697,7 +745,7 @@ func TestPublishLotAllowsMissingAuctionID(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	product, _, err := catalog.NewProduct("prod-3", "fish-3", 10, "kg", "M", catalog.ProcessingType("frozen"))
+	product, _, err := catalog.NewProduct("prod-3", "fish-3", "seller-3", 10, "kg", "M", catalog.ProcessingType("frozen"))
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -717,7 +765,7 @@ func TestPublishLotAllowsMissingAuctionID(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	err = deps.svc.PublishLot(ctx, "lot-3")
+	err = deps.svc.PublishLot(testCtxSeller("seller-3"), "lot-3")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

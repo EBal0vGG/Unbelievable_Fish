@@ -27,7 +27,7 @@ function primaryActionTitle(status: DealRecord["status"], side: DealParticipantS
       case "contract_signed":
         return "Ожидаем инвойс";
       case "payment_requested":
-        return "Подтвердить оплату";
+        return "Оплатить счёт (блок «Оплата» ниже)";
       case "paid":
         return "Ожидаем отгрузку";
       case "shipment_requested":
@@ -76,7 +76,7 @@ function primaryActionTitle(status: DealRecord["status"], side: DealParticipantS
     case "contract_signed":
       return "Запросить оплату";
     case "payment_requested":
-      return "Подтвердить оплату";
+      return "Оплата через billing";
     case "paid":
       return "Запросить отгрузку";
     case "shipment_requested":
@@ -95,7 +95,7 @@ function sideIntro(side: DealParticipantSide): string {
     case "supplier":
       return "Вы продавец в этой сделке: доступны действия поставщика по контракту, оплате и отгрузке.";
     case "customer":
-      return "Вы покупатель в этой сделке: доступны подпись контракта и подтверждения закупки.";
+      return "Вы покупатель: подпись контракта, подтверждения этапов (кроме оплаты) и оплата счёта в блоке billing после «Запросить оплату» со стороны продавца.";
     case "outsider":
       return "Действия доступны только покупателю и продавцу этой сделки.";
   }
@@ -130,7 +130,8 @@ function nextConfirmationRequestStage(
     case "pending":
       return isSupplier ? "confirmed" : null;
     case "payment_requested":
-      return isCustomer ? "paid" : null;
+      // Оплата и переход в paid только через billing (подтверждение этапа paid отключено на сервере).
+      return null;
     case "shipment_requested":
       return isSupplier ? "shipped" : null;
     case "shipped":
@@ -157,7 +158,11 @@ function waitingCounterpartyLabel(deal: DealRecord, companyId: string | undefine
     case "contract_signed":
       return isCustomer ? "Ожидается инвойс от продавца." : null;
     case "payment_requested":
-      return isSupplier ? "Ожидается запрос подтверждения оплаты от покупателя." : null;
+      return isSupplier
+        ? "Ожидается оплата счёта покупателем (в блоке «Оплата (billing)» на этой странице, не через «подтверждение этапа»)."
+        : isCustomer
+          ? "Счёт выставил продавец. Оплатите в блоке «Оплата (billing)» ниже (в демо — «Fake pay», если включён fake-provider)."
+          : null;
     case "paid":
       return isCustomer ? "Ожидается запрос отгрузки от продавца." : null;
     case "shipment_requested":

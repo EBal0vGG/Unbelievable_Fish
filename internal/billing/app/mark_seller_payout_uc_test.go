@@ -205,6 +205,34 @@ func TestMarkSellerPayoutPaid_readyWithExistingLedgerNoSecondDeposit(t *testing.
 	}
 }
 
+func TestMarkSellerPayoutFailed_pendingToFailed(t *testing.T) {
+	ctx := context.Background()
+	repo := newMemSellerPayoutRepo()
+	now := time.Date(2025, 3, 1, 12, 0, 0, 0, time.UTC)
+	p, err := wallet.NewSellerPayout("po-f1", "d-f1", "inv-f1", "a-f1", "seller-f1", "buyer-f1", 1000, wallet.CurrencyRUB, wallet.SellerPayoutPending, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.Create(ctx, p); err != nil {
+		t.Fatal(err)
+	}
+
+	uc, err := NewMarkSellerPayoutFailed(repo, fixedClock{t: now}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	out, err := uc.Execute(ctx, "po-f1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out.Status != wallet.SellerPayoutFailed {
+		t.Fatalf("got %s", out.Status)
+	}
+	if out.FailedAt == nil {
+		t.Fatal("expected failed_at")
+	}
+}
+
 func TestMarkSellerPayoutPaid_pendingErrors(t *testing.T) {
 	ctx := context.Background()
 	payoutRepo := newMemSellerPayoutRepo()

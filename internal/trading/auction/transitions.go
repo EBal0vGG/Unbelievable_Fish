@@ -3,6 +3,7 @@ package auction
 var allowedTransitions = map[State]map[State]struct{}{
 	StateDraft: {
 		StatePublished: {},
+		StateCancelled: {},
 	},
 	StatePublished: {
 		StateClosed:    {},

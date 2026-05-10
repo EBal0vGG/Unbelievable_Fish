@@ -98,6 +98,26 @@ func (p *SellerPayout) MarkReady(now time.Time) error {
 	return nil
 }
 
+// MarkFailed transitions PENDING or READY → FAILED (no balance movement).
+func (p *SellerPayout) MarkFailed(now time.Time) error {
+	if p == nil {
+		return ErrInvalidSellerPayout
+	}
+	if p.Status == SellerPayoutFailed {
+		return nil
+	}
+	if p.Status == SellerPayoutPaid {
+		return ErrSellerPayoutWrongStatus
+	}
+	if p.Status != SellerPayoutPending && p.Status != SellerPayoutReady {
+		return ErrSellerPayoutWrongStatus
+	}
+	t := now.UTC()
+	p.Status = SellerPayoutFailed
+	p.FailedAt = &t
+	return nil
+}
+
 // MarkPaid transitions READY → PAID (credits seller.available in application layer, not here).
 func (p *SellerPayout) MarkPaid(now time.Time) error {
 	if p == nil {

@@ -9,6 +9,10 @@ require curl
 require python3
 require docker
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck disable=SC1091
+source "$SCRIPT_DIR/lib/catalog_demo_fish.sh"
+
 START_COMPOSE="${START_COMPOSE:-}"
 STOP_COMPOSE="${STOP_COMPOSE:-}"
 
@@ -96,13 +100,7 @@ if [[ -z "$(docker compose ps -q billing 2>/dev/null || true)" ]]; then
   exit 1
 fi
 
-fish_resp="$(curl -s -X POST "$CATALOG_URL/fish" -H "Content-Type: application/json" -d '{"name":"Haddock","description":"desc"}')"
-fish_id="$(json_get "$fish_resp" "fish_id")"
-
-product_resp="$(curl -s -X POST "$CATALOG_URL/products" -H "Content-Type: application/json" -d "{\"fish_id\":\"$fish_id\",\"weight\":8,\"unit\":\"kg\",\"size\":\"M\",\"processing_type\":\"frozen\"}")"
-product_id="$(json_get "$product_resp" "product_id")"
-
-curl -s -X POST "$CATALOG_URL/products/$product_id/publish" >/dev/null
+fish_id="$(catalog_demo_fish_id "$CATALOG_URL")"
 
 suffix="$(date +%s)"
 seller_creds="$(valid_requisites "fallback-seller-$suffix")"
@@ -125,6 +123,14 @@ register_user "$buyer2_company_id" "Fallback Buyer Two" "buyer" "$buyer2_login" 
 seller_token="$(login_token "$seller_login" "$password")"
 buyer1_token="$(login_token "$buyer1_login" "$password")"
 buyer2_token="$(login_token "$buyer2_login" "$password")"
+
+product_resp="$(curl -fsS -X POST "$CATALOG_URL/products" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $seller_token" \
+  -d "{\"fish_id\":\"$fish_id\",\"weight\":8,\"unit\":\"kg\",\"size\":\"M\",\"processing_type\":\"frozen\"}")"
+product_id="$(json_get "$product_resp" "product_id")"
+
+curl -fsS -X POST "$CATALOG_URL/products/$product_id/publish" -H "Authorization: Bearer $seller_token" >/dev/null
 
 for _tok in "$buyer1_token" "$buyer2_token"; do
   code="$(billing_test_topup "$_tok" 500000)"

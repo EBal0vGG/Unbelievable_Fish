@@ -32,6 +32,17 @@ export function isRecoverableApiGap(error: unknown): boolean {
   return [0, 404, 405, 500, 501, 502, 503, 504].includes(error.status);
 }
 
+/** For mutating deal commands: never pretend success when the server returned 4xx (e.g. 404 still persisted on server). */
+export function isRecoverableDealCommandGap(error: unknown): boolean {
+  if (!(error instanceof ApiError)) {
+    return true;
+  }
+  if ([400, 401, 403, 404, 405, 409, 422].includes(error.status)) {
+    return false;
+  }
+  return [0, 500, 501, 502, 503, 504].includes(error.status);
+}
+
 export async function apiRequest<T>(
   service: ServiceName,
   path: string,

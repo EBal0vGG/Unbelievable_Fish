@@ -1,3 +1,7 @@
+/**
+ * Catalog API: мутации и read-модели. `listProducts` / `listLots` ходят в `GET /products`, `GET /lots`
+ * (JWT обязателен); без токена возвращается `mock-store`. `POST /fish` — только admin на сервере и во фронте.
+ */
 import { ApiError, apiRequest, isRecoverableApiGap } from "@/shared/api/http-client";
 import { canFallbackCommand, mixedMeta, mockMeta, withFallback } from "@/shared/api/service-helpers";
 import {
@@ -12,7 +16,14 @@ import {
 } from "@/shared/api/mock-store";
 import { isAdminSession } from "@/shared/lib/access";
 import { makeClientId } from "@/shared/lib/id";
-import type { FishRecord, LotRecord, ProductRecord, ServiceResult, UserSession } from "@/shared/types/domain";
+import type {
+  FishRecord,
+  LotRecord,
+  LotStatus,
+  ProductRecord,
+  ServiceResult,
+  UserSession,
+} from "@/shared/types/domain";
 
 interface CreateFishInput {
   name: string;
@@ -49,6 +60,41 @@ interface TradingAuctionByLotResponse {
   auction_id?: string;
   lot_id?: string;
   state?: string;
+}
+
+interface CatalogProductRow {
+  product_id: string;
+  fish_id: string;
+  seller_company_id: string;
+  weight: number;
+  unit: string;
+  size: string;
+  processing_type: string;
+  status: string;
+}
+
+interface CatalogLotRow {
+  lot_id: string;
+  product_id: string;
+  seller_company_id: string;
+  auction_id?: string;
+  photo?: string;
+  quantity: number;
+  start_price: number;
+  min_bid_step: number;
+  current_price: number;
+  final_price?: number;
+  status: string;
+  auction_starts_at: string;
+  auction_ends_at: string;
+}
+
+function mapLotStatusFromAPI(value: string): LotStatus {
+  const upper = value.toUpperCase();
+  if (upper === "DRAFT" || upper === "PUBLISHED" || upper === "CLOSED" || upper === "CANCELLED") {
+    return upper;
+  }
+  return "DRAFT";
 }
 
 const junkFishNames = new Set(["asdasd", "q3123123", "stressfish", "demo fish", "live demo fish", "щука"]);
@@ -97,7 +143,6 @@ async function waitAuctionIDByLot(
 }
 
 export async function listFish(session: UserSession | null): Promise<ServiceResult<FishRecord[]>> {
-  // TODO: switch to a real read-model endpoint once GET /fish is exposed by Catalog.
   return withFallback(
     async () => {
       const data = await apiRequest<FishListItem[]>("catalog", "/fish", { session });
@@ -113,22 +158,98 @@ export async function listFish(session: UserSession | null): Promise<ServiceResu
   ).then((result) => ({ ...result, data: normalizeFishList(result.data) }));
 }
 
-export async function listProducts(): Promise<ServiceResult<ProductRecord[]>> {
-  return {
-    data: listProductsStore(),
-    meta: mockMeta(
-      "Product list is derived from frontend session storage until Catalog query endpoints are exposed.",
-    ),
-  };
+export async function listProducts(session: UserSession | null): Promise<ServiceResult<ProductRecord[]>> {
+  if (!session?.accessToken) {
+    return {
+      data: listProductsStore(),
+      meta: mockMeta("Войдите в систему, чтобы загрузить продукты с catalog API."),
+    };
+  }
+
+  try {
+    const rows = await apiRequest<CatalogProductRow[]>("catalog", "/products", { session });
+    const fishPack = await listFish(session);
+    const fishById = new Map(fishPack.data.map((f) => [f.id, f.name]));
+    const mapped: ProductRecord[] = rows.map((row) => ({
+      id: row.product_id,
+      fishId: row.fish_id,
+      fishName: fishById.get(row.fish_id) ?? row.fish_id,
+      ownerCompanyId: row.seller_company_id,
+      ownerUserId: session.userId,
+      weight: row.weight,
+      unit: row.unit,
+      size: row.size,
+      processingType: row.processing_type,
+      status: row.status?.toUpperCase() === "PUBLISHED" ? "PUBLISHED" : "DRAFT",
+      source: "api",
+    }));
+    for (const p of mapped) {
+      upsertProductStore(p);
+    }
+    return { data: mapped, meta: { source: "api" } };
+  } catch (error) {
+    if (!isRecoverableApiGap(error) || !canFallbackCommand()) {
+      throw error;
+    }
+    return {
+      data: listProductsStore(),
+      meta: mockMeta("Catalog GET /products недоступен — показаны локальные продукты."),
+    };
+  }
 }
 
-export async function listLots(): Promise<ServiceResult<LotRecord[]>> {
-  return {
-    data: listLotsStore(),
-    meta: mockMeta(
-      "Lot list is served from local UI storage because GET /lots list endpoint is not available yet.",
-    ),
-  };
+export async function listLots(session: UserSession | null): Promise<ServiceResult<LotRecord[]>> {
+  if (!session?.accessToken) {
+    return {
+      data: listLotsStore(),
+      meta: mockMeta("Войдите в систему, чтобы загрузить лоты с catalog API."),
+    };
+  }
+
+  try {
+    const rows = await apiRequest<CatalogLotRow[]>("catalog", "/lots", { session });
+    const productPack = await listProducts(session);
+    const productById = new Map(productPack.data.map((p) => [p.id, p]));
+    const mapped: LotRecord[] = rows.map((row) => {
+      const prod = productById.get(row.product_id);
+      const startMs = new Date(row.auction_starts_at).getTime();
+      const endMs = new Date(row.auction_ends_at).getTime();
+      const durationMin =
+        !Number.isNaN(startMs) && !Number.isNaN(endMs) && endMs > startMs
+          ? Math.max(1, Math.round((endMs - startMs) / 60_000))
+          : 60;
+      return {
+        id: row.lot_id,
+        productId: row.product_id,
+        productLabel: prod?.fishName ?? row.product_id,
+        sellerCompanyId: row.seller_company_id,
+        creatorUserId: session.userId,
+        photo: row.photo,
+        quantity: row.quantity,
+        startPrice: row.start_price,
+        minBidStep: row.min_bid_step,
+        currentPrice: row.current_price,
+        finalPrice: row.final_price,
+        status: mapLotStatusFromAPI(row.status),
+        auctionStartsAt: row.auction_starts_at,
+        auctionDurationMinutes: durationMin,
+        auctionId: row.auction_id,
+        source: "api",
+      };
+    });
+    for (const lot of mapped) {
+      upsertLotStore(lot);
+    }
+    return { data: mapped, meta: { source: "api" } };
+  } catch (error) {
+    if (!isRecoverableApiGap(error) || !canFallbackCommand()) {
+      throw error;
+    }
+    return {
+      data: listLotsStore(),
+      meta: mockMeta("Catalog GET /lots недоступен — показаны локальные лоты."),
+    };
+  }
 }
 
 export async function createFish(

@@ -41,6 +41,25 @@ func (m *Middleware) RequireRole(role identity.Role, next http.Handler) http.Han
 	}))
 }
 
+// RequireOneOfRoles allows the request when the JWT role matches any of the given roles
+// (using identity.IncludesRole, so buyer_seller satisfies buyer or seller requirements).
+func (m *Middleware) RequireOneOfRoles(next http.Handler, roles ...identity.Role) http.Handler {
+	return m.Wrap(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		current, ok := RoleFromContext(r.Context())
+		if !ok {
+			m.handleError(w, r, ErrForbidden)
+			return
+		}
+		for _, role := range roles {
+			if identity.IncludesRole(current, role) {
+				next.ServeHTTP(w, r)
+				return
+			}
+		}
+		m.handleError(w, r, ErrForbidden)
+	}))
+}
+
 func (m *Middleware) handleError(w http.ResponseWriter, r *http.Request, err error) {
 	if m.onError != nil {
 		m.onError(w, r, err)

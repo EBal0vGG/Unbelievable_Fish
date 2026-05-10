@@ -2,11 +2,17 @@
 
 import { useQuery } from "@tanstack/react-query";
 
-import { getBillingBalance, getDealInvoiceByDeal, listMySellerPayouts } from "@/shared/api/billing-service";
+import {
+  getBillingBalance,
+  getDealInvoiceByDeal,
+  listMySellerPayouts,
+  listTopUps,
+} from "@/shared/api/billing-service";
 import { ApiError } from "@/shared/api/http-client";
 import type { UserSession } from "@/shared/types/domain";
 
-const POLL_MS = 3000;
+/** Polling interval while waiting on async billing (webhook confirm, invoice creation). */
+export const BILLING_POLL_MS = 3000;
 
 export function useBillingBalanceQuery(session: UserSession | null) {
   return useQuery({
@@ -30,11 +36,27 @@ export function useDealInvoiceBillingQuery(dealId: string, session: UserSession 
       }
       const err = query.state.error;
       if (err instanceof ApiError && err.status === 404) {
-        return POLL_MS;
+        return BILLING_POLL_MS;
       }
       const inv = query.state.data;
       if (inv?.status === "PAYMENT_PENDING") {
-        return POLL_MS;
+        return BILLING_POLL_MS;
+      }
+      return false;
+    },
+  });
+}
+
+export function useTopUpsQuery(session: UserSession | null) {
+  return useQuery({
+    queryKey: ["billing-topups", session?.companyId],
+    queryFn: () => listTopUps(session!),
+    enabled: Boolean(session),
+    staleTime: 10_000,
+    refetchInterval: (query) => {
+      const list = query.state.data?.top_ups ?? [];
+      if (list.some((t) => t.status === "PENDING")) {
+        return BILLING_POLL_MS;
       }
       return false;
     },
@@ -60,7 +82,7 @@ export function useSellerPayoutsQuery(
       }
       const row = query.state.data?.payouts.find((p) => p.deal_id === dealId);
       if (!row || row.status !== "PAID") {
-        return POLL_MS;
+        return BILLING_POLL_MS;
       }
       return false;
     },

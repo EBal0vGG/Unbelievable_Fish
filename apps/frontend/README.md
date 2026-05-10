@@ -19,7 +19,7 @@ Next.js frontend для B2B marketplace рыбной биржи. UI собран
 - Страница деталей аукциона с polling/refetch и bid history
 - Страница деталей сделки с timeline и action panel по Deals-командам
 - Страница `Мой контекст / мои действия`
-- Graceful fallback на mock/local read model там, где backend query/flow не доведен до UI
+- Graceful fallback на `mock-store` только когда API недоступен или нет сессии (см. ниже); после успешного `GET /products` и `GET /lots` списки синхронизируются с сервером
 
 ## Структура
 
@@ -64,12 +64,17 @@ NEXT_PUBLIC_DEALS_API_URL=http://localhost:8083
 NEXT_PUBLIC_IDENTITY_API_URL=http://localhost:8084
 NEXT_PUBLIC_BILLING_URL=http://localhost:8085/billing
 NEXT_PUBLIC_ENABLE_API_FALLBACK=true
+# Опционально: demo / fake billing UI (должно совпадать с fake-провайдером на billing)
+NEXT_PUBLIC_ENABLE_FAKE_BILLING=true
+# Опционально: админ-панель биллинга (admin JWT + BILLING_ENABLE_ADMIN_ACTIONS)
+NEXT_PUBLIC_ENABLE_BILLING_ADMIN=true
 ```
 
 Важно:
 
 - браузер не ходит напрямую в backend, а использует Next proxy routes `/api/catalog/*`, `/api/trading/*`, `/api/deals/*`, `/api/identity/*`, `/api/billing/*`
 - это снижает риск CORS-проблем и оставляет frontend тонким адаптером
+- **Без входа** списки продуктов/лотов берутся из локального `mock-store` (демо): серверные `GET /products` и `GET /lots` требуют JWT
 
 ## Backend matrix
 
@@ -84,56 +89,37 @@ NEXT_PUBLIC_ENABLE_API_FALLBACK=true
 
 `catalog`
 
-- `POST /fish`
-- `POST /products`
-- `POST /products/{productID}/publish`
-- `POST /lots`
-- `POST /lots/{lotID}/publish`
+- `GET /fish` (публично)
+- `POST /fish` — только admin
+- `GET /products`, `GET /lots` — JWT; данные с сервера — источник истины при залогиненном пользователе
+- `POST /products`, `POST /products/{productID}/publish`, `POST /lots`, `POST /lots/{lotID}/publish` — seller + проверки владения на сервере
 
 `trading`
 
-- `POST /auctions/{id}/bids`
+- `GET /auctions`, `GET /auctions/{id}`, `GET /auctions/by-lot/{lotId}`
+- `POST /auctions/{id}/publish`, `POST /auctions/{id}/bids`
+- `POST /auctions/{id}/close` — admin (домен также разрешает system-закрытие по расписанию)
+- `POST /auctions/{id}/cancel` — seller или admin (ограничения в домене)
 
 `deals`
 
 - `GET /deal-projections/{auctionId}`
 - `GET /deals/by-auction/{auctionId}`
 - `GET /deals/{dealId}`
-- `POST /deals/{dealId}/confirm`
-- `POST /deals/{dealId}/contract/prepare`
-- `POST /deals/{dealId}/contract/sign`
-- `POST /deals/{dealId}/payment/request`
-- `POST /deals/{dealId}/payment/mark-paid`
-- `POST /deals/{dealId}/shipment/request`
-- `POST /deals/{dealId}/shipment/mark-shipped`
-- `POST /deals/{dealId}/complete`
-- `POST /deals/{dealId}/cancel`
-- `POST /deals/{dealId}/price`
+- команды lifecycle: confirm, contract, sign, `payment/request`, shipment, complete, cancel, price
+- оплаченность сделки выставляется **только** из биллинга (нет публичного `payment/mark-paid`)
 
-### Есть в OpenAPI/handlers, но сейчас не считаются надежно доступными для UI
+`billing` (через `/api/billing/*`)
 
-`trading`
+- `GET /accounts/me`, top-ups, invoices (см. `shared/api/billing-service.ts`)
+- fake- и admin-действия в UI только при соответствующих env на клиенте и сервере
 
-- `POST /auctions`
-- `POST /auctions/{id}/publish`
-- `POST /auctions/{id}/close`
-- `POST /auctions/{id}/cancel`
-- `GET /auctions/{id}`
+### Частично через mock / local mirror
 
-Причина:
-
-- фактический `cmd/trading/main.go` сейчас wiring'ит только `PlaceBid`
-- create flow не возвращает стабильный `auction_id` в HTTP response
-- list/read-model endpoint для списка аукционов отсутствует
-
-### Пока работают через mock / local mirror
-
-- список fish/catalog
-- список lots
-- список auctions
-- manual create auction screen
-- bid history list
-- deals list для текущей компании, потому что backend пока не отдает `GET /deals`
+- **Гость:** продукты и лоты — из `mock-store`, пока нет JWT (не отражают серверное состояние).
+- список аукционов / детали — fallback при ошибках или отключённом API, если включён `NEXT_PUBLIC_ENABLE_API_FALLBACK`
+- bid history — локально, если нет отдельного read API
+- deals list для компании собирается из известных аукционов + `GET /deals/by-auction`; глобального `GET /deals` нет
 - recent actions / my context read model
 
 ## Где real API, а где mock
@@ -148,10 +134,9 @@ NEXT_PUBLIC_ENABLE_API_FALLBACK=true
 
 `mock / stub fallback`
 
-- любые list endpoints, которых backend пока не отдает
-- аукционы, если нужен список или детальная страница без готового query route
-- список твоих сделок собирается из известных аукционов через `GET /deals/by-auction/{auctionId}` и локальное зеркало, затем фильтруется по текущей компании
-- регистрация пользователя
+- сценарии без JWT или при недоступности API (если включён fallback)
+- аукционы при сбоях read API
+- список сделок — как выше
 - сценарии, где backend команда принимается, но не возвращает идентификатор сущности обратно в UI
 
 ## Временные заглушки
@@ -168,12 +153,11 @@ UI в этих местах не переносит бизнес-правила 
 - делает реальный запрос, если route доступен
 - иначе включает безопасный local placeholder
 
-## Ограничения текущего backend для UI
+## Ограничения и расхождения с сервером
 
-- `catalog` не отдает list/query endpoints для marketplace
-- `trading` не отдает стабильный read-model списка аукционов
-- `CreateAuction` не возвращает `auction_id`
-- `deals` не отдает list endpoint для всех сделок
-- frontend хранит access token и подставляет Bearer token в защищенные запросы
+- `GET /products` / `GET /lots` требуют JWT: **гостевой marketplace показывает демо из `mock-store`**, а не live-данные.
+- `trading`: список аукционов и детали зависят от доступности API; при fallback — локальное зеркало.
+- `deals` не отдаёт list endpoint для всех сделок компании.
+- frontend хранит access token и подставляет Bearer в защищённые запросы; успешные ответы каталога дополнительно пишутся в `mock-store` для офлайн-консистентности форм.
 
-Из-за этого фронт хранит временный session context и локально зеркалит созданные сущности, чтобы marketplace оставался usable до завершения backend query-side.
+Источник истины для залогиненного пользователя по продуктам/лотам — ответы **catalog** после успешного GET; до входа или при полном отказе API UI может расходиться с backend.

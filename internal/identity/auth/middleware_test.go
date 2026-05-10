@@ -125,3 +125,61 @@ func TestMiddlewareRequireRoleAllowsBuyerSellerRole(t *testing.T) {
 		t.Fatalf("expected %d, got %d", http.StatusOK, rec.Code)
 	}
 }
+
+func TestMiddlewareRequireOneOfRolesAllowsSeller(t *testing.T) {
+	provider := NewTokenProvider("secret", time.Hour)
+	user, err := identity.NewUser("user-1", "company-1", "Alice", identity.RoleSeller, "alice@example.com", "hash")
+	if err != nil {
+		t.Fatalf("unexpected user error: %v", err)
+	}
+	token, err := provider.Generate(user)
+	if err != nil {
+		t.Fatalf("generate token: %v", err)
+	}
+
+	middleware := NewMiddleware(provider, func(w http.ResponseWriter, r *http.Request, err error) {
+		http.Error(w, err.Error(), http.StatusForbidden)
+	})
+	next := middleware.RequireOneOfRoles(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}), identity.RoleSeller, identity.RoleAdmin)
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	rec := httptest.NewRecorder()
+
+	next.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected %d, got %d", http.StatusOK, rec.Code)
+	}
+}
+
+func TestMiddlewareRequireOneOfRolesForbiddenForBuyer(t *testing.T) {
+	provider := NewTokenProvider("secret", time.Hour)
+	user, err := identity.NewUser("user-1", "company-1", "Alice", identity.RoleBuyer, "alice@example.com", "hash")
+	if err != nil {
+		t.Fatalf("unexpected user error: %v", err)
+	}
+	token, err := provider.Generate(user)
+	if err != nil {
+		t.Fatalf("generate token: %v", err)
+	}
+
+	middleware := NewMiddleware(provider, func(w http.ResponseWriter, r *http.Request, err error) {
+		http.Error(w, err.Error(), http.StatusForbidden)
+	})
+	next := middleware.RequireOneOfRoles(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}), identity.RoleSeller, identity.RoleAdmin)
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+	rec := httptest.NewRecorder()
+
+	next.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("expected %d, got %d", http.StatusForbidden, rec.Code)
+	}
+}

@@ -70,6 +70,10 @@ func MapError(err error) HTTPError {
 		return HTTPError{http.StatusNotFound, "AUCTION_NOT_FOUND", "auction not found"}
 	case errors.Is(err, app.ErrInsufficientFundsForDeposit):
 		return HTTPError{http.StatusConflict, "INSUFFICIENT_FUNDS_FOR_DEPOSIT", "insufficient funds for auction deposit; top up your balance"}
+	case errors.Is(err, app.ErrCloseForbiddenBeforeEndWithBids):
+		return HTTPError{http.StatusForbidden, "CLOSE_FORBIDDEN_BEFORE_END_WITH_BIDS", "cannot close an auction with bids before its scheduled end"}
+	case errors.Is(err, app.ErrCancelAuctionNotAllowed):
+		return HTTPError{http.StatusForbidden, "CANCEL_NOT_ALLOWED", "cancel is not allowed for this role"}
 	default:
 		return HTTPError{http.StatusInternalServerError, "INTERNAL_ERROR", "internal error"}
 	}

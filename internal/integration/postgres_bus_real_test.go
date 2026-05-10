@@ -164,7 +164,7 @@ func TestPostgresOutboxBusChains_RealPG(t *testing.T) {
 	if err := placeBidUC.Execute(context.Background(), tradingMetaWithCompany("buyer-1"), tradingapp.AuctionID(auctionID), 150, endsAt.Add(-time.Minute)); err != nil {
 		t.Fatalf("place bid error: %v", err)
 	}
-	if err := closeAuctionUC.Execute(context.Background(), tradingMeta(), tradingapp.AuctionID(auctionID)); err != nil {
+	if err := closeAuctionUC.Execute(context.Background(), tradingMetaAdmin(), tradingapp.AuctionID(auctionID)); err != nil {
 		t.Fatalf("close auction error: %v", err)
 	}
 
@@ -445,7 +445,7 @@ func TestAuctionWonReleaseNonTopDeposits_RealPG(t *testing.T) {
 		}
 	}
 
-	if err := closeAuctionUC.Execute(ctx, tradingMeta(), tradingapp.AuctionID(auctionID)); err != nil {
+	if err := closeAuctionUC.Execute(ctx, tradingMetaAdmin(), tradingapp.AuctionID(auctionID)); err != nil {
 		t.Fatalf("close auction error: %v", err)
 	}
 
@@ -687,7 +687,7 @@ func TestWinnerRejectCapturesDepositAndPromotesNext_RealPG(t *testing.T) {
 		}
 	}
 
-	if err := closeAuctionUC.Execute(ctx, tradingMeta(), tradingapp.AuctionID(auctionID)); err != nil {
+	if err := closeAuctionUC.Execute(ctx, tradingMetaAdmin(), tradingapp.AuctionID(auctionID)); err != nil {
 		t.Fatalf("close auction error: %v", err)
 	}
 
@@ -946,7 +946,7 @@ func TestWinnerConfirmLeavesDepositsHeld_RealPG(t *testing.T) {
 		}
 	}
 
-	if err := closeAuctionUC.Execute(ctx, tradingMeta(), tradingapp.AuctionID(auctionID)); err != nil {
+	if err := closeAuctionUC.Execute(ctx, tradingMetaAdmin(), tradingapp.AuctionID(auctionID)); err != nil {
 		t.Fatalf("close auction error: %v", err)
 	}
 
@@ -1230,7 +1230,7 @@ func TestStage9DealInvoiceFlow_RealPG(t *testing.T) {
 		}
 	}
 
-	if err := closeAuctionUC.Execute(ctx, tradingMeta(), tradingapp.AuctionID(auctionID)); err != nil {
+	if err := closeAuctionUC.Execute(ctx, tradingMetaAdmin(), tradingapp.AuctionID(auctionID)); err != nil {
 		t.Fatalf("close auction error: %v", err)
 	}
 
@@ -1597,7 +1597,7 @@ func TestStage11InvoicePaymentTimeout_RealPG(t *testing.T) {
 		}
 	}
 
-	if err := closeAuctionUC.Execute(ctx, tradingMeta(), tradingapp.AuctionID(auctionID)); err != nil {
+	if err := closeAuctionUC.Execute(ctx, tradingMetaAdmin(), tradingapp.AuctionID(auctionID)); err != nil {
 		t.Fatalf("close auction error: %v", err)
 	}
 
@@ -2039,7 +2039,7 @@ func TestStage10FinalizePaymentAfterInvoicePaid_RealPG(t *testing.T) {
 		}
 	}
 
-	if err := closeAuctionUC.Execute(ctx, tradingMeta(), tradingapp.AuctionID(auctionID)); err != nil {
+	if err := closeAuctionUC.Execute(ctx, tradingMetaAdmin(), tradingapp.AuctionID(auctionID)); err != nil {
 		t.Fatalf("close auction error: %v", err)
 	}
 

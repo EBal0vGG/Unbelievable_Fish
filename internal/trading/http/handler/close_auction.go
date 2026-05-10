@@ -20,6 +20,7 @@ func (h *CloseAuctionHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 		handleCommandError(w, err, meta)
 		return
 	}
+	meta.ActorKind = app.ActorKindPlatformAdmin
 	auctionID, err := readAuctionIDFromRequest(r)
 	if err != nil {
 		handleCommandError(w, err, meta)

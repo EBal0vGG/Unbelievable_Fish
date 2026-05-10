@@ -2,15 +2,18 @@
 
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import { useMutation } from "@tanstack/react-query";
 
 import { useAuctionDetailsQuery } from "@/entities/auction/model/hooks";
 import { useFishCatalogQuery } from "@/entities/fish/model/hooks";
 import { useLotsQuery, useProductsQuery } from "@/entities/lot/model/hooks";
 import { PlaceBidForm } from "@/features/auction/ui/place-bid-form";
 import { useAuth } from "@/entities/session/model/auth-context";
+import { cancelAuction, closeAuction } from "@/shared/api/trading-service";
 import { displayCompany, displayId, displayText } from "@/shared/lib/display";
 import { formatDateTime, formatMoney, shortId } from "@/shared/lib/format";
 import { auctionStateLabels } from "@/shared/lib/labels";
+import { isAdminSession, isSellerSession } from "@/shared/lib/access";
 import { getAuctionEffectiveCurrentPrice } from "@/shared/lib/trading-domain";
 import { Button } from "@/shared/ui/button";
 import { Card } from "@/shared/ui/card";
@@ -27,6 +30,30 @@ export default function AuctionDetailsPage() {
   const lotsQuery = useLotsQuery();
   const productsQuery = useProductsQuery();
   const fishQuery = useFishCatalogQuery(session);
+
+  const closeAuctionMu = useMutation({
+    mutationFn: async () => {
+      if (!session?.accessToken) {
+        throw new Error("Войдите в систему");
+      }
+      await closeAuction(auctionId, session);
+    },
+    onSuccess: async () => {
+      await auctionQuery.refetch();
+    },
+  });
+
+  const cancelAuctionMu = useMutation({
+    mutationFn: async () => {
+      if (!session?.accessToken) {
+        throw new Error("Войдите в систему");
+      }
+      await cancelAuction(auctionId, session);
+    },
+    onSuccess: async () => {
+      await auctionQuery.refetch();
+    },
+  });
 
   if (!auctionId) {
     return (
@@ -90,6 +117,14 @@ export default function AuctionDetailsPage() {
   const fishDescription = projection?.productSnapshot.description || fish?.description;
   const currentPrice = getAuctionEffectiveCurrentPrice(auction, bids);
   const sellerCompanyId = auction.sellerCompanyId ?? lot?.sellerCompanyId ?? projection?.supplierId;
+  const hasBids = bids.length > 0;
+  const showSellerCancel =
+    Boolean(session) &&
+    isSellerSession(session) &&
+    sellerCompanyId === session?.companyId &&
+    auction.state === "PUBLISHED" &&
+    !hasBids;
+  const showAdminClose = Boolean(session) && isAdminSession(session) && auction.state === "PUBLISHED";
 
   return (
     <div className="page-stack">
@@ -159,6 +194,50 @@ export default function AuctionDetailsPage() {
             </div>
           </div>
         </Card>
+
+        {showAdminClose || showSellerCancel ? (
+          <Card className="form-card">
+            <div className="stack-md">
+              <h2>Управление торгами</h2>
+              {showAdminClose ? (
+                <div className="stack-sm">
+                  <Notice tone="warning" title="Операция администратора">
+                    Принудительное закрытие обходит ограничения для продавца. Используйте только в demo / support.
+                  </Notice>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    disabled={closeAuctionMu.isPending}
+                    onClick={() => closeAuctionMu.mutate()}
+                  >
+                    {closeAuctionMu.isPending ? "Закрываем…" : "Закрыть аукцион (admin)"}
+                  </Button>
+                  {closeAuctionMu.error ? (
+                    <p className="muted text-sm">{closeAuctionMu.error.message}</p>
+                  ) : null}
+                </div>
+              ) : null}
+              {showSellerCancel ? (
+                <div className="stack-sm">
+                  <p className="muted text-sm">
+                    Отмена доступна для опубликованного лота без ставок. При наличии ставок обратитесь к администратору.
+                  </p>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    disabled={cancelAuctionMu.isPending}
+                    onClick={() => cancelAuctionMu.mutate()}
+                  >
+                    {cancelAuctionMu.isPending ? "Отмена…" : "Отменить аукцион"}
+                  </Button>
+                  {cancelAuctionMu.error ? (
+                    <p className="muted text-sm">{cancelAuctionMu.error.message}</p>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+          </Card>
+        ) : null}
 
         <Card className="form-card">
           <div className="stack-md">

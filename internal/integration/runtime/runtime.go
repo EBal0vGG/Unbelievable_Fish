@@ -132,6 +132,7 @@ func (r *Runtime) RunCloseExpired(ctx context.Context, now time.Time, limit int)
 		meta := tradingapp.CommandMeta{
 			CompanyID:     "system",
 			UserID:        "system",
+			ActorKind:     tradingapp.ActorKindSystem,
 			CorrelationID: "scheduler-close",
 			CausationID:   "scheduler-close",
 		}

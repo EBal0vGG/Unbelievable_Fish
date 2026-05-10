@@ -7,6 +7,7 @@ import (
 )
 
 // Handlers groups HTTP handlers for the deals service (one field per route).
+// There is intentionally no MarkDealPaid route: payment completion is applied from billing events only.
 type Handlers struct {
 	GetDealProjection   http.Handler
 	GetDealByAuction    http.Handler

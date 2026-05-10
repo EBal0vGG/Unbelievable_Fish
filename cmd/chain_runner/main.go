@@ -82,7 +82,12 @@ func runChains(db *sql.DB) error {
 		return fmt.Errorf("create fish: %w", err)
 	}
 
-	productID, _, err := catalogService.CreateProduct(context.Background(), catalogapp.CreateProductCommand{
+	sellerCtx := catalogapp.WithActor(context.Background(), catalogapp.Actor{
+		CompanyID:           "seller-1",
+		Kind:                catalogapp.ActorKindCompany,
+		SellerCatalogAccess: true,
+	})
+	productID, _, err := catalogService.CreateProduct(sellerCtx, catalogapp.CreateProductCommand{
 		FishID:         fishID,
 		Weight:         1.5,
 		Unit:           "kg",
@@ -93,11 +98,11 @@ func runChains(db *sql.DB) error {
 		return fmt.Errorf("create product: %w", err)
 	}
 
-	if err := catalogService.PublishProduct(context.Background(), productID); err != nil {
+	if err := catalogService.PublishProduct(sellerCtx, productID); err != nil {
 		return fmt.Errorf("publish product: %w", err)
 	}
 
-	ctxWithCompany := catalogapp.WithCompanyID(context.Background(), "seller-1")
+	ctxWithCompany := sellerCtx
 	lotID, _, err = catalogService.CreateLot(ctxWithCompany, catalogapp.CreateLotCommand{
 		ProductID:              productID,
 		Photo:                  "photo",
@@ -111,10 +116,10 @@ func runChains(db *sql.DB) error {
 		return fmt.Errorf("create lot: %w", err)
 	}
 
-	if err := catalogService.AssignAuctionID(context.Background(), lotID, auctionID); err != nil {
+	if err := catalogService.AssignAuctionID(ctxWithCompany, lotID, auctionID); err != nil {
 		return fmt.Errorf("assign auction: %w", err)
 	}
-	if err := catalogService.PublishLot(context.Background(), lotID); err != nil {
+	if err := catalogService.PublishLot(ctxWithCompany, lotID); err != nil {
 		return fmt.Errorf("publish lot: %w", err)
 	}
 
@@ -148,14 +153,14 @@ func runChains(db *sql.DB) error {
 	}
 
 	runtime, err := integration.New(db, integration.Dependencies{
-		Catalog:        catalogService,
-		TradingUOW:     tradingUOW,
-		DealsUOW:       dealsUOW,
-		ProjectionRepo: dealProjectionRepo,
-		AuctionLister:  auctionLister,
-		DealLister:     dealspg.NewDealDeadlineLister(db),
-		BillingTx:      bTx,
-		CreateAccount:  bCreateAccount,
+		Catalog:                                catalogService,
+		TradingUOW:                             tradingUOW,
+		DealsUOW:                               dealsUOW,
+		ProjectionRepo:                         dealProjectionRepo,
+		AuctionLister:                          auctionLister,
+		DealLister:                             dealspg.NewDealDeadlineLister(db),
+		BillingTx:                              bTx,
+		CreateAccount:                          bCreateAccount,
 		ReleaseAuctionDepositsExceptCandidates: bReleaseExcept,
 		CaptureAuctionDeposit:                  bCapture,
 	})
@@ -187,7 +192,7 @@ func runChains(db *sql.DB) error {
 	if err := placeBidUC.Execute(context.Background(), tradingMetaWithCompany("buyer-1"), tradingapp.AuctionID(auctionID), 150, endsAt.Add(-time.Minute)); err != nil {
 		return fmt.Errorf("place bid: %w", err)
 	}
-	if err := closeAuctionUC.Execute(context.Background(), tradingMeta(), tradingapp.AuctionID(auctionID)); err != nil {
+	if err := closeAuctionUC.Execute(context.Background(), tradingMetaAdmin(), tradingapp.AuctionID(auctionID)); err != nil {
 		return fmt.Errorf("close auction: %w", err)
 	}
 
@@ -297,6 +302,16 @@ func tradingMetaWithCompany(companyID string) tradingapp.CommandMeta {
 	}
 }
 
+func tradingMetaAdmin() tradingapp.CommandMeta {
+	return tradingapp.CommandMeta{
+		CompanyID:     "admin-1",
+		UserID:        "admin-1",
+		ActorKind:     tradingapp.ActorKindPlatformAdmin,
+		CorrelationID: "corr-1",
+		CausationID:   "cause-1",
+	}
+}
+
 func dealsMeta() dealsapp.CommandMeta {
 	return dealsapp.CommandMeta{
 		CompanyID:     "buyer-1",
@@ -365,6 +380,26 @@ func (r *memoryProductRepo) Save(ctx context.Context, product *catalog.Product) 
 	_ = ctx
 	r.items[product.ID()] = product
 	return nil
+}
+
+func (r *memoryProductRepo) List(ctx context.Context) ([]*catalog.Product, error) {
+	_ = ctx
+	out := make([]*catalog.Product, 0, len(r.items))
+	for _, p := range r.items {
+		out = append(out, p)
+	}
+	return out, nil
+}
+
+func (r *memoryProductRepo) ListBySellerCompany(ctx context.Context, sellerCompanyID string) ([]*catalog.Product, error) {
+	_ = ctx
+	var out []*catalog.Product
+	for _, p := range r.items {
+		if p.SellerCompanyID() == sellerCompanyID {
+			out = append(out, p)
+		}
+	}
+	return out, nil
 }
 
 type memoryUnitRepo struct{}

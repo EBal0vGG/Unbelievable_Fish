@@ -8,4 +8,6 @@ var (
 	ErrUnitNotFound           = errors.New("unit not found")
 	ErrProcessingTypeNotFound = errors.New("processing type not found")
 	ErrMissingCompanyID       = errors.New("missing company id")
+	ErrForbiddenOwner         = errors.New("forbidden: company does not own this resource")
+	ErrCatalogListForbidden   = errors.New("forbidden: cannot list catalog for this role")
 )

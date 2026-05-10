@@ -356,7 +356,7 @@ func TestCancelAuctionOrchestratesLoadSavePublish(t *testing.T) {
 	winners := &spyWinners{calls: &calls}
 	uow := &spyUOW{tx: &spyTx{repo: repo, bids: bidRepo, outbox: outbox, winners: winners}}
 
-	uc, err := NewCancelAuction(uow)
+	uc, err := NewSellerCancelAuction(uow)
 	if err != nil {
 		t.Fatalf("unexpected constructor error: %v", err)
 	}
@@ -367,6 +367,133 @@ func TestCancelAuctionOrchestratesLoadSavePublish(t *testing.T) {
 	assertCalls(t, calls, []string{"load_for_update", "save", "outbox"})
 	assertSavedAggregate(t, repo)
 	assertOutbox(t, outbox, testMeta())
+}
+
+func TestCloseAuctionRejectsEarlyCloseWithBidsUnlessPrivileged(t *testing.T) {
+	logTest(t)
+	calls := []string{}
+	startsAt := time.Now().UTC().Add(-time.Minute)
+	endsAt := time.Now().UTC().Add(time.Hour)
+	a, _ := auction.NewAuction("1", "lot-1", startsAt, endsAt)
+	_, _ = a.Publish()
+	bid, _ := auction.NewBid("bidder-1", 100, time.Now().UTC())
+	_, _ = a.PlaceBid(bid)
+	repo := &spyRepo{auction: a, calls: &calls}
+	bidRepo := &spyBidRepo{calls: &calls, topBids: []auction.Bid{bid}}
+	outbox := &spyOutbox{calls: &calls}
+	winners := &spyWinners{calls: &calls}
+	uow := &spyUOW{tx: &spyTx{repo: repo, bids: bidRepo, outbox: outbox, winners: winners}}
+
+	uc, err := NewCloseAuction(uow)
+	if err != nil {
+		t.Fatalf("unexpected constructor error: %v", err)
+	}
+	err = uc.Execute(context.Background(), testMeta(), "1")
+	if !errors.Is(err, ErrCloseForbiddenBeforeEndWithBids) {
+		t.Fatalf("expected ErrCloseForbiddenBeforeEndWithBids, got %v", err)
+	}
+}
+
+func TestCloseAuctionAllowsEarlyCloseWithBidsForAdmin(t *testing.T) {
+	logTest(t)
+	calls := []string{}
+	startsAt := time.Now().UTC().Add(-time.Minute)
+	endsAt := time.Now().UTC().Add(time.Hour)
+	a, _ := auction.NewAuction("1", "lot-1", startsAt, endsAt)
+	_, _ = a.Publish()
+	bid, _ := auction.NewBid("bidder-1", 100, time.Now().UTC())
+	_, _ = a.PlaceBid(bid)
+	repo := &spyRepo{auction: a, calls: &calls}
+	bidRepo := &spyBidRepo{calls: &calls, topBids: []auction.Bid{bid}}
+	outbox := &spyOutbox{calls: &calls}
+	winners := &spyWinners{calls: &calls}
+	uow := &spyUOW{tx: &spyTx{repo: repo, bids: bidRepo, outbox: outbox, winners: winners}}
+
+	uc, err := NewCloseAuction(uow)
+	if err != nil {
+		t.Fatalf("unexpected constructor error: %v", err)
+	}
+	meta := testMeta()
+	meta.ActorKind = ActorKindPlatformAdmin
+	if err := uc.Execute(context.Background(), meta, "1"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestCloseAuctionAllowsEarlyCloseWithBidsForSystem(t *testing.T) {
+	logTest(t)
+	calls := []string{}
+	startsAt := time.Now().UTC().Add(-time.Minute)
+	endsAt := time.Now().UTC().Add(time.Hour)
+	a, _ := auction.NewAuction("1", "lot-1", startsAt, endsAt)
+	_, _ = a.Publish()
+	bid, _ := auction.NewBid("bidder-1", 100, time.Now().UTC())
+	_, _ = a.PlaceBid(bid)
+	repo := &spyRepo{auction: a, calls: &calls}
+	bidRepo := &spyBidRepo{calls: &calls, topBids: []auction.Bid{bid}}
+	outbox := &spyOutbox{calls: &calls}
+	winners := &spyWinners{calls: &calls}
+	uow := &spyUOW{tx: &spyTx{repo: repo, bids: bidRepo, outbox: outbox, winners: winners}}
+
+	uc, err := NewCloseAuction(uow)
+	if err != nil {
+		t.Fatalf("unexpected constructor error: %v", err)
+	}
+	meta := testMeta()
+	meta.ActorKind = ActorKindSystem
+	if err := uc.Execute(context.Background(), meta, "1"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestCancelAuctionSellerRejectsWhenBidsExist(t *testing.T) {
+	logTest(t)
+	calls := []string{}
+	startsAt := time.Now().UTC().Add(-time.Minute)
+	endsAt := time.Now().UTC().Add(time.Hour)
+	a, _ := auction.NewAuction("1", "lot-1", startsAt, endsAt)
+	_, _ = a.Publish()
+	bid, _ := auction.NewBid("bidder-1", 100, time.Now().UTC())
+	_, _ = a.PlaceBid(bid)
+	repo := &spyRepo{auction: a, calls: &calls}
+	bidRepo := &spyBidRepo{calls: &calls, topBids: []auction.Bid{bid}}
+	outbox := &spyOutbox{calls: &calls}
+	winners := &spyWinners{calls: &calls}
+	uow := &spyUOW{tx: &spyTx{repo: repo, bids: bidRepo, outbox: outbox, winners: winners}}
+
+	uc, err := NewSellerCancelAuction(uow)
+	if err != nil {
+		t.Fatalf("unexpected constructor error: %v", err)
+	}
+	err = uc.Execute(context.Background(), testMeta(), "1")
+	if !errors.Is(err, auction.ErrCannotCancelWithBids) {
+		t.Fatalf("expected ErrCannotCancelWithBids, got %v", err)
+	}
+}
+
+func TestAdminCancelAuctionAllowsWhenBidsExist(t *testing.T) {
+	logTest(t)
+	calls := []string{}
+	startsAt := time.Now().UTC().Add(-time.Minute)
+	endsAt := time.Now().UTC().Add(time.Hour)
+	a, _ := auction.NewAuction("1", "lot-1", startsAt, endsAt)
+	_, _ = a.Publish()
+	bid, _ := auction.NewBid("bidder-1", 100, time.Now().UTC())
+	_, _ = a.PlaceBid(bid)
+	repo := &spyRepo{auction: a, calls: &calls}
+	bidRepo := &spyBidRepo{calls: &calls, topBids: []auction.Bid{bid}}
+	outbox := &spyOutbox{calls: &calls}
+	winners := &spyWinners{calls: &calls}
+	uow := &spyUOW{tx: &spyTx{repo: repo, bids: bidRepo, outbox: outbox, winners: winners}}
+
+	uc, err := NewAdminCancelAuction(uow)
+	if err != nil {
+		t.Fatalf("unexpected constructor error: %v", err)
+	}
+	if err := uc.Execute(context.Background(), testMeta(), "1"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	assertCalls(t, calls, []string{"load_for_update", "save", "outbox"})
 }
 
 func TestPlaceBidRejectsLowerAmount(t *testing.T) {

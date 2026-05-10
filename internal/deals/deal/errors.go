@@ -49,6 +49,8 @@ var (
 	ErrDealCancelledPayment                 = errors.New("deal: cannot finalize payment for cancelled deal")
 	ErrCannotUpdatePrice        = errors.New("deal: cannot update price in current status")
 	ErrInvalidStageTransition   = errors.New("deal: invalid stage transition")
+	// ErrPaidOnlyThroughBilling — оплата аукционной сделки только через подтверждение инвойса в billing (не через подтверждение этапа paid).
+	ErrPaidOnlyThroughBilling = errors.New("deal: paid status can only be set via billing invoice confirmation")
 
 	// Ошибки контракта
 	ErrContractNotPrepared = errors.New("deal: contract not prepared")

@@ -537,11 +537,43 @@ func (uc *RequestPayment) Execute(
 	dueDate *time.Time,
 ) error {
 	_ = meta
-	return executeDealMutation(ctx, uc.uow, dealID, func(item *deal.Deal) ([]deal.Event, error) {
-		return item.RequestPayment(invoiceNumber, dueDate)
+	if dealID == "" {
+		return ErrDealIDRequired
+	}
+	return uc.uow.Do(ctx, func(tx Tx) error {
+		item, err := tx.Deals().GetByIDForUpdate(ctx, dealID)
+		if err != nil {
+			return err
+		}
+		if item.Type() == deal.DealTypeAuction && item.AuctionID() != "" {
+			sel, err := tx.Selections().GetByAuctionIDForUpdate(ctx, item.AuctionID())
+			if err != nil {
+				if errors.Is(err, deal.ErrSelectionNotFound) {
+					return deal.ErrWinnerSelectionMissingForAuctionDeal
+				}
+				return err
+			}
+			if sel.DealID != item.ID() {
+				return deal.ErrWinnerSelectionDealMismatch
+			}
+			if sel.Status != deal.WinnerSelectionConfirmedPendingPayment {
+				return deal.ErrWinnerSelectionNotAwaitingPayment
+			}
+		}
+		events, err := item.RequestPayment(invoiceNumber, dueDate)
+		if err != nil {
+			return err
+		}
+		if err := tx.Deals().Save(ctx, item); err != nil {
+			return err
+		}
+		return tx.Outbox().Add(ctx, events)
 	})
 }
 
+// MarkDealPaid applies MarkAsPaid on the deal aggregate. It must not be exposed on the public HTTP API:
+// paid transitions are driven by billing (invoice paid → HandleDealInvoicePaid → MarkAsPaid with invoice id).
+// The constructor and handler exist only for tests or future strictly internal tooling.
 type MarkDealPaid struct {
 	uow UnitOfWork
 }
@@ -638,7 +670,11 @@ func NewCancelDeal(uow UnitOfWork) (*CancelDeal, error) {
 }
 
 func (uc *CancelDeal) Execute(ctx context.Context, meta CommandMeta, dealID, reason string) error {
-	cancelledBy := actorFromMeta(meta)
+	// Prefer company id so Cancel() can match buyer/seller; user id alone breaks auction forfeit rules.
+	cancelledBy := meta.CompanyID
+	if cancelledBy == "" {
+		cancelledBy = actorFromMeta(meta)
+	}
 	if reason == "" {
 		return ErrReasonRequired
 	}

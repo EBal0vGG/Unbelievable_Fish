@@ -90,6 +90,10 @@ func (s *CatalogService) CreateProduct(ctx context.Context, cmd CreateProductCom
 	)
 
 	err := s.tx.WithinTx(ctx, func(ctx context.Context) error {
+		actor, ok := ActorFromContext(ctx)
+		if !ok {
+			return ErrMissingCompanyID
+		}
 		if err := s.validateProductRefs(ctx, cmd.FishID, cmd.Unit, cmd.ProcessingType); err != nil {
 			return err
 		}
@@ -98,6 +102,7 @@ func (s *CatalogService) CreateProduct(ctx context.Context, cmd CreateProductCom
 		product, evs, err := catalog.NewProduct(
 			productID,
 			cmd.FishID,
+			actor.CompanyID,
 			cmd.Weight,
 			cmd.Unit,
 			cmd.Size,
@@ -148,9 +153,16 @@ func (s *CatalogService) UpdateProduct(ctx context.Context, cmd UpdateProductCom
 
 func (s *CatalogService) PublishProduct(ctx context.Context, productID string) error {
 	return s.tx.WithinTx(ctx, func(ctx context.Context) error {
+		actor, ok := ActorFromContext(ctx)
+		if !ok {
+			return ErrMissingCompanyID
+		}
 		product, err := s.getProduct(ctx, productID)
 		if err != nil {
 			return err
+		}
+		if !actorOwnsProduct(actor, product) {
+			return ErrForbiddenOwner
 		}
 		events, err := product.Publish()
 		if err != nil {
@@ -187,13 +199,18 @@ func (s *CatalogService) CreateLot(ctx context.Context, cmd CreateLotCommand) (s
 	)
 
 	err := s.tx.WithinTx(ctx, func(ctx context.Context) error {
-		if _, err := s.getProduct(ctx, cmd.ProductID); err != nil {
-			return err
-		}
-		companyID, ok := companyIDFromContext(ctx)
+		actor, ok := ActorFromContext(ctx)
 		if !ok {
 			return ErrMissingCompanyID
 		}
+		product, err := s.getProduct(ctx, cmd.ProductID)
+		if err != nil {
+			return err
+		}
+		if !actorOwnsProduct(actor, product) {
+			return ErrForbiddenOwner
+		}
+		companyID := actor.CompanyID
 
 		duration := time.Hour
 		if cmd.AuctionDurationMinutes > 0 {
@@ -259,13 +276,26 @@ func (s *CatalogService) GetLotAuctionID(ctx context.Context, lotID string) (str
 
 func (s *CatalogService) PublishLot(ctx context.Context, lotID string) error {
 	return s.tx.WithinTx(ctx, func(ctx context.Context) error {
+		actor, ok := ActorFromContext(ctx)
+		if !ok {
+			return ErrMissingCompanyID
+		}
 		lot, err := s.getLot(ctx, lotID)
 		if err != nil {
 			return err
 		}
+		if !actorOwnsLot(actor, lot) {
+			return ErrForbiddenOwner
+		}
 		product, err := s.getProduct(ctx, lot.ProductID())
 		if err != nil {
 			return err
+		}
+		if !actorOwnsProduct(actor, product) {
+			return ErrForbiddenOwner
+		}
+		if product.SellerCompanyID() != lot.SellerCompanyID() {
+			return ErrForbiddenOwner
 		}
 		productIsPublished := product.Status() == catalog.ProductStatusPublished
 		fish, err := s.getFish(ctx, product.FishID())
@@ -486,4 +516,46 @@ func (s *CatalogService) getLotByAuctionID(ctx context.Context, auctionID string
 		return nil, ErrNotFound
 	}
 	return lot, nil
+}
+
+func (s *CatalogService) ListProducts(ctx context.Context) ([]*catalog.Product, error) {
+	actor, ok := ActorFromContext(ctx)
+	if !ok {
+		return nil, ErrMissingCompanyID
+	}
+	if actor.isPlatformAdmin() {
+		return s.productRepo.List(ctx)
+	}
+	if !actor.SellerCatalogAccess {
+		return nil, ErrCatalogListForbidden
+	}
+	return s.productRepo.ListBySellerCompany(ctx, actor.CompanyID)
+}
+
+func (s *CatalogService) ListLots(ctx context.Context) ([]*catalog.Lot, error) {
+	actor, ok := ActorFromContext(ctx)
+	if !ok {
+		return nil, ErrMissingCompanyID
+	}
+	if actor.isPlatformAdmin() {
+		return s.lotRepo.List(ctx)
+	}
+	if !actor.SellerCatalogAccess {
+		return nil, ErrCatalogListForbidden
+	}
+	return s.lotRepo.ListBySellerCompany(ctx, actor.CompanyID)
+}
+
+func actorOwnsProduct(actor Actor, p *catalog.Product) bool {
+	if actor.isPlatformAdmin() {
+		return true
+	}
+	return p.SellerCompanyID() == actor.CompanyID
+}
+
+func actorOwnsLot(actor Actor, l *catalog.Lot) bool {
+	if actor.isPlatformAdmin() {
+		return true
+	}
+	return l.SellerCompanyID() == actor.CompanyID
 }

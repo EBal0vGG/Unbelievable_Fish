@@ -1,3 +1,8 @@
+/**
+ * Локальный снимок для демо и fallback. Источник истины для продуктов/лотов у залогиненного
+ * пользователя — ответы catalog `GET /products` и `GET /lots` (при успехе списки сюда дублируются).
+ * Без JWT marketplace опирается на seed ниже и может не совпадать с сервером.
+ */
 import { makeClientId } from "@/shared/lib/id";
 import { readLocalStorage, writeLocalStorage } from "@/shared/lib/storage";
 import type {

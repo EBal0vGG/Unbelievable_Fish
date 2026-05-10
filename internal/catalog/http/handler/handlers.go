@@ -87,7 +87,7 @@ func (h *CreateProductHandler) ServeHTTP(w http.ResponseWriter, r *http.Request)
 		writeHTTPError(w, fmt.Errorf("%w: %v", httpapi.ErrInvalidJSONBody, err))
 		return
 	}
-	id, _, err := h.svc.CreateProduct(r.Context(), catalogapp.CreateProductCommand{
+	id, _, err := h.svc.CreateProduct(catalogRequestContext(r), catalogapp.CreateProductCommand{
 		FishID:         req.FishID,
 		Weight:         req.Weight,
 		Unit:           req.Unit,
@@ -113,11 +113,49 @@ func (h *PublishProductHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 		writeHTTPError(w, err)
 		return
 	}
-	if err := h.svc.PublishProduct(r.Context(), productID); err != nil {
+	if err := h.svc.PublishProduct(catalogRequestContext(r), productID); err != nil {
 		writeHTTPError(w, err)
 		return
 	}
 	w.WriteHeader(http.StatusAccepted)
+}
+
+type ListProductsHandler struct{ svc *catalogapp.CatalogService }
+
+func NewListProductsHandler(svc *catalogapp.CatalogService) *ListProductsHandler {
+	return &ListProductsHandler{svc: svc}
+}
+
+func (h *ListProductsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	list, err := h.svc.ListProducts(catalogRequestContext(r))
+	if err != nil {
+		writeHTTPError(w, err)
+		return
+	}
+	type row struct {
+		ProductID       string  `json:"product_id"`
+		FishID          string  `json:"fish_id"`
+		SellerCompanyID string  `json:"seller_company_id"`
+		Weight          float64 `json:"weight"`
+		Unit            string  `json:"unit"`
+		Size            string  `json:"size"`
+		ProcessingType  string  `json:"processing_type"`
+		Status          string  `json:"status"`
+	}
+	out := make([]row, 0, len(list))
+	for _, p := range list {
+		out = append(out, row{
+			ProductID:       p.ID(),
+			FishID:          p.FishID(),
+			SellerCompanyID: p.SellerCompanyID(),
+			Weight:          p.Weight(),
+			Unit:            p.Unit(),
+			Size:            p.Size(),
+			ProcessingType:  string(p.ProcessingType()),
+			Status:          string(p.Status()),
+		})
+	}
+	writeJSON(w, http.StatusOK, out)
 }
 
 type CreateLotHandler struct {
@@ -146,8 +184,7 @@ func (h *CreateLotHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if durationMinutes <= 0 {
 		durationMinutes = envDurationMinutesInt64("CATALOG_AUCTION_DURATION_MINUTES", 60)
 	}
-	companyID := companyIDFromRequest(r)
-	ctx := catalogapp.WithCompanyID(r.Context(), companyID)
+	ctx := catalogRequestContext(r)
 	id, _, err := h.svc.CreateLot(ctx, catalogapp.CreateLotCommand{
 		ProductID:              req.ProductID,
 		Photo:                  req.Photo,
@@ -176,11 +213,59 @@ func (h *PublishLotHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		writeHTTPError(w, err)
 		return
 	}
-	if err := h.svc.PublishLot(r.Context(), lotID); err != nil {
+	if err := h.svc.PublishLot(catalogRequestContext(r), lotID); err != nil {
 		writeHTTPError(w, err)
 		return
 	}
 	w.WriteHeader(http.StatusAccepted)
+}
+
+type ListLotsHandler struct{ svc *catalogapp.CatalogService }
+
+func NewListLotsHandler(svc *catalogapp.CatalogService) *ListLotsHandler {
+	return &ListLotsHandler{svc: svc}
+}
+
+func (h *ListLotsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	list, err := h.svc.ListLots(catalogRequestContext(r))
+	if err != nil {
+		writeHTTPError(w, err)
+		return
+	}
+	type row struct {
+		LotID           string    `json:"lot_id"`
+		ProductID       string    `json:"product_id"`
+		SellerCompanyID string    `json:"seller_company_id"`
+		AuctionID       string    `json:"auction_id,omitempty"`
+		Photo           string    `json:"photo,omitempty"`
+		Quantity        float64   `json:"quantity"`
+		StartPrice      int64     `json:"start_price"`
+		MinBidStep      int64     `json:"min_bid_step"`
+		CurrentPrice    int64     `json:"current_price"`
+		FinalPrice      int64     `json:"final_price,omitempty"`
+		Status          string    `json:"status"`
+		AuctionStartsAt time.Time `json:"auction_starts_at"`
+		AuctionEndsAt   time.Time `json:"auction_ends_at"`
+	}
+	out := make([]row, 0, len(list))
+	for _, l := range list {
+		out = append(out, row{
+			LotID:           l.ID(),
+			ProductID:       l.ProductID(),
+			SellerCompanyID: l.SellerCompanyID(),
+			AuctionID:       l.AuctionID(),
+			Photo:           l.Photo(),
+			Quantity:        l.Quantity(),
+			StartPrice:      l.StartPrice(),
+			MinBidStep:      l.MinBidStep(),
+			CurrentPrice:    l.CurPrice(),
+			FinalPrice:      l.FinalPrice(),
+			Status:          string(l.Status()),
+			AuctionStartsAt: l.AuctionStartsAt(),
+			AuctionEndsAt:   l.AuctionEndsAt(),
+		})
+	}
+	writeJSON(w, http.StatusOK, out)
 }
 
 func envDurationMinutesInt64(key string, def int64) int64 {

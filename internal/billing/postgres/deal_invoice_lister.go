@@ -47,3 +47,53 @@ FOR UPDATE SKIP LOCKED
 	}
 	return ids, rows.Err()
 }
+
+// PendingDealInvoiceAdminRow is a slim read model for operator tooling (GET /admin/invoices/pending).
+type PendingDealInvoiceAdminRow struct {
+	ID                string    `json:"id"`
+	DealID            string    `json:"deal_id"`
+	AuctionID         string    `json:"auction_id"`
+	BuyerCompanyID    string    `json:"buyer_company_id"`
+	SellerCompanyID   string    `json:"seller_company_id"`
+	Status            string    `json:"status"`
+	GoodsAmount       int64     `json:"goods_amount"`
+	TotalAmount       int64     `json:"total_amount"`
+	Currency          string    `json:"currency"`
+	DueAt             time.Time `json:"due_at"`
+	CreatedAt         time.Time `json:"created_at"`
+	Provider          string    `json:"provider"`
+	ProviderInvoiceID string    `json:"provider_invoice_id,omitempty"`
+}
+
+// ListPaymentPendingAdmin returns PAYMENT_PENDING invoices (newest first) for admin UI.
+func (l *DealInvoiceLister) ListPaymentPendingAdmin(ctx context.Context, limit int) ([]PendingDealInvoiceAdminRow, error) {
+	if limit <= 0 {
+		limit = 200
+	}
+	const q = `
+SELECT id, deal_id, auction_id, buyer_company_id, seller_company_id, status,
+       goods_amount, total_amount, currency, due_at, created_at, provider, provider_invoice_id
+FROM billing_deal_invoices
+WHERE status = 'PAYMENT_PENDING'
+ORDER BY created_at DESC
+LIMIT $1
+`
+	dbtx := DBTXFromContext(ctx, l.db)
+	rows, err := dbtx.QueryContext(ctx, q, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []PendingDealInvoiceAdminRow
+	for rows.Next() {
+		var r PendingDealInvoiceAdminRow
+		if err := rows.Scan(
+			&r.ID, &r.DealID, &r.AuctionID, &r.BuyerCompanyID, &r.SellerCompanyID, &r.Status,
+			&r.GoodsAmount, &r.TotalAmount, &r.Currency, &r.DueAt, &r.CreatedAt, &r.Provider, &r.ProviderInvoiceID,
+		); err != nil {
+			return nil, err
+		}
+		out = append(out, r)
+	}
+	return out, rows.Err()
+}

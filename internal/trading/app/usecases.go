@@ -159,6 +159,15 @@ func NewCloseAuction(uow UnitOfWork) (*CloseAuction, error) {
 	}, nil
 }
 
+func allowPrivilegedEarlyAuctionClose(meta CommandMeta) bool {
+	switch effectiveActorKind(meta) {
+	case ActorKindPlatformAdmin, ActorKindSystem:
+		return true
+	default:
+		return false
+	}
+}
+
 func (uc *CloseAuction) Execute(ctx context.Context, meta CommandMeta, id AuctionID) error {
 	return uc.uow.Do(ctx, func(tx Tx) error {
 		a, err := tx.Auctions().LoadForUpdate(ctx, id)
@@ -168,6 +177,12 @@ func (uc *CloseAuction) Execute(ctx context.Context, meta CommandMeta, id Auctio
 		bids, err := tx.Bids().TopBids(ctx, id)
 		if err != nil {
 			return err
+		}
+		now := time.Now().UTC()
+		if a.State() == auction.StatePublished && len(bids) > 0 && now.Before(a.EndsAt()) {
+			if !allowPrivilegedEarlyAuctionClose(meta) {
+				return ErrCloseForbiddenBeforeEndWithBids
+			}
 		}
 		events, err := a.Close(bids)
 		if err != nil {
@@ -186,26 +201,55 @@ func (uc *CloseAuction) Execute(ctx context.Context, meta CommandMeta, id Auctio
 	})
 }
 
-type CancelAuction struct {
+type SellerCancelAuction struct {
 	uow UnitOfWork
 }
 
-func NewCancelAuction(uow UnitOfWork) (*CancelAuction, error) {
+func NewSellerCancelAuction(uow UnitOfWork) (*SellerCancelAuction, error) {
 	if uow == nil {
 		return nil, ErrNilUnitOfWork
 	}
-	return &CancelAuction{
-		uow: uow,
-	}, nil
+	return &SellerCancelAuction{uow: uow}, nil
 }
 
-func (uc *CancelAuction) Execute(ctx context.Context, meta CommandMeta, id AuctionID) error {
+func (uc *SellerCancelAuction) Execute(ctx context.Context, meta CommandMeta, id AuctionID) error {
 	return uc.uow.Do(ctx, func(tx Tx) error {
 		a, err := tx.Auctions().LoadForUpdate(ctx, id)
 		if err != nil {
 			return err
 		}
-		events, err := a.Cancel()
+		events, err := a.CancelAsSellerOrDraft()
+		if err != nil {
+			return err
+		}
+		if err := tx.Auctions().Save(ctx, a); err != nil {
+			return err
+		}
+		if len(events) == 0 {
+			return nil
+		}
+		return tx.Outbox().Add(WithCommandMeta(ctx, meta), events)
+	})
+}
+
+type AdminCancelAuction struct {
+	uow UnitOfWork
+}
+
+func NewAdminCancelAuction(uow UnitOfWork) (*AdminCancelAuction, error) {
+	if uow == nil {
+		return nil, ErrNilUnitOfWork
+	}
+	return &AdminCancelAuction{uow: uow}, nil
+}
+
+func (uc *AdminCancelAuction) Execute(ctx context.Context, meta CommandMeta, id AuctionID) error {
+	return uc.uow.Do(ctx, func(tx Tx) error {
+		a, err := tx.Auctions().LoadForUpdate(ctx, id)
+		if err != nil {
+			return err
+		}
+		events, err := a.CancelAsAdmin()
 		if err != nil {
 			return err
 		}

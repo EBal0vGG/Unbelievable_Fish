@@ -5,27 +5,32 @@ import "testing"
 func TestNewProduct_Validation(t *testing.T) {
 	pt := ProcessingType("proc-1")
 
-	_, _, err := NewProduct("", "fish-1", 1000, "KG", "L", pt)
+	_, _, err := NewProduct("", "fish-1", "seller-1", 1000, "KG", "L", pt)
 	if err != ErrInvalidIdentifier {
 		t.Fatalf("expected ErrInvalidIdentifier, got %v", err)
 	}
 
-	_, _, err = NewProduct("prod-1", "", 1000, "KG", "L", pt)
+	_, _, err = NewProduct("prod-1", "", "seller-1", 1000, "KG", "L", pt)
 	if err != ErrInvalidIdentifier {
 		t.Fatalf("expected ErrInvalidIdentifier, got %v", err)
 	}
 
-	_, _, err = NewProduct("prod-1", "fish-1", 0, "KG", "L", pt)
+	_, _, err = NewProduct("prod-1", "fish-1", "", 1, "KG", "L", pt)
+	if err != ErrInvalidIdentifier {
+		t.Fatalf("expected ErrInvalidIdentifier for blank seller, got %v", err)
+	}
+
+	_, _, err = NewProduct("prod-1", "fish-1", "seller-1", 0, "KG", "L", pt)
 	if err != ErrInvalidWeight {
 		t.Fatalf("expected ErrInvalidWeight, got %v", err)
 	}
 
-	_, _, err = NewProduct("prod-1", "fish-1", 1, "", "L", pt)
+	_, _, err = NewProduct("prod-1", "fish-1", "seller-1", 1, "", "L", pt)
 	if err != ErrInvalidUnit {
 		t.Fatalf("expected ErrInvalidUnit, got %v", err)
 	}
 
-	_, _, err = NewProduct("prod-1", "fish-1", 1, "KG", "L", ProcessingType(""))
+	_, _, err = NewProduct("prod-1", "fish-1", "seller-1", 1, "KG", "L", ProcessingType(""))
 	if err != ErrInvalidEnum {
 		t.Fatalf("expected ErrInvalidEnum, got %v", err)
 	}
@@ -34,7 +39,7 @@ func TestNewProduct_Validation(t *testing.T) {
 func TestProduct_PublishAndUnpublish(t *testing.T) {
 	pt := ProcessingType("proc-1")
 
-	p, events, err := NewProduct("prod-1", "fish-1", 1000, "KG", "L", pt)
+	p, events, err := NewProduct("prod-1", "fish-1", "seller-1", 1000, "KG", "L", pt)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -79,7 +84,7 @@ func TestProduct_PublishAndUnpublish(t *testing.T) {
 func TestProduct_UpdateOnlyInDraft(t *testing.T) {
 	pt := ProcessingType("proc-1")
 
-	p, _, err := NewProduct("prod-2", "fish-2", 2000, "KG", "M", pt)
+	p, _, err := NewProduct("prod-2", "fish-2", "seller-1", 2000, "KG", "M", pt)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -98,7 +103,7 @@ func TestProduct_UpdateOnlyInDraft(t *testing.T) {
 func TestProduct_WeightAndUnitNormalization(t *testing.T) {
 	pt := ProcessingType("proc-1")
 
-	p, _, err := NewProduct("prod-3", "fish-3", 123.5, " kg ", "L", pt)
+	p, _, err := NewProduct("prod-3", "fish-3", "seller-1", 123.5, " kg ", "L", pt)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}

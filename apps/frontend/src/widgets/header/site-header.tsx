@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 
 import { useAuth } from "@/entities/session/model/auth-context";
 import { getMainInterfaceMode, isAdminSession, isSellerSession } from "@/shared/lib/access";
+import { env } from "@/shared/config/env";
 import { cn } from "@/shared/lib/cn";
 import { roleLabels } from "@/shared/lib/labels";
 import { buttonStyles } from "@/shared/ui/button";
@@ -39,8 +40,21 @@ export function SiteHeader() {
     }
     return true;
   });
+  const adminBillingNav =
+    canManageFish && env.enableBillingAdminUI
+      ? [
+          { href: "/admin/billing/invoices", label: "Счета (admin)" },
+          { href: "/admin/billing/payouts", label: "Выплаты (admin)" },
+        ]
+      : [];
+
   const extendedNavItems = canManageFish
-    ? [...visibleNavItems.slice(0, 5), { href: "/create/fish", label: "Новая рыба" }, ...visibleNavItems.slice(5)]
+    ? [
+        ...visibleNavItems.slice(0, 5),
+        { href: "/create/fish", label: "Новая рыба" },
+        ...adminBillingNav,
+        ...visibleNavItems.slice(5),
+      ]
     : visibleNavItems;
 
   return (
