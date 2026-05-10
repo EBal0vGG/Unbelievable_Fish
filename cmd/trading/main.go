@@ -93,7 +93,12 @@ func main() {
 		GetByLot:       authMiddleware.Wrap(handler.NewGetAuctionByLotHandler(getAuctionByLotUC)),
 	}, httplog.Middleware(logger))
 
-	startExpiredAuctionCloser(logger, closeAuctionUC, tradingpg.NewAuctionLister(db))
+	if envBool("TRADING_CLOSE_EXPIRED_ENABLED", false) {
+		startExpiredAuctionCloser(logger, closeAuctionUC, tradingpg.NewAuctionLister(db))
+		logger.Info("trading_close_expired_scheduler_enabled", "component", "scheduler")
+	} else {
+		logger.Info("trading_close_expired_scheduler_disabled", "component", "scheduler")
+	}
 
 	port := dbconfig.EnvOrDefault("TRADING_PORT", "8082")
 	logger.Info("http_server_starting", "component", "http.server", "addr", ":"+port)
@@ -171,6 +176,18 @@ func envInt(key string, def int) int {
 	}
 	parsed, err := strconv.Atoi(value)
 	if err != nil || parsed <= 0 {
+		return def
+	}
+	return parsed
+}
+
+func envBool(key string, def bool) bool {
+	value := os.Getenv(key)
+	if value == "" {
+		return def
+	}
+	parsed, err := strconv.ParseBool(value)
+	if err != nil {
 		return def
 	}
 	return parsed

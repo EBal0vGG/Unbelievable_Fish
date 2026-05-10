@@ -9,6 +9,7 @@ import { useAuth } from "@/entities/session/model/auth-context";
 import { DealActionPanel } from "@/features/deal/ui/deal-action-panel";
 import { DealBillingPanel } from "@/features/deal/ui/deal-billing-panel";
 import { getDealParticipantSide } from "@/shared/lib/access";
+import { displayCompany, displayId, displayText } from "@/shared/lib/display";
 import { formatDateTime, formatMoney, shortId } from "@/shared/lib/format";
 import { buttonStyles } from "@/shared/ui/button";
 import { Card } from "@/shared/ui/card";
@@ -90,10 +91,10 @@ export default function DealDetailsPage() {
   const sideLabel = side === "supplier" ? "вы продавец" : side === "customer" ? "вы покупатель" : "просмотр";
   const heroCopy =
     side === "supplier"
-      ? `Вы продаете ${deal.customerId}. Статус продажи: ${dealStatusLabels[deal.status]}.`
+      ? `Вы продаете компании ${displayCompany(deal.customerId)}. Статус продажи: ${dealStatusLabels[deal.status]}.`
       : side === "customer"
-        ? `Вы покупаете у ${deal.supplierId}. Статус закупки: ${dealStatusLabels[deal.status]}.`
-        : `${deal.supplierId} поставляет ${deal.customerId}. Статус: ${dealStatusLabels[deal.status]}.`;
+        ? `Вы покупаете у ${displayCompany(deal.supplierId)}. Статус закупки: ${dealStatusLabels[deal.status]}.`
+        : `${displayCompany(deal.supplierId)} поставляет ${displayCompany(deal.customerId)}. Статус: ${dealStatusLabels[deal.status]}.`;
   const amountLabel = side === "supplier" ? "Выручка" : side === "customer" ? "Стоимость закупки" : "Сумма";
   const priceLabel = side === "supplier" ? "Цена продажи" : side === "customer" ? "Цена закупки" : "Цена";
 
@@ -196,15 +197,15 @@ export default function DealDetailsPage() {
             <div className="metric-grid">
               <div>
                 <span>Категория</span>
-                <strong>{deal.productSnapshot.category || "н/д"}</strong>
+                <strong>{displayText(deal.productSnapshot.category)}</strong>
               </div>
               <div>
                 <span>Обработка</span>
-                <strong>{deal.productSnapshot.processingType || "н/д"}</strong>
+                <strong>{displayText(deal.productSnapshot.processingType)}</strong>
               </div>
               <div>
                 <span>Размер</span>
-                <strong>{deal.productSnapshot.size || "н/д"}</strong>
+                <strong>{displayText(deal.productSnapshot.size)}</strong>
               </div>
               <div>
                 <span>Вес</span>
@@ -214,11 +215,11 @@ export default function DealDetailsPage() {
               </div>
               <div>
                 <span>Страна</span>
-                <strong>{deal.productSnapshot.originCountry || "н/д"}</strong>
+                <strong>{displayText(deal.productSnapshot.originCountry)}</strong>
               </div>
               <div>
-                <span>Product ID</span>
-                <strong>{shortId(deal.productSnapshot.productId)}</strong>
+                <span>Номер продукта</span>
+                <strong title={deal.productSnapshot.productId}>{displayId(deal.productSnapshot.productId, "#")}</strong>
               </div>
             </div>
           </div>
@@ -245,11 +246,11 @@ export default function DealDetailsPage() {
               </div>
               <div>
                 <span>Подписант</span>
-                <strong>{deal.contract?.signedBy ?? "н/д"}</strong>
+                <strong>{displayText(deal.contract?.signedBy)}</strong>
               </div>
               <div>
-                <span>Signature ref</span>
-                <strong>{deal.contract?.signatureRef ?? "н/д"}</strong>
+                <span>Подпись</span>
+                <strong>{displayText(deal.contract?.signatureRef)}</strong>
               </div>
             </div>
             {deal.contract?.documentUrl ? (
@@ -281,7 +282,7 @@ function ConfirmationHistory({ confirmations }: { confirmations: DealConfirmatio
                 {confirmation.stage} · {confirmation.status}
               </strong>
               <p className="muted">
-                {confirmation.requestedByCompanyId} → {confirmation.counterpartyCompanyId} ·{" "}
+                {displayCompany(confirmation.requestedByCompanyId)} → {displayCompany(confirmation.counterpartyCompanyId)} ·{" "}
                 {formatDateTime(confirmation.requestedAt)}
               </p>
               {confirmation.comment ? <p>{confirmation.comment}</p> : null}

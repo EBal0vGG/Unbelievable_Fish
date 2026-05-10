@@ -1,4 +1,6 @@
-import type { ImgHTMLAttributes } from "react";
+"use client";
+
+import { useState, type ImgHTMLAttributes } from "react";
 
 import { cn } from "@/shared/lib/cn";
 
@@ -10,16 +12,18 @@ interface EntityPhotoProps extends Omit<ImgHTMLAttributes<HTMLImageElement>, "sr
 export function EntityPhoto({
   src,
   alt,
-  label = "Фото поставки",
+  label = "",
   className,
   ...props
 }: EntityPhotoProps) {
+  const [hasError, setHasError] = useState(false);
   const normalizedSrc = src?.trim();
+  const fallbackLabel = alt?.trim()?.slice(0, 2).toUpperCase() || "UF";
 
-  if (!normalizedSrc) {
+  if (!normalizedSrc || hasError) {
     return (
       <div className={cn("entity-photo entity-photo-empty", className)}>
-        <span>{label}</span>
+        <span>{fallbackLabel}</span>
       </div>
     );
   }
@@ -30,13 +34,10 @@ export function EntityPhoto({
         alt={alt}
         loading="lazy"
         src={normalizedSrc}
-        onError={(event) => {
-          event.currentTarget.style.display = "none";
-          event.currentTarget.parentElement?.classList.add("entity-photo-empty");
-        }}
+        onError={() => setHasError(true)}
         {...props}
       />
-      <span>{label}</span>
+      {label ? <span>{label}</span> : null}
     </div>
   );
 }

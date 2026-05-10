@@ -3,14 +3,20 @@
 import { useDeferredValue, useMemo, useState } from "react";
 
 import { useProductsQuery } from "@/entities/lot/model/hooks";
-import { ProductCard } from "@/entities/product/ui/product-card";
 import { useAuth } from "@/entities/session/model/auth-context";
 import { FilterBar } from "@/features/marketplace/ui/filter-bar";
 import { isOwnedProduct, isSellerSession } from "@/shared/lib/access";
+import { displayCompany } from "@/shared/lib/display";
+import { shortId } from "@/shared/lib/format";
 import { productStatusLabels } from "@/shared/lib/labels";
+import { buttonStyles } from "@/shared/ui/button";
 import { EmptyState } from "@/shared/ui/empty-state";
 import { Field } from "@/shared/ui/field";
+import { PageHeader } from "@/shared/ui/page-header";
+import { SectionCard } from "@/shared/ui/section-card";
 import { Select } from "@/shared/ui/select";
+import { StatusBadge } from "@/shared/ui/status-badge";
+import Link from "next/link";
 
 export default function ProductsPage() {
   const { session } = useAuth();
@@ -39,46 +45,90 @@ export default function ProductsPage() {
 
   return (
     <div className="page-stack">
-      <div className="page-heading">
-        <p className="eyebrow">Продукты</p>
-        <h1>Мои продукты</h1>
-      </div>
-
-      <FilterBar
-        search={search}
-        onSearchChange={setSearch}
-        status={status}
-        onStatusChange={setStatus}
-        statusOptions={[
-          { label: "Все статусы", value: "all" },
-          { label: productStatusLabels.DRAFT, value: "DRAFT" },
-          { label: productStatusLabels.PUBLISHED, value: "PUBLISHED" },
-        ]}
-        source="all"
-        onSourceChange={() => undefined}
-        showSource={false}
-        extraFilters={
-          <Field label="Обработка">
-            <Select value={processingType} onChange={(event) => setProcessingType(event.target.value)}>
-              <option value="all">Все</option>
-              <option value="chilled">Охлажденная</option>
-              <option value="frozen">Замороженная</option>
-              <option value="live">Живая</option>
-            </Select>
-          </Field>
+      <PageHeader
+        compact
+        eyebrow="Продукты"
+        title="Мои продукты"
+        description="Позиции вашей компании, из которых формируются лоты для торгов."
+        metrics={
+          <>
+            <div>
+              <span>Найдено</span>
+              <strong>{items.length}</strong>
+            </div>
+            <div>
+              <span>Опубликовано</span>
+              <strong>{items.filter((item) => item.status === "PUBLISHED").length}</strong>
+            </div>
+          </>
         }
       />
 
+      <SectionCard eyebrow="Фильтры" title="Рабочий список продуктов">
+        <FilterBar
+          search={search}
+          onSearchChange={setSearch}
+          status={status}
+          onStatusChange={setStatus}
+          statusOptions={[
+            { label: "Все статусы", value: "all" },
+            { label: productStatusLabels.DRAFT, value: "DRAFT" },
+            { label: productStatusLabels.PUBLISHED, value: "PUBLISHED" },
+          ]}
+          source="all"
+          onSourceChange={() => undefined}
+          showSource={false}
+          extraFilters={
+            <Field label="Обработка">
+              <Select value={processingType} onChange={(event) => setProcessingType(event.target.value)}>
+                <option value="all">Все</option>
+                <option value="chilled">Охлажденная</option>
+                <option value="frozen">Замороженная</option>
+                <option value="live">Живая</option>
+              </Select>
+            </Field>
+          }
+        />
+      </SectionCard>
+
       {items.length ? (
-        <div className="card-grid card-grid-3">
+        <section className="data-panel">
+          <div className="data-list">
           {items.map((item) => (
-            <ProductCard key={item.id} product={item} />
+            <div className="data-row" key={item.id}>
+              <div className="data-row-main">
+                <h3>{item.fishName}</h3>
+                <p>Продукт #{shortId(item.id)} · {displayCompany(item.ownerCompanyId)}</p>
+              </div>
+              <div className="data-cell">
+                <span>Статус</span>
+                <strong>
+                  <StatusBadge status={item.status} label={productStatusLabels[item.status]} />
+                </strong>
+              </div>
+              <div className="data-cell">
+                <span>Обработка</span>
+                <strong>{item.processingType}</strong>
+              </div>
+              <div className="data-cell">
+                <span>Вес / размер</span>
+                <strong>
+                  {item.weight} {item.unit} · {item.size}
+                </strong>
+              </div>
+              <div className="data-actions">
+                <Link className={buttonStyles({ variant: "secondary", size: "sm" })} href="/create/lot">
+                  В лот
+                </Link>
+              </div>
+            </div>
           ))}
-        </div>
+          </div>
+        </section>
       ) : (
         <EmptyState
           title="Продукты не найдены"
-          description="У вас пока нет продуктов. Создайте новую позицию или измените фильтры."
+          description="У вас пока нет продуктов под текущими фильтрами. Создание продукта доступно в сценарии нового лота."
           actionHref={canCreateSupply ? "/create/lot" : undefined}
           actionLabel={canCreateSupply ? "Создать продукт" : undefined}
         />
