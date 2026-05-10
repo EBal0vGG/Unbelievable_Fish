@@ -9,7 +9,8 @@ import { useBillingBalanceQuery, useDealInvoiceBillingQuery, useSellerPayoutsQue
 import { useAuth } from "@/entities/session/model/auth-context";
 import { ApiError } from "@/shared/api/http-client";
 import { fakeConfirmDealInvoice } from "@/shared/api/billing-service";
-import { env, isFakeBillingUiAllowed } from "@/shared/config/env";
+import { env } from "@/shared/config/env";
+import { isFakeBillingUiAllowed } from "@/shared/lib/is-fake-billing-ui-allowed";
 import { getDealParticipantSide, isAdminSession } from "@/shared/lib/access";
 import { formatDateTime, formatMoney } from "@/shared/lib/format";
 import { buttonStyles } from "@/shared/ui/button";

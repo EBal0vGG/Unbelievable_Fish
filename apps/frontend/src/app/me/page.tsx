@@ -19,7 +19,8 @@ import {
   fakeConfirmTopUp,
 } from "@/shared/api/billing-service";
 import { listUsers, promoteUserToAdmin } from "@/shared/api/identity-service";
-import { env, isFakeBillingUiAllowed } from "@/shared/config/env";
+import { env } from "@/shared/config/env";
+import { isFakeBillingUiAllowed } from "@/shared/lib/is-fake-billing-ui-allowed";
 import { listActivitiesStore } from "@/shared/api/mock-store";
 import { isAdminSession, isOwnedLot, isOwnedProduct } from "@/shared/lib/access";
 import { displayCompany, displayId, displayPerson } from "@/shared/lib/display";
@@ -440,19 +441,23 @@ export default function MyProfilePage() {
                   Операции ниже обходят реальный платёжный провайдер. Включайте только вместе с{" "}
                   <code>BILLING_ENABLE_ADMIN_ACTIONS</code> на сервере.
                 </Notice>
-                <p className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
-                  <Link className="underline" href="/admin/billing/invoices">
-                    Счета в ожидании оплаты (список + подтверждение)
-                  </Link>
-                  <Link className="underline" href="/admin/billing/payouts">
-                    Очередь выплат продавцам
-                  </Link>
-                </p>
+                <ul className="stack-sm text-sm link-bullet-list">
+                  <li>
+                    <Link className="underline" href="/admin/billing/invoices">
+                      Счета в ожидании оплаты (список и подтверждение)
+                    </Link>
+                  </li>
+                  <li>
+                    <Link className="underline" href="/admin/billing/payouts">
+                      Очередь выплат продавцам
+                    </Link>
+                  </li>
+                </ul>
                 <h2>Billing (admin)</h2>
                 <Field label="Invoice ID">
                   <Input value={adminInvoiceId} onChange={(e) => setAdminInvoiceId(e.target.value)} placeholder="inv-…" />
                 </Field>
-                <div className="inline-actions">
+                <div className="form-action-row">
                   <Button
                     type="button"
                     variant="secondary"
@@ -481,7 +486,7 @@ export default function MyProfilePage() {
                 <p className="muted text-sm">
                   <strong>PAID</strong> здесь зачисляет средства на <strong>внутренний баланс</strong> продавца в billing, а не в банк.
                 </p>
-                <div className="inline-actions">
+                <div className="form-action-row">
                   <Button
                     type="button"
                     variant="secondary"
@@ -508,46 +513,48 @@ export default function MyProfilePage() {
             </Card>
           ) : null}
           </div>
-        </div>
 
-        {canPromoteAdmins ? (
-          <Card className="form-card">
-            <div className="stack-md">
-              <h2>Администрирование</h2>
-              <p className="muted">Назначьте пользователя администратором из списка.</p>
-              {loadUsersError ? (
-                <Notice tone="warning" title="Не удалось загрузить пользователей">
-                  {loadUsersError}
-                </Notice>
-              ) : null}
-              {promoteSuccess ? (
-                <Notice tone="success" title="Роль обновлена">
-                  {promoteSuccess}
-                </Notice>
-              ) : null}
-              {promoteError ? (
-                <Notice tone="warning" title="Не удалось назначить администратора">
-                  {promoteError}
-                </Notice>
-              ) : null}
-              <Field label="Пользователь">
-                <Select value={targetUserID} onChange={(event) => setTargetUserID(event.target.value)}>
-                  <option value="">Выберите пользователя</option>
-                  {availableUsers.map((user) => (
-                    <option key={user.id} value={user.id}>
-                      {user.login} ({user.id}) - {roleLabels[user.role]}
-                    </option>
-                  ))}
-                </Select>
-              </Field>
-              <div className="inline-actions">
-                <Button type="button" onClick={submitPromoteAdmin} disabled={promotePending || !targetUserID}>
-                  {promotePending ? "Назначаем..." : "Назначить администратором"}
-                </Button>
-              </div>
+          {canPromoteAdmins ? (
+            <div className="profile-grid-full">
+              <Card className="form-card">
+                <div className="stack-md">
+                  <h2>Администрирование</h2>
+                  <p className="muted">Назначьте пользователя администратором из списка.</p>
+                  {loadUsersError ? (
+                    <Notice tone="warning" title="Не удалось загрузить пользователей">
+                      {loadUsersError}
+                    </Notice>
+                  ) : null}
+                  {promoteSuccess ? (
+                    <Notice tone="success" title="Роль обновлена">
+                      {promoteSuccess}
+                    </Notice>
+                  ) : null}
+                  {promoteError ? (
+                    <Notice tone="warning" title="Не удалось назначить администратора">
+                      {promoteError}
+                    </Notice>
+                  ) : null}
+                  <Field label="Пользователь">
+                    <Select value={targetUserID} onChange={(event) => setTargetUserID(event.target.value)}>
+                      <option value="">Выберите пользователя</option>
+                      {availableUsers.map((user) => (
+                        <option key={user.id} value={user.id}>
+                          {user.login} ({user.id}) - {roleLabels[user.role]}
+                        </option>
+                      ))}
+                    </Select>
+                  </Field>
+                  <div className="form-action-row">
+                    <Button type="button" onClick={submitPromoteAdmin} disabled={promotePending || !targetUserID}>
+                      {promotePending ? "Назначаем..." : "Назначить администратором"}
+                    </Button>
+                  </div>
+                </div>
+              </Card>
             </div>
-          </Card>
-        ) : null}
+          ) : null}
+        </div>
       </div>
     </AuthGuard>
   );

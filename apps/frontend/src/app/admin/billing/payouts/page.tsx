@@ -122,28 +122,28 @@ export default function AdminBillingPayoutsPage() {
           ) : null}
           {pendingInvoicesQuery.data?.invoices?.length ? (
             <div className="mt-3 overflow-x-auto">
-              <table className="w-full text-left text-sm">
+              <table className="admin-data-table text-left text-sm">
                 <thead>
                   <tr className="border-b border-white/10 text-xs uppercase muted">
-                    <th className="py-2 pr-3">deal_id</th>
-                    <th className="py-2 pr-3">Инвойс</th>
-                    <th className="py-2 pr-3">Сумма</th>
-                    <th className="py-2 pr-3">Создан</th>
-                    <th className="py-2 pr-3">Действие</th>
+                    <th>deal_id</th>
+                    <th>Инвойс</th>
+                    <th>Сумма</th>
+                    <th>Создан</th>
+                    <th>Действие</th>
                   </tr>
                 </thead>
                 <tbody>
                   {pendingInvoicesQuery.data.invoices.map((inv) => (
                     <tr key={inv.id} className="border-b border-white/5">
-                      <td className="py-2 pr-3">
+                      <td>
                         <code className="text-xs">{inv.deal_id}</code>
                       </td>
-                      <td className="py-2 pr-3">
+                      <td>
                         <code className="text-xs">{displayId(inv.id, "#")}</code>
                       </td>
-                      <td className="py-2 pr-3">{formatMoney(inv.total_amount)}</td>
-                      <td className="py-2 pr-3 muted">{formatDateTime(inv.created_at)}</td>
-                      <td className="py-2 pr-3">
+                      <td>{formatMoney(inv.total_amount)}</td>
+                      <td className="muted">{formatDateTime(inv.created_at)}</td>
+                      <td>
                         <Button
                           type="button"
                           variant="secondary"
@@ -173,56 +173,67 @@ export default function AdminBillingPayoutsPage() {
           ) : null}
           {queueQuery.data?.payouts?.length ? (
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
+              <table className="admin-data-table admin-payout-table text-left text-sm">
+                <colgroup>
+                  <col />
+                  <col />
+                  <col />
+                  <col />
+                  <col />
+                  <col />
+                  <col />
+                  <col />
+                  <col />
+                </colgroup>
                 <thead>
                   <tr className="border-b border-white/10 text-xs uppercase muted">
-                    <th className="py-2 pr-3">Статус</th>
-                    <th className="py-2 pr-3">Продавец</th>
-                    <th className="py-2 pr-3">Покупатель</th>
-                    <th className="py-2 pr-3">Сумма</th>
-                    <th className="py-2 pr-3">Сделка</th>
-                    <th className="py-2 pr-3">Инвойс</th>
-                    <th className="py-2 pr-3">Аукцион</th>
-                    <th className="py-2 pr-3">Создана</th>
-                    <th className="py-2 pr-3">Действия</th>
+                    <th>Статус</th>
+                    <th>Продавец</th>
+                    <th>Покупатель</th>
+                    <th>Сумма</th>
+                    <th>Сделка</th>
+                    <th>Инвойс</th>
+                    <th>Аукцион</th>
+                    <th>Создана</th>
+                    <th>Действия</th>
                   </tr>
                 </thead>
                 <tbody>
                   {queueQuery.data.payouts.map((row) => (
                     <tr key={row.payout_id} className="border-b border-white/5 align-top">
-                      <td className="py-2 pr-3">
+                      <td>
                         <span className="font-medium">{payoutStatusLabel(row.status)}</span>
-                        <p className="muted text-xs">{invoiceHint(row)}</p>
+                        <p className="table-hint">{invoiceHint(row)}</p>
                       </td>
-                      <td className="py-2 pr-3">
+                      <td>
                         <div>{row.seller_company_name || displayId(row.seller_company_id, "")}</div>
                         <code className="text-xs muted">{row.seller_company_id}</code>
                       </td>
-                      <td className="py-2 pr-3">
+                      <td>
                         <div>{row.buyer_company_name || displayId(row.buyer_company_id, "")}</div>
                         <code className="text-xs muted">{row.buyer_company_id}</code>
                       </td>
-                      <td className="py-2 pr-3">
+                      <td>
                         {formatMoney(row.amount)} {row.currency}
                       </td>
-                      <td className="py-2 pr-3">
+                      <td>
                         <code className="text-xs">{row.deal_id}</code>
                       </td>
-                      <td className="py-2 pr-3">
+                      <td>
                         <div>{row.invoice_status || "—"}</div>
                         <code className="text-xs">{row.invoice_id}</code>
                       </td>
-                      <td className="py-2 pr-3">
+                      <td>
                         <code className="text-xs">{row.auction_id}</code>
                       </td>
-                      <td className="py-2 pr-3 text-xs">
+                      <td className="text-xs">
                         {formatDateTime(row.created_at)}
                         {row.ready_at ? <div className="muted">ready: {formatDateTime(row.ready_at)}</div> : null}
                         {row.paid_at ? <div className="muted">paid: {formatDateTime(row.paid_at)}</div> : null}
                         {row.failed_at ? <div className="muted">failed: {formatDateTime(row.failed_at)}</div> : null}
                       </td>
-                      <td className="py-2 pr-3">
-                        <div className="flex flex-col gap-1">
+                      <td>
+                        <div className="stack-sm">
                           {row.status === "PENDING" ? (
                             <Button
                               type="button"

@@ -95,47 +95,47 @@ export default function AdminBillingInvoicesPage() {
 
           {pendingQuery.data?.invoices?.length ? (
             <div className="mt-2 overflow-x-auto">
-              <table className="w-full text-left text-sm">
+              <table className="admin-data-table text-left text-sm">
                 <thead>
                   <tr className="border-b border-white/10 text-xs uppercase muted">
-                    <th className="py-2 pr-3">Сделка</th>
-                    <th className="py-2 pr-3">Инвойс</th>
-                    <th className="py-2 pr-3">Статус</th>
-                    <th className="py-2 pr-3">Покупатель</th>
-                    <th className="py-2 pr-3">Продавец</th>
-                    <th className="py-2 pr-3">Сумма</th>
-                    <th className="py-2 pr-3">Срок</th>
-                    <th className="py-2 pr-3">Создан</th>
-                    <th className="py-2 pr-3">Действие</th>
+                    <th>Сделка</th>
+                    <th>Инвойс</th>
+                    <th>Статус</th>
+                    <th>Покупатель</th>
+                    <th>Продавец</th>
+                    <th>Сумма</th>
+                    <th>Срок</th>
+                    <th>Создан</th>
+                    <th>Действие</th>
                   </tr>
                 </thead>
                 <tbody>
                   {pendingQuery.data.invoices.map((inv) => (
                     <tr key={inv.id} className="border-b border-white/5 align-top">
-                      <td className="py-2 pr-3">
+                      <td>
                         <Link className="underline" href={`/deals/${inv.deal_id}`}>
                           <code className="text-xs">{displayId(inv.deal_id, "")}</code>
                         </Link>
                         <div className="muted text-xs">аукцион {displayId(inv.auction_id, "")}</div>
                       </td>
-                      <td className="py-2 pr-3">
+                      <td>
                         <code className="text-xs">{displayId(inv.id, "")}</code>
                         {inv.provider ? <div className="muted text-xs">{inv.provider}</div> : null}
                       </td>
-                      <td className="py-2 pr-3">{invoiceStatusLabel(inv.status)}</td>
-                      <td className="py-2 pr-3">
+                      <td>{invoiceStatusLabel(inv.status)}</td>
+                      <td>
                         <code className="text-xs">{displayId(inv.buyer_company_id, "")}</code>
                       </td>
-                      <td className="py-2 pr-3">
+                      <td>
                         <code className="text-xs">{displayId(inv.seller_company_id, "")}</code>
                       </td>
-                      <td className="py-2 pr-3">
+                      <td>
                         {formatMoney(inv.total_amount)} <span className="muted">{inv.currency}</span>
                         <div className="muted text-xs">товары {formatMoney(inv.goods_amount)}</div>
                       </td>
-                      <td className="py-2 pr-3 muted">{formatDateTime(inv.due_at)}</td>
-                      <td className="py-2 pr-3 muted">{formatDateTime(inv.created_at)}</td>
-                      <td className="py-2 pr-3">
+                      <td className="muted">{formatDateTime(inv.due_at)}</td>
+                      <td className="muted">{formatDateTime(inv.created_at)}</td>
+                      <td>
                         <Button
                           type="button"
                           variant="secondary"
