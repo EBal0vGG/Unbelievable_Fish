@@ -6,15 +6,20 @@ import (
 )
 
 type AuctionSummary struct {
-	AuctionID       AuctionID
-	LotID           string
-	State           string
-	StartsAt        time.Time
-	EndsAt          time.Time
-	StartPrice      int64
-	CurrentPrice    int64
-	MinBidStep      int64
-	LeaderCompanyID string
+	AuctionID                  AuctionID
+	LotID                      string
+	State                      string
+	StartsAt                   time.Time
+	EndsAt                     time.Time
+	StartPrice                 int64
+	CurrentPrice               int64
+	MinBidStep                 int64
+	LeaderCompanyID            string
+	ChainResultHash            string
+	ChainFinalizeTxHash        string
+	ChainFinalizeStatus        string
+	ChainFinalizeWalletAddress string
+	ChainFinalizeBlockNumber   int64
 }
 
 type AuctionReadRepository interface {

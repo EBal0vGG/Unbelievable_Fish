@@ -108,6 +108,11 @@ export interface AuctionRecord {
   finalPrice?: number;
   leaderCompanyId?: string;
   winnerCompanyId?: string;
+  chainResultHash?: string;
+  chainFinalizeTxHash?: string;
+  chainFinalizeStatus?: string;
+  chainFinalizeWalletAddress?: string;
+  chainFinalizeBlockNumber?: number;
   source: DataSource;
   statusNote?: string;
 }
@@ -117,6 +122,11 @@ export interface BidRecord {
   bidderCompanyId: string;
   amount: number;
   placedAt: string;
+  chainBidHash?: string;
+  chainTxHash?: string;
+  chainStatus?: string;
+  chainWalletAddress?: string;
+  chainBlockNumber?: number;
   source: DataSource;
 }
 

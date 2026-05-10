@@ -132,6 +132,14 @@ export default function AuctionDetailsPage() {
                 <span>Победитель</span>
                 <strong title={auction.winnerCompanyId}>{auction.winnerCompanyId ? displayCompany(auction.winnerCompanyId) : "—"}</strong>
               </div>
+              <div>
+                <span>Chain status</span>
+                <strong>{auction.chainFinalizeStatus || "—"}</strong>
+              </div>
+              <div>
+                <span>Chain tx</span>
+                <strong title={auction.chainFinalizeTxHash}>{auction.chainFinalizeTxHash ? shortId(auction.chainFinalizeTxHash) : "—"}</strong>
+              </div>
             </div>
           </div>
         </Card>
@@ -205,6 +213,7 @@ export default function AuctionDetailsPage() {
                     <th>Компания</th>
                     <th>Сумма</th>
                     <th>Время</th>
+                    <th>Chain</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -213,6 +222,7 @@ export default function AuctionDetailsPage() {
                       <td title={bid.bidderCompanyId}>{displayCompany(bid.bidderCompanyId)}</td>
                       <td>{formatMoney(bid.amount)}</td>
                       <td>{formatDateTime(bid.placedAt)}</td>
+                      <td title={bid.chainTxHash}>{bid.chainStatus ?? "—"}</td>
                     </tr>
                   ))}
                 </tbody>

@@ -52,6 +52,23 @@ json_get() {
   python3 -c 'import json,sys; obj=json.loads(sys.argv[1]); print(obj[sys.argv[2]])' "$1" "$2"
 }
 
+utc_now() {
+  python3 - <<'PY'
+from datetime import datetime, timezone
+print(datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"))
+PY
+}
+
+utc_minus_minutes() {
+  local minutes="$1"
+  python3 - "$minutes" <<'PY'
+from datetime import datetime, timedelta, timezone
+import sys
+minutes = int(sys.argv[1])
+print((datetime.now(timezone.utc) - timedelta(minutes=minutes)).strftime("%Y-%m-%dT%H:%M:%SZ"))
+PY
+}
+
 gen_requisites() {
   python3 - <<'PY'
 import random
@@ -153,7 +170,7 @@ product_resp="$(curl -s -X POST "$CATALOG_URL/products" -H "Content-Type: applic
 product_id="$(json_get "$product_resp" "product_id")"
 curl -s -X POST "$CATALOG_URL/products/$product_id/publish" >/dev/null
 
-starts_at="$(date -u -d "-1 min" +%Y-%m-%dT%H:%M:%SZ)"
+starts_at="$(utc_minus_minutes 1)"
 lot_resp="$(curl -s -X POST "$CATALOG_URL/lots" \
   -H "Authorization: Bearer $seller_token" \
   -H "Content-Type: application/json" \
@@ -208,7 +225,7 @@ late_code="$(curl -s -o /tmp/e2e_late.out -w "%{http_code}" -X POST "$TRADING_UR
   -H "Content-Type: application/json" \
   -d "{\"amount\":130,\"placed_at\":\"2099-01-01T00:00:00Z\"}")"
 
-starts_at_2="$(date -u -d "-1 min" +%Y-%m-%dT%H:%M:%SZ)"
+starts_at_2="$(utc_minus_minutes 1)"
 lot2_resp="$(curl -s -X POST "$CATALOG_URL/lots" \
   -H "Authorization: Bearer $seller_token" \
   -H "Content-Type: application/json" \

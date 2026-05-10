@@ -229,8 +229,14 @@ func (c *combinedConn) ExecContext(_ context.Context, query string, args []drive
 		return c.execCatalogLotInsert(args)
 	case strings.Contains(query, "INSERT INTO trading_auctions"):
 		return c.execTradingAuctionInsert(args)
+	case strings.Contains(query, "INSERT INTO trading_chain_operations"):
+		return driver.RowsAffected(1), nil
 	case strings.Contains(query, "INSERT INTO trading_bids"):
 		return c.execTradingBidInsert(args)
+	case strings.Contains(query, "UPDATE trading_bids") && strings.Contains(query, "chain_bid_hash"):
+		return driver.RowsAffected(1), nil
+	case strings.Contains(query, "UPDATE trading_auctions") && strings.Contains(query, "chain_finalize_status"):
+		return driver.RowsAffected(1), nil
 	case strings.Contains(query, "DELETE FROM trading_auction_winners"):
 		return c.execTradingWinnersDelete(args)
 	case strings.Contains(query, "INSERT INTO trading_auction_winners"):
@@ -256,6 +262,8 @@ func (c *combinedConn) QueryContext(_ context.Context, query string, args []driv
 	switch {
 	case strings.Contains(query, "UPDATE outbox_messages") && strings.Contains(query, "locked_at"):
 		return c.queryOutboxWithLock(args)
+	case strings.Contains(query, "FROM trading_chain_operations") && strings.Contains(query, "MAX(op_nonce)"):
+		return &combinedRows{values: [][]driver.Value{{int64(0)}}}, nil
 	}
 	if len(args) != 1 {
 		return nil, errors.New("unexpected query args length")

@@ -85,6 +85,17 @@ func (uc *PublishAuction) Execute(ctx context.Context, meta CommandMeta, id Auct
 		if err := tx.Auctions().Save(ctx, a); err != nil {
 			return err
 		}
+		if chainTx, ok := tx.(chainOpsTx); ok {
+			if err := chainTx.ChainOps().EnqueueAuctionCreate(ctx, EnqueueAuctionCreateInput{
+				AuctionID:      id,
+				AuctionRefHash: buildAuctionRefHash(id),
+				StartsAt:       a.StartsAt(),
+				EndsAt:         a.EndsAt(),
+				MinBidStep:     a.MinBidStep(),
+			}); err != nil {
+				return err
+			}
+		}
 		if len(events) == 0 {
 			return nil
 		}
@@ -95,6 +106,14 @@ func (uc *PublishAuction) Execute(ctx context.Context, meta CommandMeta, id Auct
 type PlaceBid struct {
 	uow      UnitOfWork
 	deposits DepositService
+}
+
+type PlaceBidResult struct {
+	AuctionID          AuctionID
+	BidHash            string
+	ChainStatus        string
+	ChainTxHash        string
+	ChainWalletAddress string
 }
 
 func NewPlaceBid(uow UnitOfWork, deposits DepositService) (*PlaceBid, error) {
@@ -117,7 +136,19 @@ func (uc *PlaceBid) Execute(
 	amount int64,
 	placedAt time.Time,
 ) error {
-	return uc.uow.Do(ctx, func(tx Tx) error {
+	_, err := uc.ExecuteWithResult(ctx, meta, id, amount, placedAt)
+	return err
+}
+
+func (uc *PlaceBid) ExecuteWithResult(
+	ctx context.Context,
+	meta CommandMeta,
+	id AuctionID,
+	amount int64,
+	placedAt time.Time,
+) (*PlaceBidResult, error) {
+	var result *PlaceBidResult
+	err := uc.uow.Do(ctx, func(tx Tx) error {
 		a, err := tx.Auctions().LoadForUpdate(ctx, id)
 		if err != nil {
 			return err
@@ -139,11 +170,33 @@ func (uc *PlaceBid) Execute(
 		if err := tx.Auctions().Save(ctx, a); err != nil {
 			return err
 		}
+		bidHash := buildBidHash(id, bid.BidderCompanyID(), bid.Amount(), bid.PlacedAt())
+		if chainTx, ok := tx.(chainOpsTx); ok {
+			if err := chainTx.ChainOps().EnqueueBidAnchor(ctx, EnqueueBidAnchorInput{
+				AuctionID:       id,
+				AuctionRefHash:  buildAuctionRefHash(id),
+				BidHash:         bidHash,
+				BidderCompanyID: bid.BidderCompanyID(),
+				Amount:          bid.Amount(),
+				PlacedAt:        bid.PlacedAt(),
+			}); err != nil {
+				return err
+			}
+		}
+		result = &PlaceBidResult{
+			AuctionID:   id,
+			BidHash:     bidHash,
+			ChainStatus: "PENDING_SUBMIT",
+		}
 		if len(events) == 0 {
 			return nil
 		}
 		return tx.Outbox().Add(WithCommandMeta(ctx, meta), events)
 	})
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
 }
 
 type CloseAuction struct {
@@ -178,6 +231,19 @@ func (uc *CloseAuction) Execute(ctx context.Context, meta CommandMeta, id Auctio
 		}
 		if err := tx.Auctions().Save(ctx, a); err != nil {
 			return err
+		}
+		if winnerCompanyID, finalPrice, ok := a.Winner(); ok {
+			if chainTx, ok := tx.(chainOpsTx); ok {
+				if err := chainTx.ChainOps().EnqueueAuctionFinalize(ctx, EnqueueAuctionFinalizeInput{
+					AuctionID:       id,
+					AuctionRefHash:  buildAuctionRefHash(id),
+					ResultHash:      buildFinalizeResultHash(id, winnerCompanyID, finalPrice),
+					WinnerCompanyID: winnerCompanyID,
+					FinalPrice:      finalPrice,
+				}); err != nil {
+					return err
+				}
+			}
 		}
 		if len(events) == 0 {
 			return nil
