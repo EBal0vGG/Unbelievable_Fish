@@ -41,6 +41,7 @@ func main() {
 	if err != nil {
 		logging.Fatal(logger, "register_company_usecase_init_failed", "error", err)
 	}
+	registerCompanyUC.WithCompanyVerifier(identityapp.NewNoopCompanyVerifier())
 	registerUserUC, err := identityapp.NewRegisterUser(userRepo, companyRepo, passwordHasher, identityapp.NewRandomIDGenerator(), nil, txManager, outboxRepo)
 	if err != nil {
 		logging.Fatal(logger, "register_user_usecase_init_failed", "error", err)

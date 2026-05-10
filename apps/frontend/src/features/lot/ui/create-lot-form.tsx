@@ -16,6 +16,7 @@ import { formatMoney, toDateTimeLocalValue } from "@/shared/lib/format";
 import { Button } from "@/shared/ui/button";
 import { EntityPhoto } from "@/shared/ui/entity-photo";
 import { Field } from "@/shared/ui/field";
+import { FormSection } from "@/shared/ui/form-section";
 import { Input } from "@/shared/ui/input";
 import { Notice } from "@/shared/ui/notice";
 import { Select } from "@/shared/ui/select";
@@ -184,7 +185,7 @@ export function CreateLotForm() {
 
   return (
     <div className="page-stack">
-      <section className="page-hero compact-hero">
+      <section className="workspace-page-header">
         <div>
           <p className="eyebrow">Новая поставка</p>
           <h1>Создать лот</h1>
@@ -213,7 +214,7 @@ export function CreateLotForm() {
             <span>Стартовая стоимость партии</span>
             <strong>{formatMoney(quantity * startPrice)}</strong>
           </div>
-          <div className="supply-panel stack-md">
+          <div className="supply-panel stack-md compact-card">
             <div>
               <p className="eyebrow">Выбранный продукт</p>
               <h2>{selectedProduct?.fishName ?? "Продукт не выбран"}</h2>
@@ -227,12 +228,16 @@ export function CreateLotForm() {
         </aside>
 
         <div className="stack-lg">
-          <section className="supply-panel stack-lg">
-            <div>
-              <p className="eyebrow">Продукт</p>
-              <h2>Быстрое создание</h2>
-              <p className="muted">Создайте позицию каталога и используйте ее в лоте без перехода на другую страницу.</p>
-            </div>
+          <div className="wizard-steps" aria-label="Шаги создания лота">
+            <span className="wizard-step-active">1. Продукт</span>
+            <span>2. Партия</span>
+            <span>3. Торги</span>
+            <span>4. Публикация</span>
+          </div>
+          <FormSection
+            title="1. Продукт"
+            description="Создайте позицию каталога и используйте ее в лоте без перехода на другую страницу."
+          >
 
             {productError ? (
               <Notice tone="warning" title="Не удалось создать продукт">
@@ -290,14 +295,13 @@ export function CreateLotForm() {
                 </Button>
               </div>
             </form>
-          </section>
+          </FormSection>
 
-          <section className="supply-panel stack-lg">
-            <div>
-              <p className="eyebrow">Лот</p>
-              <h2>Параметры партии</h2>
-              <p className="muted">Фото будет показано в карточке лота и на странице аукциона.</p>
-            </div>
+          <form className="stack-lg" onSubmit={lotForm.handleSubmit((values) => lotMutation.mutate(values))}>
+            <FormSection
+              title="2. Партия"
+              description="Выберите продукт, объем и фото партии. Фото будет показано в карточке лота и на странице аукциона."
+            >
 
             {lotError ? (
               <Notice tone="warning" title="Не удалось создать лот">
@@ -311,7 +315,7 @@ export function CreateLotForm() {
               </Notice>
             ) : null}
 
-            <form className="form-grid-2" onSubmit={lotForm.handleSubmit((values) => lotMutation.mutate(values))}>
+            <div className="form-grid-2">
               <Field className="form-grid-full" label="Продукт" error={lotForm.formState.errors.productId?.message}>
                 <div className="stack-md">
                   <div className="inline-actions inline-actions-start">
@@ -356,6 +360,11 @@ export function CreateLotForm() {
               <Field label="Стартовая цена" error={lotForm.formState.errors.startPrice?.message}>
                 <Input type="number" {...lotForm.register("startPrice")} />
               </Field>
+            </div>
+            </FormSection>
+
+            <FormSection title="3. Параметры торгов" description="Настройте минимальный шаг и окно приема ставок.">
+            <div className="form-grid-2">
               <Field label="Мин. шаг ставки" error={lotForm.formState.errors.minBidStep?.message}>
                 <Input type="number" {...lotForm.register("minBidStep")} />
               </Field>
@@ -365,6 +374,11 @@ export function CreateLotForm() {
               <Field label="Длительность, минут" error={lotForm.formState.errors.auctionDurationMinutes?.message}>
                 <Input type="number" {...lotForm.register("auctionDurationMinutes")} />
               </Field>
+            </div>
+            </FormSection>
+
+            <FormSection title="4. Публикация" description="Публикация запускает дальнейшую integration-цепочку торгов.">
+            <div className="form-grid-2">
               <label className="checkbox form-grid-full">
                 <input type="checkbox" {...lotForm.register("publishLot")} />
                 <span>Опубликовать лот после создания</span>
@@ -377,8 +391,9 @@ export function CreateLotForm() {
                   {lotMutation.isPending ? "Сохраняем..." : "Создать лот"}
                 </Button>
               </div>
-            </form>
-          </section>
+            </div>
+            </FormSection>
+          </form>
         </div>
       </div>
     </div>

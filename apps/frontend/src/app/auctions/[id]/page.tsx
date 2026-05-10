@@ -8,6 +8,7 @@ import { useFishCatalogQuery } from "@/entities/fish/model/hooks";
 import { useLotsQuery, useProductsQuery } from "@/entities/lot/model/hooks";
 import { PlaceBidForm } from "@/features/auction/ui/place-bid-form";
 import { useAuth } from "@/entities/session/model/auth-context";
+import { displayCompany, displayId, displayText } from "@/shared/lib/display";
 import { formatDateTime, formatMoney, shortId } from "@/shared/lib/format";
 import { auctionStateLabels } from "@/shared/lib/labels";
 import { getAuctionEffectiveCurrentPrice } from "@/shared/lib/trading-domain";
@@ -71,9 +72,9 @@ export default function AuctionDetailsPage() {
       <div className="section-heading">
         <div className="page-heading">
           <p className="eyebrow">Аукцион</p>
-          <h1>{shortId(auction.id)}</h1>
+          <h1>{productTitle}</h1>
           <p className="muted">
-            {auctionStateLabels[auction.state]} · лот {shortId(auction.lotId)}
+            {auctionStateLabels[auction.state]} · {displayId(auction.id, "Аукцион #")} · лот {shortId(auction.lotId)}
           </p>
         </div>
         <Button onClick={() => auctionQuery.refetch()} variant="secondary" type="button">
@@ -93,7 +94,7 @@ export default function AuctionDetailsPage() {
             <div className="metric-grid">
               <div>
                 <span>Продавец</span>
-                <strong>{sellerCompanyId ?? "н/д"}</strong>
+                <strong title={sellerCompanyId}>{displayCompany(sellerCompanyId)}</strong>
               </div>
               <div>
                 <span>Лот</span>
@@ -125,11 +126,11 @@ export default function AuctionDetailsPage() {
               </div>
               <div>
                 <span>Лидер</span>
-                <strong>{auction.leaderCompanyId ?? "н/д"}</strong>
+                <strong title={auction.leaderCompanyId}>{auction.leaderCompanyId ? displayCompany(auction.leaderCompanyId) : "—"}</strong>
               </div>
               <div>
                 <span>Победитель</span>
-                <strong>{auction.winnerCompanyId ?? "н/д"}</strong>
+                <strong title={auction.winnerCompanyId}>{auction.winnerCompanyId ? displayCompany(auction.winnerCompanyId) : "—"}</strong>
               </div>
             </div>
           </div>
@@ -166,25 +167,25 @@ export default function AuctionDetailsPage() {
             <div className="metric-grid">
               <div>
                 <span>Рыба</span>
-                <strong>{product?.fishName ?? projection?.productSnapshot.name ?? "н/д"}</strong>
+                <strong>{displayText(product?.fishName ?? projection?.productSnapshot.name)}</strong>
               </div>
               <div>
                 <span>Обработка</span>
-                <strong>{product?.processingType ?? projection?.productSnapshot.processingType ?? "н/д"}</strong>
+                <strong>{displayText(product?.processingType ?? projection?.productSnapshot.processingType)}</strong>
               </div>
               <div>
                 <span>Размер</span>
-                <strong>{product?.size ?? projection?.productSnapshot.size ?? "н/д"}</strong>
+                <strong>{displayText(product?.size ?? projection?.productSnapshot.size)}</strong>
               </div>
               <div>
                 <span>Вес</span>
                 <strong>
-                  {product ? `${product.weight} ${product.unit}` : projection ? `${projection.productSnapshot.weight} ${projection.productSnapshot.unit}` : "н/д"}
+                  {product ? `${product.weight} ${product.unit}` : projection ? `${projection.productSnapshot.weight} ${projection.productSnapshot.unit}` : "—"}
                 </strong>
               </div>
               <div>
                 <span>Продавец</span>
-                <strong>{sellerCompanyId ?? "н/д"}</strong>
+                <strong title={sellerCompanyId}>{displayCompany(sellerCompanyId)}</strong>
               </div>
               <div>
                 <span>Лот</span>
@@ -209,7 +210,7 @@ export default function AuctionDetailsPage() {
                 <tbody>
                   {bids.map((bid, index) => (
                     <tr key={`${bid.auctionId}-${bid.bidderCompanyId}-${bid.amount}-${bid.placedAt}-${index}`}>
-                      <td>{bid.bidderCompanyId}</td>
+                      <td title={bid.bidderCompanyId}>{displayCompany(bid.bidderCompanyId)}</td>
                       <td>{formatMoney(bid.amount)}</td>
                       <td>{formatDateTime(bid.placedAt)}</td>
                     </tr>
@@ -235,7 +236,7 @@ export default function AuctionDetailsPage() {
                 </div>
                 <div>
                   <span>Поставщик</span>
-                  <strong>{projection.supplierId}</strong>
+                  <strong title={projection.supplierId}>{displayCompany(projection.supplierId)}</strong>
                 </div>
                 <div>
                   <span>Дата публикации</span>
@@ -252,7 +253,7 @@ export default function AuctionDetailsPage() {
                 <div className="metric-grid">
                   <div>
                     <span>Сделка</span>
-                    <strong>{deal.id}</strong>
+                    <strong title={deal.id}>{displayId(deal.id, "#")}</strong>
                   </div>
                   <div>
                     <span>Статус</span>
@@ -264,7 +265,7 @@ export default function AuctionDetailsPage() {
                   </div>
                   <div>
                     <span>Покупатель</span>
-                    <strong>{deal.customerId}</strong>
+                    <strong title={deal.customerId}>{displayCompany(deal.customerId)}</strong>
                   </div>
                 </div>
                 <Link className="text-link" href={`/deals/${deal.id}`}>

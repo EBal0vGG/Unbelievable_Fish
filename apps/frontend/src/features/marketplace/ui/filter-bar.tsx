@@ -61,12 +61,12 @@ export function FilterBar({
         </Field>
       ) : null}
       {showSource ? (
-        <Field label="Источник">
+        <Field label="Данные">
           <Select value={source} onChange={(event) => onSourceChange(event.target.value)}>
             <option value="all">Все</option>
-            <option value="api">Синхронизировано</option>
-            <option value="mock">Локальные данные</option>
-            <option value="mixed">Частично синхронизировано</option>
+            <option value="api">Платформа</option>
+            <option value="mock">Демо-данные</option>
+            <option value="mixed">Платформа и демо</option>
           </Select>
         </Field>
       ) : null}

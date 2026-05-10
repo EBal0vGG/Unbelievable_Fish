@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Badge } from "@/shared/ui/badge";
 import { buttonStyles } from "@/shared/ui/button";
 import { Card } from "@/shared/ui/card";
+import { displayCompany } from "@/shared/lib/display";
 import { formatDateTime, formatMoney, shortId } from "@/shared/lib/format";
 import type { DealRecord, DealStatus } from "@/shared/types/domain";
 
@@ -57,9 +58,9 @@ export function DealCard({ deal, viewerCompanyId }: { deal: DealRecord; viewerCo
       </div>
 
       <div className="deal-flow">
-        <span className="deal-party">{deal.supplierId}</span>
+        <span className="deal-party" title={deal.supplierId}>{displayCompany(deal.supplierId)}</span>
         <span className="deal-arrow">→</span>
-        <span className="deal-party">{deal.customerId}</span>
+        <span className="deal-party" title={deal.customerId}>{displayCompany(deal.customerId)}</span>
       </div>
 
       <div className="metric-grid">

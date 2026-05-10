@@ -3,17 +3,23 @@
 import { useDeferredValue, useMemo, useState } from "react";
 
 import { useAuctionsQuery } from "@/entities/auction/model/hooks";
-import { AuctionCard } from "@/entities/auction/ui/auction-card";
 import { useFishCatalogQuery } from "@/entities/fish/model/hooks";
 import { useLotsQuery, useProductsQuery } from "@/entities/lot/model/hooks";
 import { useAuth } from "@/entities/session/model/auth-context";
 import { FilterBar } from "@/features/marketplace/ui/filter-bar";
 import { isSellerSession } from "@/shared/lib/access";
+import { displayCompany } from "@/shared/lib/display";
+import { formatDateTime, formatMoney, shortId } from "@/shared/lib/format";
 import { auctionStateLabels } from "@/shared/lib/labels";
-import { Card } from "@/shared/ui/card";
+import { buttonStyles } from "@/shared/ui/button";
 import { EmptyState } from "@/shared/ui/empty-state";
 import { Field } from "@/shared/ui/field";
+import { PageHeader } from "@/shared/ui/page-header";
+import { SectionCard } from "@/shared/ui/section-card";
 import { Select } from "@/shared/ui/select";
+import { StatCard } from "@/shared/ui/stat-card";
+import { StatusBadge } from "@/shared/ui/status-badge";
+import Link from "next/link";
 
 export default function AuctionsPage() {
   const { session } = useAuth();
@@ -82,89 +88,120 @@ export default function AuctionsPage() {
 
   return (
     <div className="page-stack">
-      <section className="page-hero compact-hero">
-        <div>
-          <p className="eyebrow">Аукционы</p>
-          <h1>Торги</h1>
-          <p className="hero-copy">
-            Актуальные торговые сессии с синхронизацией статуса по времени завершения и backend read-model.
-          </p>
-        </div>
-      </section>
-
-      <section className="stats-grid">
-        <Card className="stat-card stat-card-primary">
-          <span>Идет прием ставок</span>
-          <strong>{totals.active}</strong>
-        </Card>
-        <Card className="stat-card">
-          <span>Завершены</span>
-          <strong>{totals.finished}</strong>
-        </Card>
-        <Card className="stat-card">
-          <span>Отменены</span>
-          <strong>{totals.cancelled}</strong>
-        </Card>
-        <Card className="stat-card">
-          <span>Продавцы</span>
-          <strong>{totals.sellers}</strong>
-        </Card>
-      </section>
-
-      <div className="section-heading">
-        <p className="eyebrow">Аукционы</p>
-        <h2>Поиск и фильтры</h2>
-      </div>
-
-      <FilterBar
-        search={search}
-        onSearchChange={setSearch}
-        status={status}
-        onStatusChange={setStatus}
-        statusOptions={[
-          { label: "Все статусы", value: "all" },
-          { label: auctionStateLabels.DRAFT, value: "DRAFT" },
-          { label: auctionStateLabels.PUBLISHED, value: "PUBLISHED" },
-          { label: auctionStateLabels.CLOSED, value: "CLOSED" },
-          { label: auctionStateLabels.WON, value: "WON" },
-          { label: auctionStateLabels.CANCELLED, value: "CANCELLED" },
-        ]}
-        source="all"
-        onSourceChange={() => undefined}
-        showSource={false}
-        searchPlaceholder="Номер аукциона, лот, продукт или компания"
-        extraFilters={
-          <Field label="Продавец">
-            <Select value={sellerFilter} onChange={(event) => setSellerFilter(event.target.value)}>
-              <option value="all">Все</option>
-              {sellerOptions.map((sellerId) => (
-                <option key={sellerId} value={sellerId}>
-                  {sellerId}
-                </option>
-              ))}
-            </Select>
-          </Field>
+      <PageHeader
+        compact
+        eyebrow="Аукционы"
+        title="Торги"
+        description="Биржевая лента торговых сессий с текущими ставками, продавцами и статусами."
+        metrics={
+          <>
+            <div>
+              <span>Активные</span>
+              <strong>{totals.active}</strong>
+            </div>
+            <div>
+              <span>Продавцы</span>
+              <strong>{totals.sellers}</strong>
+            </div>
+          </>
         }
       />
 
-      {items.length ? (
-        <div className="card-grid card-grid-2">
-          {items.map((item) => {
-            const lot = lotMap.get(item.lotId);
-            const product = lot ? productMap.get(lot.productId) : undefined;
+      <section className="stats-grid">
+        <StatCard tone="primary" label="Идет прием ставок" value={totals.active} />
+        <StatCard label="Завершены" value={totals.finished} />
+        <StatCard label="Отменены" value={totals.cancelled} />
+        <StatCard tone="accent" label="Продавцы" value={totals.sellers} />
+      </section>
 
-            return (
-              <AuctionCard
-                key={item.id}
-                auction={item}
-                fishName={product?.fishName}
-                productLabel={lot?.productLabel}
-                photo={lot?.photo}
-                sellerCompanyId={item.sellerCompanyId ?? lot?.sellerCompanyId}
-              />
-            );
-          })}
-        </div>
+      <SectionCard eyebrow="Аукционы" title="Поиск и фильтры">
+        <FilterBar
+          search={search}
+          onSearchChange={setSearch}
+          status={status}
+          onStatusChange={setStatus}
+          statusOptions={[
+            { label: "Все статусы", value: "all" },
+            { label: auctionStateLabels.DRAFT, value: "DRAFT" },
+            { label: auctionStateLabels.PUBLISHED, value: "PUBLISHED" },
+            { label: auctionStateLabels.CLOSED, value: "CLOSED" },
+            { label: auctionStateLabels.WON, value: "WON" },
+            { label: auctionStateLabels.CANCELLED, value: "CANCELLED" },
+          ]}
+          source="all"
+          onSourceChange={() => undefined}
+          showSource={false}
+          searchPlaceholder="Номер аукциона, лот, продукт или компания"
+          extraFilters={
+            <Field label="Продавец">
+              <Select value={sellerFilter} onChange={(event) => setSellerFilter(event.target.value)}>
+                <option value="all">Все</option>
+                {sellerOptions.map((sellerId) => (
+                  <option key={sellerId} value={sellerId}>
+                    {sellerId}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          }
+        />
+      </SectionCard>
+
+      {items.length ? (
+        <section className="data-panel auction-feed">
+          <div className="data-list">
+            {items.map((item) => {
+              const lot = lotMap.get(item.lotId);
+              const product = lot ? productMap.get(lot.productId) : undefined;
+              const rowTone =
+                item.state === "PUBLISHED"
+                  ? "data-row-active"
+                  : item.state === "CANCELLED"
+                    ? "data-row-cancelled"
+                    : "data-row-complete";
+
+              return (
+                <div className={`data-row ${rowTone}`} key={item.id}>
+                  <div className="auction-thumb">
+                    {lot?.photo ? (
+                      <img alt={lot.productLabel} src={lot.photo} />
+                    ) : (
+                      <span>{product?.fishName?.slice(0, 2).toUpperCase() ?? "UF"}</span>
+                    )}
+                  </div>
+                  <div className="data-row-main">
+                    <h3>{lot?.productLabel ?? product?.fishName ?? `Аукцион ${shortId(item.id)}`}</h3>
+                    <p>Сессия #{shortId(item.id)} · лот {shortId(item.lotId)}</p>
+                  </div>
+                  <div className="data-cell">
+                    <span>Статус</span>
+                    <strong>
+                      <StatusBadge status={item.state} label={auctionStateLabels[item.state]} />
+                    </strong>
+                  </div>
+                  <div className="data-cell">
+                    <span>Цена</span>
+                    <strong>{formatMoney(item.currentPrice ?? item.finalPrice)}</strong>
+                  </div>
+                  <div className="data-cell">
+                    <span>Продавец / окончание</span>
+                    <strong>
+                      {displayCompany(item.sellerCompanyId ?? lot?.sellerCompanyId)} · {formatDateTime(item.endsAt)}
+                    </strong>
+                  </div>
+                  <div className="data-actions">
+                    <Link
+                      className={buttonStyles({ variant: "secondary", size: "sm" })}
+                      href={`/auctions/${item.id}`}
+                    >
+                      Открыть аукцион
+                    </Link>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
       ) : (
         <EmptyState
           title="Аукционы не найдены"

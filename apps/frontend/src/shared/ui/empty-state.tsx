@@ -8,14 +8,19 @@ export function EmptyState({
   description,
   actionHref,
   actionLabel,
+  framed = true,
 }: {
   title: string;
   description: string;
   actionHref?: string;
   actionLabel?: string;
+  framed?: boolean;
 }) {
-  return (
-    <Card className="empty-state">
+  const content = (
+    <>
+      <div aria-hidden="true" className="empty-state-icon">
+        <span />
+      </div>
       <h3>{title}</h3>
       <p>{description}</p>
       {actionHref && actionLabel ? (
@@ -23,6 +28,12 @@ export function EmptyState({
           {actionLabel}
         </Link>
       ) : null}
-    </Card>
+    </>
+  );
+
+  return framed ? (
+    <Card className="empty-state">{content}</Card>
+  ) : (
+    <div className="empty-state empty-state-inline">{content}</div>
   );
 }

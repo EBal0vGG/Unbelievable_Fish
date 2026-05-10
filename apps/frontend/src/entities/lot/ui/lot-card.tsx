@@ -1,22 +1,10 @@
-import { Badge } from "@/shared/ui/badge";
 import { Card } from "@/shared/ui/card";
 import { EntityPhoto } from "@/shared/ui/entity-photo";
+import { displayCompany } from "@/shared/lib/display";
 import { formatDateTime, formatMoney } from "@/shared/lib/format";
 import { lotStatusLabels } from "@/shared/lib/labels";
+import { StatusBadge } from "@/shared/ui/status-badge";
 import type { LotRecord } from "@/shared/types/domain";
-
-function lotTone(status: LotRecord["status"]) {
-  switch (status) {
-    case "PUBLISHED":
-      return "success";
-    case "CLOSED":
-      return "info";
-    case "CANCELLED":
-      return "danger";
-    default:
-      return "warning";
-  }
-}
 
 export function LotCard({ lot }: { lot: LotRecord }) {
   return (
@@ -27,7 +15,7 @@ export function LotCard({ lot }: { lot: LotRecord }) {
           <p className="eyebrow">Лот</p>
           <h3>{lot.productLabel}</h3>
         </div>
-        <Badge tone={lotTone(lot.status)}>{lotStatusLabels[lot.status]}</Badge>
+        <StatusBadge status={lot.status} label={lotStatusLabels[lot.status]} />
       </div>
       <div className="metric-grid">
         <div>
@@ -44,12 +32,16 @@ export function LotCard({ lot }: { lot: LotRecord }) {
         </div>
         <div>
           <span>Компания</span>
-          <strong>{lot.sellerCompanyId}</strong>
+          <strong title={lot.sellerCompanyId}>{displayCompany(lot.sellerCompanyId)}</strong>
         </div>
         <div>
           <span>Старт торгов</span>
           <strong>{formatDateTime(lot.auctionStartsAt)}</strong>
         </div>
+      </div>
+      <div className="entity-card-footer">
+        <span>{lot.auctionId ? "Связан с аукционом" : "Аукцион не создан"}</span>
+        <strong>{lot.auctionId ?? "ожидает публикации"}</strong>
       </div>
     </Card>
   );
