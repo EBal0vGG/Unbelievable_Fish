@@ -40,6 +40,7 @@ WAVE_SLEEP_MS="${WAVE_SLEEP_MS:-200}"
 CATALOG_URL="${CATALOG_URL:-http://localhost:8081}"
 TRADING_URL="${TRADING_URL:-http://localhost:8082}"
 IDENTITY_URL="${IDENTITY_URL:-http://localhost:8084}"
+BILLING_URL="${BILLING_URL:-http://localhost:8085/billing}"
 
 PGUSER="${PGUSER:-fish}"
 PGDATABASE="${PGDATABASE:-fish}"
@@ -52,6 +53,12 @@ BIDS_PER_AUCTION="${BIDS_PER_AUCTION:-20}"
 INVALID_BIDS="${INVALID_BIDS:-5}"
 POST_CLOSE_BIDS="${POST_CLOSE_BIDS:-5}"
 CONCURRENT_BIDS="${CONCURRENT_BIDS:-1}"
+
+# Registered buyer JWTs (bids require Authorization like production). Default pool size covers sequential + concurrent modulo.
+_pool_default="$BIDS_PER_AUCTION"
+if (( LOT_COUNT > _pool_default )); then _pool_default=$LOT_COUNT; fi
+if (( 32 > _pool_default )); then _pool_default=32; fi
+NUM_STRESS_BIDDERS="${NUM_STRESS_BIDDERS:-$_pool_default}"
 
 # Stress scenario should not race with scheduler. Use a comfortably long duration.
 AUCTION_DURATION_MINUTES="${AUCTION_DURATION_MINUTES:-10}"
@@ -187,12 +194,28 @@ stress_login_token() {
   json_get "$resp" "token"
 }
 
+billing_test_topup() {
+  local token="$1"
+  local amount="$2"
+  curl_cmd -sS -o /dev/null -w "%{http_code}" -X POST "$BILLING_URL/accounts/me/top-up/test" \
+    -H "Authorization: Bearer $token" \
+    -H "Content-Type: application/json" \
+    -d "{\"amount\":$amount}"
+}
+
 require_catalog_up() {
   local code ec=0
   code="$(curl_cmd -sS -o /dev/null -w "%{http_code}" "$CATALOG_URL/health")" || ec=$?
   if [[ $ec -ne 0 || "$code" != "200" ]]; then
     echo "Catalog is not reachable at $CATALOG_URL (GET /health -> HTTP ${code:-?}, curl exit $ec)." >&2
     echo "Start stack: START_COMPOSE=1 ./scripts/demo_stress.sh   or   docker compose up -d" >&2
+    exit 1
+  fi
+}
+
+require_billing_up() {
+  if [[ -z "$(docker compose ps -q billing 2>/dev/null || true)" ]]; then
+    echo "Billing service is not running. Start stack: docker compose up -d billing" >&2
     exit 1
   fi
 }
@@ -251,6 +274,7 @@ fi
 
 banner "Create fish and product"
 require_catalog_up
+require_billing_up
 fish_id="$(catalog_demo_fish_id "$CATALOG_URL")"
 
 stress_suffix="$(date +%s)"
@@ -260,6 +284,22 @@ stress_seller_login="stress.seller.$stress_suffix@example.com"
 stress_password="secret123"
 stress_register_user "$stress_seller_company_id" "Stress Seller" "seller" "$stress_seller_login" "$stress_password"
 stress_seller_token="$(stress_login_token "$stress_seller_login" "$stress_password")"
+
+declare -a STRESS_BIDDER_TOKENS
+banner "Register stress bidders (JWT + billing top-up for deposit reserve)"
+for n in $(seq 1 "$NUM_STRESS_BIDDERS"); do
+  read -r _bin _bog <<< "$(stress_valid_requisites "stress-bidder-$stress_suffix-$n")"
+  _bcid="$(stress_register_company "Stress Bidder $stress_suffix $n" "$_bin" "$_bog")"
+  _login="stress.bidder.$stress_suffix.$n@example.com"
+  stress_register_user "$_bcid" "Stress Bidder $n" "buyer" "$_login" "$stress_password"
+  _tok="$(stress_login_token "$_login" "$stress_password")"
+  _code="$(billing_test_topup "$_tok" 500000)"
+  if [[ "$_code" != "204" ]]; then
+    echo "billing test top-up failed HTTP $_code for bidder $n (need BILLING_ENABLE_FAKE_PROVIDER=true)" >&2
+    exit 1
+  fi
+  STRESS_BIDDER_TOKENS+=("$_tok")
+done
 
 product_resp="$(curl_post_json "$CATALOG_URL/products" "{\"fish_id\":\"$fish_id\",\"weight\":5,\"unit\":\"kg\",\"size\":\"M\",\"processing_type\":\"frozen\"}" \
   -H "Authorization: Bearer $stress_seller_token")"
@@ -300,11 +340,18 @@ for lot_id in "${LOT_IDS[@]}"; do
 done
 
 banner "Place valid bids"
+_n_pool=${#STRESS_BIDDER_TOKENS[@]}
+if ((_n_pool < 1)); then
+  echo "internal error: no bidder tokens" >&2
+  exit 1
+fi
 for auction_id in "${AUCTION_IDS[@]}"; do
   for b in $(seq 1 "$BIDS_PER_AUCTION"); do
     amount=$((100 + b * 10))
+    _idx=$(( (b - 1) % _n_pool ))
+    _tok="${STRESS_BIDDER_TOKENS[$_idx]}"
     if ! post_expect_202 "$TRADING_URL/auctions/$auction_id/bids" "{\"amount\":$amount}" \
-      -H "X-Company-ID: buyer-$b" -H "X-User-ID: user-$b"; then
+      -H "Authorization: Bearer $_tok"; then
       print_auction_debug "$auction_id"
       exit 1
     fi
@@ -329,9 +376,10 @@ if [[ "$CONCURRENT_BIDS" == "1" ]]; then
         amount=$((SEQUENTIAL_TOP + 1 + b * 5))
         out="$wave_dir/${offset}_$k.code"
         (
+          _idx=$(( (i + b) % _n_pool ))
+          _tok="${STRESS_BIDDER_TOKENS[$_idx]}"
           code="$(http_code "$TRADING_URL/auctions/$auction_id/bids" "{\"amount\":$amount}" \
-            -H "X-Company-ID: fast-buyer-${b}-a${i}" \
-            -H "X-User-ID: fast-user-${b}-a${i}")"
+            -H "Authorization: Bearer $_tok")"
           printf '%s %s %s\n' "$code" "$auction_id" "$amount" >"$out"
         ) &
         _batch_pids+=("$!")
@@ -378,7 +426,7 @@ banner "Invalid bids (must be rejected)"
 for auction_id in "${AUCTION_IDS[@]}"; do
   for _ in $(seq 1 "$INVALID_BIDS"); do
     post_expect_not_202 "$TRADING_URL/auctions/$auction_id/bids" '{"amount":1}' \
-      -H "X-Company-ID: bad-buyer" -H "X-User-ID: bad-user"
+      -H "Authorization: Bearer ${STRESS_BIDDER_TOKENS[0]}"
   done
 done
 
@@ -391,7 +439,7 @@ banner "Post-close bids (must be rejected)"
 for auction_id in "${AUCTION_IDS[@]}"; do
   for _ in $(seq 1 "$POST_CLOSE_BIDS"); do
     post_expect_not_202 "$TRADING_URL/auctions/$auction_id/bids" '{"amount":999}' \
-      -H "X-Company-ID: late-buyer" -H "X-User-ID: late-user"
+      -H "Authorization: Bearer ${STRESS_BIDDER_TOKENS[0]}"
   done
 done
 
