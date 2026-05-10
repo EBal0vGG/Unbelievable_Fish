@@ -1,4 +1,11 @@
 services:
+  anvil:
+    image: ghcr.io/foundry-rs/foundry:latest
+    entrypoint: ["anvil"]
+    command: ["--host", "0.0.0.0", "--port", "8545", "--chain-id", "31337"]
+    ports:
+      - "8545:8545"
+
   postgres:
     image: postgres:15
     environment:
@@ -176,7 +183,15 @@ services:
       PGSSLMODE: disable
       AUCTION_CLOSE_INTERVAL_SEC: "5"
       AUCTION_CLOSE_BATCH: "100"
+      CHAIN_ENABLED: "${CHAIN_ENABLED:-false}"
+      CHAIN_RPC_URL: "${CHAIN_RPC_URL:-http://anvil:8545}"
+      CHAIN_FROM_ADDRESS: "${CHAIN_FROM_ADDRESS:-0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266}"
+      CHAIN_CONTRACT_ADDRESS: "${CHAIN_CONTRACT_ADDRESS:-}"
+      CHAIN_CONFIRMATIONS: "${CHAIN_CONFIRMATIONS:-2}"
+      CHAIN_SYNC_INTERVAL_SEC: "${CHAIN_SYNC_INTERVAL_SEC:-3}"
     depends_on:
+      anvil:
+        condition: service_started
       postgres:
         condition: service_healthy
       migrate:

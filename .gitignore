@@ -89,3 +89,10 @@ apps/frontend/tsconfig.tsbuildinfo
 docs/project/
 docs/project/*/
 docs/project/*/*.typ
+
+############################
+# Local blockchain bootstrap artifacts
+############################
+.chain/
+contracts/artifacts/
+contracts/cache/

@@ -43,6 +43,13 @@ func auctionSummaryResponse(result *app.AuctionSummary) map[string]any {
 		"leader_company_id": result.LeaderCompanyID,
 		"winner_company_id": winnerCompanyID(result),
 		"final_price":       finalPrice(result),
+		"chain": map[string]any{
+			"result_hash":             result.ChainResultHash,
+			"finalize_tx_hash":        result.ChainFinalizeTxHash,
+			"finalize_status":         result.ChainFinalizeStatus,
+			"finalize_wallet_address": result.ChainFinalizeWalletAddress,
+			"finalize_block_number":   result.ChainFinalizeBlockNumber,
+		},
 	}
 }
 

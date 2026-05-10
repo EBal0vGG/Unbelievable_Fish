@@ -8,12 +8,13 @@ import (
 )
 
 type UnitOfWork struct {
-	db   *sql.DB
-	tx   *TransactionManager
+	db       *sql.DB
+	tx       *TransactionManager
 	auctions *AuctionRepository
 	bids     *BidRepository
 	outbox   *OutboxRepository
 	winners  *WinnersRepository
+	chainOps *ChainOperationRepository
 }
 
 func NewUnitOfWork(db *sql.DB) *UnitOfWork {
@@ -24,6 +25,7 @@ func NewUnitOfWork(db *sql.DB) *UnitOfWork {
 		bids:     NewBidRepository(db),
 		outbox:   NewOutboxRepository(db),
 		winners:  NewWinnersRepository(db),
+		chainOps: NewChainOperationRepository(db),
 	}
 }
 
@@ -34,6 +36,7 @@ func (u *UnitOfWork) Do(ctx context.Context, fn func(app.Tx) error) error {
 			bids:     u.bids,
 			outbox:   u.outbox,
 			winners:  u.winners,
+			chainOps: u.chainOps,
 		})
 	})
 }
@@ -43,9 +46,11 @@ type tx struct {
 	bids     *BidRepository
 	outbox   *OutboxRepository
 	winners  *WinnersRepository
+	chainOps *ChainOperationRepository
 }
 
-func (t *tx) Auctions() app.AuctionRepository { return t.auctions }
-func (t *tx) Bids() app.BidRepository         { return t.bids }
-func (t *tx) Outbox() app.OutboxRepository    { return t.outbox }
+func (t *tx) Auctions() app.AuctionRepository       { return t.auctions }
+func (t *tx) Bids() app.BidRepository               { return t.bids }
+func (t *tx) Outbox() app.OutboxRepository          { return t.outbox }
 func (t *tx) Winners() app.AuctionWinnersRepository { return t.winners }
+func (t *tx) ChainOps() app.ChainOpsRepository      { return t.chainOps }
