@@ -888,6 +888,169 @@ a.pipeline-step:focus-visible,
   overflow-wrap: anywhere;
 }
 
+/* --- Auction detail page: rhythm, no overlap, no orphan grid holes --- */
+.auction-detail-page.page-stack {
+  gap: 24px;
+}
+
+.auction-detail-page .section-heading {
+  flex-wrap: wrap;
+  gap: 14px 20px;
+  align-items: flex-start;
+}
+
+.auction-detail-page .page-heading {
+  min-width: 0;
+  flex: 1 1 min(100%, 420px);
+}
+
+.auction-detail-page .info-grid {
+  align-items: start;
+  gap: 20px;
+}
+
+.auction-detail-page > .card {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.auction-detail-page .info-grid > .card {
+  min-width: 0;
+}
+
+/* Odd count in 2-col grid: last card spans full row, centered width (no empty sibling column). */
+.auction-detail-page .info-grid > .card:last-child:nth-child(odd) {
+  grid-column: 1 / -1;
+  justify-self: center;
+  width: min(100%, 680px);
+}
+
+.auction-detail-page .stack-md,
+.auction-detail-page .stack-sm {
+  min-width: 0;
+}
+
+.auction-detail-page .notice {
+  max-width: 100%;
+}
+
+.auction-detail-page .deal-inline.stack-md {
+  gap: 12px;
+}
+
+/* Photo + copy: fixed cap on image track; text column takes remaining space */
+.auction-visual-card {
+  display: grid;
+  grid-template-columns: minmax(160px, min(38%, 340px)) minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+  min-width: 0;
+}
+
+.auction-visual-card .entity-photo {
+  width: 100%;
+  max-height: 300px;
+  aspect-ratio: 4 / 3;
+  min-height: 0;
+}
+
+.auction-visual-card .entity-photo img {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  max-height: 300px;
+  object-fit: cover;
+}
+
+.auction-visual-card .entity-photo-empty {
+  aspect-ratio: 4 / 3;
+  max-height: 300px;
+  min-height: 140px;
+}
+
+.auction-summary-metrics,
+.auction-product-metrics {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.auction-detail-page .metric-grid > div > strong {
+  max-width: 100%;
+}
+
+.table-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+  margin-top: 2px;
+  padding-bottom: 4px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.table-scroll .auction-bids-table {
+  min-width: 520px;
+}
+
+.auction-bids-table {
+  table-layout: fixed;
+  width: 100%;
+}
+
+.auction-bids-table th:nth-child(1),
+.auction-bids-table td:nth-child(1) {
+  width: 26%;
+}
+
+.auction-bids-table th:nth-child(2),
+.auction-bids-table td:nth-child(2) {
+  width: 18%;
+}
+
+.auction-bids-table th:nth-child(3),
+.auction-bids-table td:nth-child(3) {
+  width: 28%;
+}
+
+.auction-bids-table th:nth-child(4),
+.auction-bids-table td:nth-child(4) {
+  width: 28%;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+@media (max-width: 1100px) {
+  .auction-summary-metrics,
+  .auction-product-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 800px) {
+  .auction-visual-card {
+    grid-template-columns: 1fr;
+  }
+
+  .auction-visual-card .entity-photo,
+  .auction-visual-card .entity-photo-empty {
+    max-height: none;
+    aspect-ratio: 16 / 10;
+    min-height: 200px;
+  }
+
+  .auction-visual-card .entity-photo img {
+    max-height: none;
+    min-height: 200px;
+  }
+
+  .auction-summary-metrics,
+  .auction-product-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .auction-detail-page .info-grid > .card:last-child:nth-child(odd) {
+    width: 100%;
+    justify-self: stretch;
+  }
+}
+
 .card-grid-2 {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
@@ -2583,6 +2746,12 @@ body {
   line-height: 1.4;
 }
 
+.marketplace-home-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
 .ecosystem-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -2592,7 +2761,7 @@ body {
 
 .ecosystem-card {
   display: flex;
-  min-height: 188px;
+  min-height: 0;
   flex-direction: column;
   gap: 12px;
   padding: 18px;
@@ -2635,7 +2804,12 @@ body {
 .trust-workflow-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.2fr) minmax(300px, 0.8fr);
-  gap: 16px;
+  gap: 20px;
+  align-items: start;
+}
+
+.trust-workflow-grid .section-card {
+  min-width: 0;
 }
 
 .pipeline-step {
@@ -3075,6 +3249,82 @@ body {
 
 .profile-card {
   min-height: auto;
+}
+
+/* Profile (/me): tighter hero, content-height cards, centered column */
+.profile-page.page-stack {
+  gap: 20px;
+  max-width: 920px;
+  margin-inline: auto;
+  padding-inline: 4px;
+}
+
+.profile-page .page-hero.compact-hero {
+  min-height: 0;
+  padding: 16px 18px;
+  align-items: start;
+}
+
+.profile-page .compact-hero .hero-copy {
+  max-width: 52ch;
+  font-size: 0.92rem;
+  line-height: 1.55;
+}
+
+.profile-page .hero-metrics {
+  grid-template-columns: repeat(2, minmax(0, max-content));
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.profile-page .hero-metrics div {
+  padding: 10px 12px;
+}
+
+.profile-page .hero-metrics strong {
+  font-size: 1.1rem;
+}
+
+.profile-page .profile-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px 22px;
+  align-items: start;
+}
+
+.profile-page .profile-grid > .stack-lg {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+.profile-page .profile-card.form-card {
+  height: fit-content;
+  align-self: start;
+}
+
+.profile-page .metric-grid {
+  align-items: start;
+}
+
+.profile-page .metric-grid > div {
+  align-self: start;
+}
+
+.profile-page .profile-grid-full {
+  margin-top: 2px;
+}
+
+.profile-page .profile-grid-full .stack-md {
+  gap: 16px;
+}
+
+.profile-page .profile-grid-full .stack-md > .form-action-row {
+  margin-top: 4px;
+}
+
+.profile-page .profile-grid-full .stack-md > p.muted {
+  margin-top: 4px;
 }
 
 .profile-identity {

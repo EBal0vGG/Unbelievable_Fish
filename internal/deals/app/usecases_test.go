@@ -265,20 +265,30 @@ func TestHandleDealDeclinedReturnsStaleWhenDealIDMismatch(t *testing.T) {
 }
 
 func TestHandleDealDeclined_errorsWhenAwaitingPayment(t *testing.T) {
+	fac := deal.NewFactory()
+	snap := deal.ProductSnapshot{Name: "Fish"}
+	wonAt := time.Now().UTC()
+	item, _, err := fac.CreateFromSelection("auc-1", "sup-1", snap, "buyer-1", 120, wonAt)
+	if err != nil {
+		t.Fatalf("create deal: %v", err)
+	}
+	if _, err := item.Confirm(); err != nil {
+		t.Fatalf("confirm: %v", err)
+	}
 	selection := deal.NewWinnerSelection(
 		"auc-1",
 		[]string{"buyer-1"},
 		120,
-		time.Now().UTC(),
+		wonAt,
 		"sup-1",
-		deal.ProductSnapshot{Name: "Fish"},
+		snap,
 	)
-	selection.DealID = "deal-1"
+	selection.DealID = item.ID()
 	selection.Status = deal.WinnerSelectionConfirmedPendingPayment
 
 	selections := &selectionRepoSpy{selection: selection}
 	uow := &spyUOW{tx: &spyTx{
-		deals:         &dealRepoSpy{},
+		deals:         &dealRepoSpy{deal: item},
 		confirmations: &confirmationRepoSpy{},
 		projections:   &projectionRepoSpy{},
 		selections:    selections,
@@ -289,8 +299,102 @@ func TestHandleDealDeclined_errorsWhenAwaitingPayment(t *testing.T) {
 	if err != nil {
 		t.Fatalf("constructor: %v", err)
 	}
-	if err := uc.Execute(context.Background(), testMeta(), "auc-1", "deal-1"); !errors.Is(err, deal.ErrWinnerFallbackOnlyWhileActive) {
+	if err := uc.Execute(context.Background(), testMeta(), "auc-1", item.ID()); !errors.Is(err, deal.ErrWinnerFallbackOnlyWhileActive) {
 		t.Fatalf("want ErrWinnerFallbackOnlyWhileActive, got %v", err)
+	}
+}
+
+func TestGetDealByAuctionID_returnsActiveWhenSelectionStillPointsAtCancelled(t *testing.T) {
+	fac := deal.NewFactory()
+	snap := deal.ProductSnapshot{Name: "Fish"}
+	wonAt := time.Now().UTC()
+	cancelled, _, err := fac.CreateFromSelection("auc-fb", "sup-1", snap, "buyer-1", 120, wonAt)
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	if _, err := cancelled.Confirm(); err != nil {
+		t.Fatalf("confirm: %v", err)
+	}
+	if _, err := cancelled.Cancel("abort", "buyer-1"); err != nil {
+		t.Fatalf("cancel: %v", err)
+	}
+	replacement, _, err := fac.CreateFromSelection("auc-fb", "sup-1", snap, "buyer-2", 120, wonAt)
+	if err != nil {
+		t.Fatalf("replacement: %v", err)
+	}
+	selection := deal.NewWinnerSelection("auc-fb", []string{"buyer-1", "buyer-2"}, 120, wonAt, "sup-1", snap)
+	selection.DealID = cancelled.ID()
+	selection.Status = deal.WinnerSelectionActive
+	selection.CurrentIndex = 1
+
+	deals := &dealRepoSpy{deal: cancelled, activeByAuction: replacement}
+	uow := &spyUOW{tx: &spyTx{
+		deals:         deals,
+		confirmations: &confirmationRepoSpy{},
+		projections:   &projectionRepoSpy{},
+		selections:    &selectionRepoSpy{selection: selection},
+		outbox:        &outboxSpy{},
+	}}
+	uc := NewGetDealByAuctionID(uow)
+	out, err := uc.Execute(context.Background(), "auc-fb")
+	if err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if out.ID() != replacement.ID() {
+		t.Fatalf("want replacement deal %s, got %s", replacement.ID(), out.ID())
+	}
+}
+
+func TestHandleDealDeclined_reopensFromConfirmedPendingWhenDealCancelled(t *testing.T) {
+	logTest(t)
+	calls := []string{}
+	fac := deal.NewFactory()
+	snap := deal.ProductSnapshot{Name: "Fish"}
+	wonAt := time.Now().UTC()
+	item, _, err := fac.CreateFromSelection("auc-reopen", "sup-1", snap, "buyer-1", 120, wonAt)
+	if err != nil {
+		t.Fatalf("create deal: %v", err)
+	}
+	if _, err := item.Confirm(); err != nil {
+		t.Fatalf("confirm: %v", err)
+	}
+	if _, err := item.Cancel("buyer abort", "buyer-1"); err != nil {
+		t.Fatalf("cancel: %v", err)
+	}
+	selection := deal.NewWinnerSelection(
+		"auc-reopen",
+		[]string{"buyer-1", "buyer-2"},
+		120,
+		wonAt,
+		"sup-1",
+		snap,
+	)
+	selection.Status = deal.WinnerSelectionConfirmedPendingPayment
+	selection.DealID = item.ID()
+
+	deals := &dealRepoSpy{calls: &calls, deal: item}
+	selections := &selectionRepoSpy{calls: &calls, selection: selection}
+	outbox := &outboxSpy{calls: &calls}
+	uow := &spyUOW{tx: &spyTx{
+		deals:         deals,
+		confirmations: &confirmationRepoSpy{},
+		projections:   &projectionRepoSpy{},
+		selections:    selections,
+		outbox:        outbox,
+	}}
+
+	uc, err := NewHandleDealDeclined(uow)
+	if err != nil {
+		t.Fatalf("constructor: %v", err)
+	}
+	if err := uc.Execute(context.Background(), testMeta(), "auc-reopen", item.ID()); err != nil {
+		t.Fatalf("execute: %v", err)
+	}
+	if deals.lastSaved == nil || deals.lastSaved.CustomerID() != "buyer-2" {
+		t.Fatalf("expected next deal for buyer-2, got %v", deals.lastSaved)
+	}
+	if selections.lastSaved == nil || selections.lastSaved.CurrentIndex != 1 || selections.lastSaved.Status != deal.WinnerSelectionActive {
+		t.Fatalf("expected active selection at index 1, got %#v", selections.lastSaved)
 	}
 }
 
@@ -577,9 +681,10 @@ func TestUpdateDealPriceUsesMetaActor(t *testing.T) {
 }
 
 type dealRepoSpy struct {
-	calls     *[]string
-	deal      *deal.Deal
-	lastSaved *deal.Deal
+	calls           *[]string
+	deal            *deal.Deal
+	activeByAuction *deal.Deal // optional: non-cancelled deal when selection still points at cancelled
+	lastSaved       *deal.Deal
 }
 
 func (s *dealRepoSpy) Save(ctx context.Context, item *deal.Deal) error {
@@ -618,6 +723,9 @@ func (s *dealRepoSpy) GetByIDForUpdate(ctx context.Context, dealID string) (*dea
 func (s *dealRepoSpy) GetActiveDealByAuctionID(ctx context.Context, auctionID string) (*deal.Deal, error) {
 	_ = ctx
 	_ = auctionID
+	if s.activeByAuction != nil {
+		return s.activeByAuction, nil
+	}
 	if s.deal == nil || s.deal.Status() == deal.DealStatusCancelled {
 		return nil, ErrDealNotFound
 	}

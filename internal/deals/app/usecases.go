@@ -266,9 +266,6 @@ func (uc *HandleDealDeclined) Execute(ctx context.Context, meta CommandMeta, auc
 		if selection == nil || selection.Status == deal.WinnerSelectionExhausted {
 			return ErrNoAvailableWinner
 		}
-		if selection.Status == deal.WinnerSelectionConfirmedPendingPayment {
-			return deal.ErrWinnerFallbackOnlyWhileActive
-		}
 
 		effectiveDealID := dealID
 		if effectiveDealID == "" {
@@ -276,6 +273,28 @@ func (uc *HandleDealDeclined) Execute(ctx context.Context, meta CommandMeta, auc
 		}
 		if effectiveDealID != "" && selection.DealID != "" && selection.DealID != effectiveDealID {
 			return deal.ErrStaleWinnerSelection
+		}
+
+		// After ConfirmDeal, selection is confirmed_pending_payment. Cancelling the deal must still allow
+		// advancing to the next candidate (same as active + cancelled deal): reopen to active, then Advance.
+		if selection.Status == deal.WinnerSelectionConfirmedPendingPayment {
+			if selection.DealID == "" {
+				return deal.ErrWinnerSelectionDealMismatch
+			}
+			curDeal, err := tx.Deals().GetByID(ctx, selection.DealID)
+			if err != nil {
+				return err
+			}
+			if curDeal.Status() != deal.DealStatusCancelled {
+				return deal.ErrWinnerFallbackOnlyWhileActive
+			}
+			currentCand, ok := selection.CurrentCandidate()
+			if !ok || curDeal.CustomerID() != currentCand {
+				return deal.ErrWrongSelectedCandidate
+			}
+			if err := selection.ReopenAfterPaymentTimeout(selection.DealID); err != nil {
+				return err
+			}
 		}
 
 		currentCand, ok := selection.CurrentCandidate()
@@ -412,6 +431,13 @@ func (uc *GetDealByAuctionID) Execute(ctx context.Context, auctionID string) (*d
 					return err
 				}
 				if d.Status() == deal.DealStatusCancelled {
+					// Selection row can still point at a cancelled deal until integration processes DealCancelled
+					// and HandleDealDeclined runs; resolve the replacement active deal if it already exists.
+					d2, err2 := tx.Deals().GetActiveDealByAuctionID(ctx, auctionID)
+					if err2 == nil && d2 != nil {
+						out = d2
+						return nil
+					}
 					return deal.ErrStaleWinnerSelection
 				}
 				out = d

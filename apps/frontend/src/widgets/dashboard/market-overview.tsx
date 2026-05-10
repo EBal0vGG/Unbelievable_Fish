@@ -160,7 +160,7 @@ export function MarketOverview() {
   ];
 
   return (
-    <div className="marketplace-home">
+    <div className="marketplace-home marketplace-home-stack">
       <section className="hero-marketplace">
         <div className="hero-marketplace-copy">
           <p className="eyebrow">Отраслевая B2B-платформа</p>

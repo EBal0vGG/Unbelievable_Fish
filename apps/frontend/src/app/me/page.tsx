@@ -210,7 +210,7 @@ export default function MyProfilePage() {
 
   return (
     <AuthGuard>
-      <div className="page-stack">
+      <div className="page-stack profile-page">
         <PageHeader
           compact
           eyebrow="Профиль"

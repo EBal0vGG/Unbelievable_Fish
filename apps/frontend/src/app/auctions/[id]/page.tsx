@@ -127,7 +127,7 @@ export default function AuctionDetailsPage() {
   const showAdminClose = Boolean(session) && isAdminSession(session) && auction.state === "PUBLISHED";
 
   return (
-    <div className="page-stack">
+    <div className="page-stack auction-detail-page">
       <div className="section-heading">
         <div className="page-heading">
           <p className="eyebrow">Аукцион</p>
@@ -166,7 +166,7 @@ export default function AuctionDetailsPage() {
         <Card className="form-card">
           <div className="stack-md">
             <h2>Сводка аукциона</h2>
-            <div className="metric-grid">
+            <div className="metric-grid auction-summary-metrics">
               <div>
                 <span>Текущая ставка</span>
                 <strong>{formatMoney(currentPrice || auction.finalPrice)}</strong>
@@ -275,7 +275,7 @@ export default function AuctionDetailsPage() {
               <h3>{productTitle}</h3>
               {fishDescription ? <p className="muted">{fishDescription}</p> : null}
             </div>
-            <div className="metric-grid">
+            <div className="metric-grid auction-product-metrics">
               <div>
                 <span>Рыба</span>
                 <strong>{displayText(product?.fishName ?? projection?.productSnapshot.name)}</strong>
@@ -310,26 +310,28 @@ export default function AuctionDetailsPage() {
           <div className="stack-md">
             <h2>История ставок</h2>
             {bids.length ? (
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th>Компания</th>
-                    <th>Сумма</th>
-                    <th>Время</th>
-                    <th>Chain</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {bids.map((bid, index) => (
-                    <tr key={`${bid.auctionId}-${bid.bidderCompanyId}-${bid.amount}-${bid.placedAt}-${index}`}>
-                      <td title={bid.bidderCompanyId}>{displayCompany(bid.bidderCompanyId)}</td>
-                      <td>{formatMoney(bid.amount)}</td>
-                      <td>{formatDateTime(bid.placedAt)}</td>
-                      <td title={bid.chainTxHash}>{bid.chainStatus ?? "—"}</td>
+              <div className="table-scroll">
+                <table className="table auction-bids-table">
+                  <thead>
+                    <tr>
+                      <th>Компания</th>
+                      <th>Сумма</th>
+                      <th>Время</th>
+                      <th>Chain</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {bids.map((bid, index) => (
+                      <tr key={`${bid.auctionId}-${bid.bidderCompanyId}-${bid.amount}-${bid.placedAt}-${index}`}>
+                        <td title={bid.bidderCompanyId}>{displayCompany(bid.bidderCompanyId)}</td>
+                        <td>{formatMoney(bid.amount)}</td>
+                        <td>{formatDateTime(bid.placedAt)}</td>
+                        <td title={bid.chainTxHash}>{bid.chainStatus ?? "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             ) : (
               <p className="muted">Ставок по этому аукциону пока нет.</p>
             )}
