@@ -9,12 +9,14 @@ import (
 	billingapp "github.com/EBal0vGG/Unbelievable_Fish/internal/billing/app"
 	"github.com/EBal0vGG/Unbelievable_Fish/internal/billing/payment/fake"
 	billingpg "github.com/EBal0vGG/Unbelievable_Fish/internal/billing/postgres"
+	"github.com/EBal0vGG/Unbelievable_Fish/internal/blockchain/evm"
 	catalogapp "github.com/EBal0vGG/Unbelievable_Fish/internal/catalog/app"
 	catalogpg "github.com/EBal0vGG/Unbelievable_Fish/internal/catalog/postgres"
 	dealsapp "github.com/EBal0vGG/Unbelievable_Fish/internal/deals/app"
 	dealspg "github.com/EBal0vGG/Unbelievable_Fish/internal/deals/postgres"
 	"github.com/EBal0vGG/Unbelievable_Fish/internal/infra/dbconfig"
 	"github.com/EBal0vGG/Unbelievable_Fish/internal/infra/logging"
+	"github.com/EBal0vGG/Unbelievable_Fish/internal/integration/chainanchor"
 	integration "github.com/EBal0vGG/Unbelievable_Fish/internal/integration/runtime"
 	tradingpg "github.com/EBal0vGG/Unbelievable_Fish/internal/trading/postgres"
 )
@@ -148,14 +150,14 @@ func main() {
 	invoiceDeadlineLister := billingpg.NewDealInvoiceLister(db)
 
 	runtime, err := integration.New(db, integration.Dependencies{
-		Catalog:        catalogService,
-		TradingUOW:     tradingUOW,
-		DealsUOW:       dealsUOW,
-		ProjectionRepo: projectionRepo,
-		AuctionLister:  auctionLister,
-		DealLister:     dealLister,
-		BillingTx:      billingpg.NewTransactionManager(db, nil),
-		CreateAccount:  createBillingAccount,
+		Catalog:                                catalogService,
+		TradingUOW:                             tradingUOW,
+		DealsUOW:                               dealsUOW,
+		ProjectionRepo:                         projectionRepo,
+		AuctionLister:                          auctionLister,
+		DealLister:                             dealLister,
+		BillingTx:                              billingpg.NewTransactionManager(db, nil),
+		CreateAccount:                          createBillingAccount,
 		ReleaseAuctionDepositsExceptCandidates: releaseExcept,
 		CaptureAuctionDeposit:                  captureDeposit,
 		CreateDealInvoice:                      createDealInvoice,
@@ -197,6 +199,27 @@ func main() {
 		}
 		return nil
 	})
+	if envBool("CHAIN_ENABLED", false) {
+		rpcURL := dbconfig.EnvOrDefault("CHAIN_RPC_URL", "http://localhost:8545")
+		from := os.Getenv("CHAIN_FROM_ADDRESS")
+		contract := os.Getenv("CHAIN_CONTRACT_ADDRESS")
+		client, err := evm.NewRPCClient(rpcURL)
+		if err != nil {
+			logging.Fatal(logger, "chain_rpc_client_init_failed", "error", err)
+		}
+		worker, err := chainanchor.NewWorker(tradingpg.NewChainOperationRepository(db), client, from, contract)
+		if err != nil {
+			logging.Fatal(logger, "chain_anchor_worker_init_failed", "error", err)
+		}
+		worker.SetConfirmations(uint64(envInt("CHAIN_CONFIRMATIONS", 2)))
+		chainInterval := envDurationSeconds("CHAIN_SYNC_INTERVAL_SEC", 3)
+		go runTicker(ctx, chainInterval, func(ctx context.Context) error {
+			if err := worker.RunOnce(ctx); err != nil {
+				logger.Error("chain_anchor_worker_failed", "component", "chain.anchor", "error", err)
+			}
+			return nil
+		})
+	}
 	for {
 		if err := runtime.Relay.RunOnce(ctx, runtime.Bus, 100); err != nil {
 			logger.Error("outbox_relay_run_failed", "component", "outbox.relay", "error", err)
@@ -223,6 +246,18 @@ func envInt(key string, def int) int {
 		return def
 	}
 	parsed, err := strconv.Atoi(value)
+	if err != nil {
+		return def
+	}
+	return parsed
+}
+
+func envBool(key string, def bool) bool {
+	value := os.Getenv(key)
+	if value == "" {
+		return def
+	}
+	parsed, err := strconv.ParseBool(value)
 	if err != nil {
 		return def
 	}

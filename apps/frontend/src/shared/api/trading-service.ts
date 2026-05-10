@@ -61,6 +61,23 @@ interface AuctionSummaryDTO {
   leader_company_id?: string | null;
   winner_company_id?: string | null;
   final_price?: number | null;
+  chain?: {
+    result_hash?: string;
+    finalize_tx_hash?: string;
+    finalize_status?: string;
+    finalize_wallet_address?: string;
+    finalize_block_number?: number;
+  };
+}
+
+interface PlaceBidResponseDTO {
+  auction_id: string;
+  chain?: {
+    bid_hash?: string;
+    tx_hash?: string;
+    status?: string;
+    wallet_address?: string;
+  };
 }
 
 function getAuctionFallbackNote(): string {
@@ -101,6 +118,11 @@ function mapAuctionSummary(summary: AuctionSummaryDTO, existing?: AuctionRecord)
     finalPrice: summary.final_price ?? existing?.finalPrice,
     winnerCompanyId: summary.winner_company_id ?? existing?.winnerCompanyId ?? undefined,
     leaderCompanyId: summary.leader_company_id ?? existing?.leaderCompanyId,
+    chainResultHash: summary.chain?.result_hash ?? existing?.chainResultHash,
+    chainFinalizeTxHash: summary.chain?.finalize_tx_hash ?? existing?.chainFinalizeTxHash,
+    chainFinalizeStatus: summary.chain?.finalize_status ?? existing?.chainFinalizeStatus,
+    chainFinalizeWalletAddress: summary.chain?.finalize_wallet_address ?? existing?.chainFinalizeWalletAddress,
+    chainFinalizeBlockNumber: summary.chain?.finalize_block_number ?? existing?.chainFinalizeBlockNumber,
     source: existing ? "mixed" : "api",
   });
 }
@@ -400,7 +422,7 @@ export async function placeBid(
   const nextAuctionEndAt = auction ? getAuctionEndAfterBid(auction, placedAt) : undefined;
 
   try {
-    await apiRequest("trading", `/auctions/${input.auctionId}/bids`, {
+    const response = await apiRequest<PlaceBidResponseDTO>("trading", `/auctions/${input.auctionId}/bids`, {
       method: "POST",
       session: activeSession,
       body: {
@@ -409,7 +431,17 @@ export async function placeBid(
       },
     });
 
-    const storedBid = appendBidStore({ ...fallbackBid, source: "mixed" }, { endsAt: nextAuctionEndAt });
+    const storedBid = appendBidStore(
+      {
+        ...fallbackBid,
+        source: "mixed",
+        chainBidHash: response?.chain?.bid_hash,
+        chainTxHash: response?.chain?.tx_hash,
+        chainStatus: response?.chain?.status,
+        chainWalletAddress: response?.chain?.wallet_address,
+      },
+      { endsAt: nextAuctionEndAt },
+    );
     addActivity("Ставка отправлена", `${storedBid.auctionId} · ${storedBid.amount}`, session);
     return {
       data: storedBid,

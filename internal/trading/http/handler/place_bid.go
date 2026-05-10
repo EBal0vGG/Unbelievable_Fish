@@ -42,9 +42,22 @@ func (h *PlaceBidHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if !req.PlacedAt.IsZero() {
 		placedAt = req.PlacedAt.UTC()
 	}
-	if err := h.uc.Execute(r.Context(), meta, auctionID, req.Amount, placedAt); err != nil {
+	result, err := h.uc.ExecuteWithResult(r.Context(), meta, auctionID, req.Amount, placedAt)
+	if err != nil {
 		handleCommandError(w, err, meta)
 		return
 	}
-	writeAccepted(w)
+	if result == nil {
+		writeAccepted(w)
+		return
+	}
+	writeAcceptedJSON(w, httpapi.PlaceBidResponse{
+		AuctionID: string(result.AuctionID),
+		Chain: httpapi.PlaceBidChainDTO{
+			BidHash:       result.BidHash,
+			TxHash:        result.ChainTxHash,
+			Status:        result.ChainStatus,
+			WalletAddress: result.ChainWalletAddress,
+		},
+	})
 }

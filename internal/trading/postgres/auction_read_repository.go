@@ -20,6 +20,11 @@ var _ app.AuctionReadRepository = (*AuctionReadRepository)(nil)
 func (r *AuctionReadRepository) List(ctx context.Context) ([]*app.AuctionSummary, error) {
 	const query = `
 SELECT auction_id, lot_id, state, starts_at, ends_at, start_price, current_price, min_bid_step, leader_company_id
+     , COALESCE(chain_result_hash, '')
+     , COALESCE(chain_finalize_tx_hash, '')
+     , COALESCE(chain_finalize_status, '')
+     , COALESCE(chain_finalize_wallet_address, '')
+     , COALESCE(chain_finalize_block_number, 0)
 FROM trading_auctions
 WHERE state <> 'DRAFT'
 ORDER BY starts_at DESC, auction_id DESC
@@ -34,7 +39,22 @@ ORDER BY starts_at DESC, auction_id DESC
 	var out []*app.AuctionSummary
 	for rows.Next() {
 		var item app.AuctionSummary
-		if err := rows.Scan(&item.AuctionID, &item.LotID, &item.State, &item.StartsAt, &item.EndsAt, &item.StartPrice, &item.CurrentPrice, &item.MinBidStep, &item.LeaderCompanyID); err != nil {
+		if err := rows.Scan(
+			&item.AuctionID,
+			&item.LotID,
+			&item.State,
+			&item.StartsAt,
+			&item.EndsAt,
+			&item.StartPrice,
+			&item.CurrentPrice,
+			&item.MinBidStep,
+			&item.LeaderCompanyID,
+			&item.ChainResultHash,
+			&item.ChainFinalizeTxHash,
+			&item.ChainFinalizeStatus,
+			&item.ChainFinalizeWalletAddress,
+			&item.ChainFinalizeBlockNumber,
+		); err != nil {
 			return nil, err
 		}
 		out = append(out, &item)
@@ -48,6 +68,11 @@ ORDER BY starts_at DESC, auction_id DESC
 func (r *AuctionReadRepository) GetByLotID(ctx context.Context, lotID string) (*app.AuctionSummary, error) {
 	const query = `
 SELECT auction_id, lot_id, state, starts_at, ends_at, start_price, current_price, min_bid_step, leader_company_id
+     , COALESCE(chain_result_hash, '')
+     , COALESCE(chain_finalize_tx_hash, '')
+     , COALESCE(chain_finalize_status, '')
+     , COALESCE(chain_finalize_wallet_address, '')
+     , COALESCE(chain_finalize_block_number, 0)
 FROM trading_auctions
 WHERE lot_id = $1
 ORDER BY starts_at DESC
@@ -56,7 +81,22 @@ LIMIT 1
 	dbtx := DBTXFromContext(ctx, r.db)
 	row := dbtx.QueryRowContext(ctx, query, lotID)
 	var out app.AuctionSummary
-	if err := row.Scan(&out.AuctionID, &out.LotID, &out.State, &out.StartsAt, &out.EndsAt, &out.StartPrice, &out.CurrentPrice, &out.MinBidStep, &out.LeaderCompanyID); err != nil {
+	if err := row.Scan(
+		&out.AuctionID,
+		&out.LotID,
+		&out.State,
+		&out.StartsAt,
+		&out.EndsAt,
+		&out.StartPrice,
+		&out.CurrentPrice,
+		&out.MinBidStep,
+		&out.LeaderCompanyID,
+		&out.ChainResultHash,
+		&out.ChainFinalizeTxHash,
+		&out.ChainFinalizeStatus,
+		&out.ChainFinalizeWalletAddress,
+		&out.ChainFinalizeBlockNumber,
+	); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, app.ErrNotFound
 		}
@@ -68,6 +108,11 @@ LIMIT 1
 func (r *AuctionReadRepository) GetByID(ctx context.Context, id app.AuctionID) (*app.AuctionSummary, error) {
 	const query = `
 SELECT auction_id, lot_id, state, starts_at, ends_at, start_price, current_price, min_bid_step, leader_company_id
+     , COALESCE(chain_result_hash, '')
+     , COALESCE(chain_finalize_tx_hash, '')
+     , COALESCE(chain_finalize_status, '')
+     , COALESCE(chain_finalize_wallet_address, '')
+     , COALESCE(chain_finalize_block_number, 0)
 FROM trading_auctions
 WHERE auction_id = $1
 LIMIT 1
@@ -75,7 +120,22 @@ LIMIT 1
 	dbtx := DBTXFromContext(ctx, r.db)
 	row := dbtx.QueryRowContext(ctx, query, id)
 	var out app.AuctionSummary
-	if err := row.Scan(&out.AuctionID, &out.LotID, &out.State, &out.StartsAt, &out.EndsAt, &out.StartPrice, &out.CurrentPrice, &out.MinBidStep, &out.LeaderCompanyID); err != nil {
+	if err := row.Scan(
+		&out.AuctionID,
+		&out.LotID,
+		&out.State,
+		&out.StartsAt,
+		&out.EndsAt,
+		&out.StartPrice,
+		&out.CurrentPrice,
+		&out.MinBidStep,
+		&out.LeaderCompanyID,
+		&out.ChainResultHash,
+		&out.ChainFinalizeTxHash,
+		&out.ChainFinalizeStatus,
+		&out.ChainFinalizeWalletAddress,
+		&out.ChainFinalizeBlockNumber,
+	); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, app.ErrNotFound
 		}

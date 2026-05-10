@@ -1,6 +1,6 @@
 SHELL := /bin/bash
 
-.PHONY: test backend-test frontend-typecheck compose-up compose-down demo-happy demo-fallback demo-auto demo-full-payment demo-all e2e-bid-race
+.PHONY: test backend-test frontend-typecheck compose-up compose-up-chain compose-down chain-setup chain-down demo-happy demo-fallback demo-auto demo-full-payment demo-all e2e-bid-race
 
 test:
 	$(MAKE) backend-test
@@ -15,6 +15,15 @@ frontend-typecheck:
 
 compose-up:
 	docker compose up --build
+
+chain-setup:
+	./scripts/chain_setup_local.sh
+
+compose-up-chain: chain-setup
+	docker compose --env-file .chain/chain.env up -d --build
+
+chain-down:
+	docker compose stop anvil || true
 
 compose-down:
 	docker compose down -v
