@@ -76,6 +76,30 @@ export default function DealDetailsPage() {
     );
   }
 
+  if (dealQuery.isPending) {
+    return (
+      <div className="page-stack">
+        <Notice title="Загрузка сделки">Запрашиваем карточку сделки и подтверждения…</Notice>
+      </div>
+    );
+  }
+
+  if (dealQuery.isError) {
+    return (
+      <div className="page-stack">
+        <Notice tone="warning" title="Не удалось загрузить сделку">
+          {dealQuery.error instanceof Error ? dealQuery.error.message : "Повторите попытку."}
+        </Notice>
+        <EmptyState
+          title="Сделка недоступна"
+          description="Проверьте сервис deals и авторизацию."
+          actionHref="/deals"
+          actionLabel="К списку сделок"
+        />
+      </div>
+    );
+  }
+
   if (!deal) {
     return (
       <EmptyState

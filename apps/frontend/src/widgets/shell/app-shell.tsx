@@ -79,7 +79,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="marketplace-shell">
       <header className="floating-header">
-        <Link className="floating-brand" href="/">
+        <Link className="floating-brand" href="/" prefetch={false}>
           <span className="floating-brand-mark">
             <Image alt="Рыбная биржа" height={36} priority src="/fish-exchange-logo.svg" width={36} />
           </span>
@@ -99,6 +99,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 className={cn("floating-nav-link", isActive && "floating-nav-link-active")}
                 href={item.href}
                 key={item.href}
+                prefetch={false}
               >
                 {item.label}
               </Link>
@@ -108,13 +109,18 @@ export function AppShell({ children }: { children: ReactNode }) {
 
         <div className="floating-actions">
           {canCreateSupply ? (
-            <Link className={buttonStyles({ variant: "primary", size: "sm" })} href="/create/lot">
+            <Link className={buttonStyles({ variant: "primary", size: "sm" })} href="/create/lot" prefetch={false}>
               Новый лот
             </Link>
           ) : null}
           {session ? (
             <>
-              <Link className="user-badge" href="/me" title={session.companyId ? `Компания: ${session.companyId}` : personName}>
+              <Link
+                className="user-badge"
+                href="/me"
+                prefetch={false}
+                title={session.companyId ? `Компания: ${session.companyId}` : personName}
+              >
                 <span>{initialsFromName(personName)}</span>
                 <strong>{personName}</strong>
                 <small>{companyLabel} · {roleLabels[session.role]}</small>
@@ -125,10 +131,10 @@ export function AppShell({ children }: { children: ReactNode }) {
             </>
           ) : (
             <>
-              <Link className={buttonStyles({ variant: "ghost", size: "sm" })} href="/login">
+              <Link className={buttonStyles({ variant: "ghost", size: "sm" })} href="/login" prefetch={false}>
                 Вход
               </Link>
-              <Link className={buttonStyles({ variant: "secondary", size: "sm" })} href="/register">
+              <Link className={buttonStyles({ variant: "secondary", size: "sm" })} href="/register" prefetch={false}>
                 Регистрация
               </Link>
             </>

@@ -29,7 +29,7 @@ export function isRecoverableApiGap(error: unknown): boolean {
     return true;
   }
 
-  return [0, 404, 405, 500, 501, 502, 503].includes(error.status);
+  return [0, 404, 405, 500, 501, 502, 503, 504].includes(error.status);
 }
 
 export async function apiRequest<T>(

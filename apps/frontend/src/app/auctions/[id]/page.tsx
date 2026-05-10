@@ -39,7 +39,31 @@ export default function AuctionDetailsPage() {
     );
   }
 
+  if (auctionQuery.isPending) {
+    return (
+      <div className="page-stack">
+        <Notice title="Загрузка аукциона">Запрашиваем торги, проекцию сделки и контекст лота…</Notice>
+      </div>
+    );
+  }
+
   const details = auctionQuery.data?.data;
+
+  if (auctionQuery.isError) {
+    return (
+      <div className="page-stack">
+        <Notice tone="warning" title="Не удалось загрузить аукцион">
+          {auctionQuery.error instanceof Error ? auctionQuery.error.message : "Повторите попытку или откройте список торгов."}
+        </Notice>
+        <EmptyState
+          title="Аукцион недоступен"
+          description="Проверьте сеть и сервисы trading/deals."
+          actionHref="/auctions"
+          actionLabel="Вернуться к аукционам"
+        />
+      </div>
+    );
+  }
 
   if (!details?.auction) {
     return (

@@ -2,6 +2,9 @@ import { NextRequest } from "next/server";
 
 import { serviceBaseUrls } from "@/shared/config/env";
 
+/** Upstream fetch budget — without this, a stuck Go handler leaves the browser spinner running with no completed access log. */
+const UPSTREAM_FETCH_TIMEOUT_MS = Number(process.env.API_PROXY_UPSTREAM_TIMEOUT_MS ?? 45_000);
+
 type ServiceName = keyof typeof serviceBaseUrls;
 
 function stripTrailingSlash(value: string): string {
@@ -26,6 +29,10 @@ export async function proxyRequest(
   const search = request.nextUrl.search;
   const targetUrl = `${baseUrl}/${path}${search}`;
 
+  if (process.env.NODE_ENV === "development") {
+    console.info("[api-proxy] forward", { service, method: request.method, path: `/${path}` });
+  }
+
   const headers = new Headers();
   for (const [key, value] of request.headers.entries()) {
     if (["host", "connection", "content-length"].includes(key.toLowerCase())) {
@@ -41,20 +48,27 @@ export async function proxyRequest(
       headers,
       body: await readBody(request),
       cache: "no-store",
+      signal: AbortSignal.timeout(UPSTREAM_FETCH_TIMEOUT_MS),
     });
   } catch (error) {
+    const aborted = error instanceof Error && error.name === "AbortError";
     console.error("[api-proxy] upstream unavailable", {
       service,
       targetUrl,
       method: request.method,
+      timeout_ms: aborted ? UPSTREAM_FETCH_TIMEOUT_MS : undefined,
       error: error instanceof Error ? error.message : String(error),
     });
     return Response.json(
       {
-        code: "UPSTREAM_UNAVAILABLE",
-        message: error instanceof Error ? error.message : "upstream service unavailable",
+        code: aborted ? "UPSTREAM_TIMEOUT" : "UPSTREAM_UNAVAILABLE",
+        message: aborted
+          ? `upstream did not respond within ${UPSTREAM_FETCH_TIMEOUT_MS}ms`
+          : error instanceof Error
+            ? error.message
+            : "upstream service unavailable",
       },
-      { status: 502 },
+      { status: aborted ? 504 : 502 },
     );
   }
 

@@ -9,6 +9,7 @@ import {
   listBidsStore,
   listLotsStore,
   upsertAuctionStore,
+  upsertLotStore,
 } from "@/shared/api/mock-store";
 import { makeClientId } from "@/shared/lib/id";
 import {
@@ -31,10 +32,6 @@ interface CreateAuctionInput {
   lotId: string;
   startsAt: string;
   endsAt: string;
-}
-
-interface CreateAuctionResponse {
-  auction_id?: string;
 }
 
 interface PlaceBidInput {
@@ -128,11 +125,39 @@ function isCreateAuctionCompatibilityGap(error: unknown, session: UserSession): 
   if (!canFallbackCommand()) {
     return false;
   }
+  if (error instanceof ApiError && error.code === "AUCTION_NOT_READY") {
+    return false;
+  }
   if (isRecoverableApiGap(error)) {
     return true;
   }
 
   return isSellerSession(session) && error instanceof ApiError && error.status === 403 && error.code === "FORBIDDEN";
+}
+
+async function waitAuctionSummaryByLot(
+  lotId: string,
+  session: UserSession,
+  attempts = 24,
+  delayMs = 500,
+): Promise<AuctionSummaryDTO | null> {
+  for (let i = 0; i < attempts; i += 1) {
+    try {
+      const result = await apiRequest<AuctionSummaryDTO>("trading", `/auctions/by-lot/${lotId}`, {
+        method: "GET",
+        session,
+      });
+      if (result.auction_id) {
+        return result;
+      }
+    } catch (error) {
+      if (!isRecoverableApiGap(error)) {
+        throw error;
+      }
+    }
+    await new Promise((resolve) => setTimeout(resolve, delayMs));
+  }
+  return null;
 }
 
 export async function listAuctions(session: UserSession | null): Promise<ServiceResult<AuctionRecord[]>> {
@@ -219,41 +244,43 @@ export async function createAuction(
   };
 
   try {
-    const response = await apiRequest<CreateAuctionResponse>("trading", "/auctions", {
-      method: "POST",
-      session: activeSession,
-      body: {
-        lot_id: input.lotId,
-        starts_at: input.startsAt,
-        ends_at: input.endsAt,
-      },
-    });
+    // Trading HTTP API does not expose POST /auctions — the aggregate is created when LotPublished
+    // is processed (integration/outbox). We sync by lot and publish if still DRAFT.
+    const summary = await waitAuctionSummaryByLot(input.lotId, activeSession);
+    if (!summary?.auction_id) {
+      throw new ApiError(
+        "Аукцион для лота ещё не создан в trading. После публикации лота должен отработать integration (outbox / chain_runner): проверьте, что он запущен, и подождите несколько секунд.",
+        422,
+        "AUCTION_NOT_READY",
+      );
+    }
 
-    const auctionId = response?.auction_id ?? fallbackAuction.id;
-    const apiBackedAuction = {
-      ...fallbackAuction,
-      id: auctionId,
-    };
-
-    try {
+    const auctionId = summary.auction_id;
+    if (summary.state === "DRAFT") {
       await apiRequest("trading", `/auctions/${auctionId}/publish`, {
         method: "POST",
         session: activeSession,
       });
-    } catch (error) {
-      if (!isRecoverableApiGap(error)) {
-        throw error;
-      }
     }
 
+    const refreshed = await apiRequest<AuctionSummaryDTO>("trading", `/auctions/${auctionId}`, {
+      session: activeSession,
+    });
+    const existingAuction = listAuctionsStore().find((item) => item.id === refreshed.auction_id);
+    const mapped = mapAuctionSummary(refreshed, existingAuction);
     const mirroredAuction = upsertAuctionStore({
-      ...apiBackedAuction,
-      source: "mixed",
+      ...mapped,
+      source: existingAuction ? "mixed" : "api",
+    });
+    upsertLotStore({
+      ...relatedLot,
+      auctionId,
+      source: relatedLot.source === "mock" ? "mixed" : relatedLot.source,
     });
     addActivity("Аукцион выставлен", mirroredAuction.lotId, session);
     return {
       data: mirroredAuction,
-      meta: mixedMeta("Аукцион выставлен. Витрина обновлена локально до синхронизации списка торгов."),
+      meta: { source: "api" },
     };
   } catch (error) {
     if (!isCreateAuctionCompatibilityGap(error, activeSession)) {

@@ -1,11 +1,13 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, type ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
 
 import { useAuth } from "@/entities/session/model/auth-context";
 import { hasRequiredRole } from "@/shared/lib/access";
 import type { UserRole } from "@/shared/types/domain";
+import { Notice } from "@/shared/ui/notice";
 
 export function AuthGuard({
   children,
@@ -33,12 +35,42 @@ export function AuthGuard({
     }
   }, [isReady, pathname, roles, router, session]);
 
-  if (!isReady || !session) {
-    return null;
+  const loginHref = `/login?next=${encodeURIComponent(pathname)}`;
+
+  if (!isReady) {
+    return (
+      <div className="page-stack">
+        <Notice title="Загрузка сессии">
+          Проверяем авторизацию… Если identity-сервис не отвечает, страница освободится через несколько секунд.
+        </Notice>
+      </div>
+    );
+  }
+
+  if (!session) {
+    return (
+      <div className="page-stack">
+        <Notice title="Нужен вход">
+          Перенаправляем на страницу входа. Если этого не произошло, откройте ссылку вручную.
+        </Notice>
+        <p className="muted">
+          <Link href={loginHref}>Перейти ко входу</Link>
+        </p>
+      </div>
+    );
   }
 
   if (roles && !hasRequiredRole(session, roles)) {
-    return null;
+    return (
+      <div className="page-stack">
+        <Notice tone="warning" title="Недостаточно прав">
+          Эта страница доступна другой роли.
+        </Notice>
+        <p className="muted">
+          <Link href="/">На главную</Link>
+        </p>
+      </div>
+    );
   }
 
   return <>{children}</>;

@@ -14,8 +14,25 @@ import {
 import type { UserSession } from "@/shared/types/domain";
 
 const SESSION_KEY = "uf:session-context";
+const SESSION_HYDRATE_TIMEOUT_MS = 15_000;
 
 type AuthStatus = "loading" | "authenticated" | "guest";
+
+async function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<never>((_, reject) => {
+        timeoutId = setTimeout(() => reject(new Error("hydrate_timeout")), ms);
+      }),
+    ]);
+  } finally {
+    if (timeoutId !== undefined) {
+      clearTimeout(timeoutId);
+    }
+  }
+}
 
 interface AuthContextValue {
   session: UserSession | null;
@@ -49,13 +66,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setStatus("guest");
         setIsReady(true);
         removeSessionStorage(SESSION_KEY);
-        removeLocalStorage(SESSION_KEY)
+        removeLocalStorage(SESSION_KEY);
         return;
       }
 
       const normalized = normalizeSession(stored);
       try {
-        const currentUser = await getCurrentUser(normalized);
+        const currentUser = await withTimeout(
+          getCurrentUser(normalized),
+          SESSION_HYDRATE_TIMEOUT_MS,
+        );
         const nextSession = normalizeSession(
           toUserSession(normalized.accessToken, currentUser, normalized.mode),
         );
