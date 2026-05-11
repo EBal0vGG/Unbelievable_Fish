@@ -16,11 +16,12 @@ import { formatDateTime, formatMoney } from "@/shared/lib/format";
 import { buttonStyles } from "@/shared/ui/button";
 import { Card } from "@/shared/ui/card";
 import { Notice } from "@/shared/ui/notice";
+import { cn } from "@/shared/lib/cn";
 import type { DealRecord } from "@/shared/types/domain";
 
-type Props = { deal: DealRecord };
+type Props = { deal: DealRecord; className?: string };
 
-export function DealBillingPanel({ deal }: Props) {
+export function DealBillingPanel({ deal, className }: Props) {
   const { session } = useAuth();
   const queryClient = useQueryClient();
   const side = session ? getDealParticipantSide(deal, session) : "outsider";
@@ -71,7 +72,7 @@ export function DealBillingPanel({ deal }: Props) {
     balanceQuery.isSuccess && balanceQuery.data?.deal_invoice_fake_confirm_enabled !== true;
 
   return (
-    <Card className="form-card">
+    <Card className={cn("form-card", className)}>
       <div className="stack-md">
         <div>
           <p className="eyebrow">Оплата (billing)</p>

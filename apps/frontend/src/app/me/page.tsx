@@ -24,7 +24,7 @@ import { isFakeBillingUiAllowed } from "@/shared/lib/is-fake-billing-ui-allowed"
 import { listActivitiesStore } from "@/shared/api/mock-store";
 import { isAdminSession, isOwnedLot, isOwnedProduct } from "@/shared/lib/access";
 import { displayCompany, displayId, displayPerson } from "@/shared/lib/display";
-import { formatDateTime, formatMoney } from "@/shared/lib/format";
+import { formatDateTime, formatMoney, shortId } from "@/shared/lib/format";
 import { roleLabels } from "@/shared/lib/labels";
 import type { UserRole } from "@/shared/types/domain";
 import { Button } from "@/shared/ui/button";
@@ -231,8 +231,7 @@ export default function MyProfilePage() {
         />
 
         <div className="profile-grid">
-          <div className="stack-lg">
-          <Card className="form-card profile-card profile-card-primary">
+          <Card className="form-card profile-card profile-company-card">
             <div className="stack-md">
               <div className="profile-identity">
                 <span>{personName.slice(0, 2).toUpperCase()}</span>
@@ -271,7 +270,7 @@ export default function MyProfilePage() {
             </div>
           </Card>
 
-          <Card className="form-card">
+          <Card className="form-card profile-card profile-activity-card">
             <div className="stack-md">
               <h2>Мои действия</h2>
               {activities.length ? (
@@ -295,10 +294,8 @@ export default function MyProfilePage() {
               )}
             </div>
           </Card>
-          </div>
 
-          <div className="stack-lg">
-          <Card className="form-card profile-card rating-card">
+          <Card className="form-card profile-card profile-rating-card rating-card">
             <div className="stack-md">
               <div className="rating-header">
                 <div>
@@ -328,7 +325,7 @@ export default function MyProfilePage() {
             </div>
           </Card>
 
-          <Card className="form-card profile-card">
+          <Card className="form-card profile-card profile-access-card">
             <div className="stack-md">
               <h2>Доступ</h2>
               <div className="metric-grid">
@@ -344,13 +341,13 @@ export default function MyProfilePage() {
             </div>
           </Card>
 
-          <Card className="form-card profile-card">
+          <Card className="form-card profile-card profile-billing-card">
             <div className="stack-md">
               <div>
                 <p className="eyebrow">Billing</p>
                 <h2>Баланс компании</h2>
               </div>
-              <p className="muted">Внутренний счет компании (RUB).</p>
+              <p className="muted profile-card-note">Внутренний счет компании для депозитов и расчетов по сделкам.</p>
               {balanceQuery.isLoading ? <p className="muted">Загрузка...</p> : null}
               {balanceQuery.error ? (
                 <Notice tone="warning" title="Баланс недоступен">
@@ -378,15 +375,13 @@ export default function MyProfilePage() {
                 </div>
               ) : null}
 
-              <div className="stack-md border-t border-white/10 pt-4">
+              <div className="stack-md profile-topup">
                 <h3 className="text-sm font-medium">Пополнение счёта</h3>
-                <p className="muted text-sm">
-                  Создание заявки на пополнение (провайдер / fake-flow на стороне billing). Если на сервере включён
-                  авто-колбэк fake-провайдера (<code className="text-xs">BILLING_FAKE_PROVIDER_AUTO_CONFIRM</code>
-                  ), заявка подтвердится вебхуком через несколько секунд и баланс обновится без кнопки ниже.
+                <p className="muted text-sm profile-card-note">
+                  Создайте заявку на пополнение. Баланс обновится после подтверждения платежа.
                 </p>
-                <div className="flex flex-wrap items-end gap-2">
-                  <Field label="Сумма (руб.)" className="min-w-[10rem]">
+                <div className="profile-topup-row">
+                  <Field label="Сумма (руб.)">
                     <Input
                       value={topUpAmount}
                       onChange={(e) => setTopUpAmount(e.target.value)}
@@ -407,12 +402,12 @@ export default function MyProfilePage() {
                 ) : null}
                 {topUpsQuery.isLoading ? <p className="muted text-sm">Загрузка заявок…</p> : null}
                 {topUpsQuery.data?.top_ups?.length ? (
-                  <ul className="stack-sm text-sm">
+                  <ul className="stack-sm text-sm profile-topup-list">
                     {topUpsQuery.data.top_ups.map((tu) => (
-                      <li key={tu.id} className="flex flex-wrap items-center justify-between gap-2">
-                        <span>
+                      <li key={tu.id} className="profile-topup-item">
+                        <span title={tu.id}>
                           {formatMoney(tu.amount)} {tu.currency} · {tu.status} ·{" "}
-                          <code className="text-xs">{tu.id}</code>
+                          <code className="text-xs">{shortId(tu.id, 8, 4)}</code>
                         </span>
                         {isFakeBillingUiAllowed(balanceQuery.data?.top_up_fake_confirm_enabled) &&
                         tu.status === "PENDING" ? (
@@ -435,7 +430,7 @@ export default function MyProfilePage() {
           </Card>
 
           {canPromoteAdmins && env.enableBillingAdminUI ? (
-            <Card className="form-card profile-card">
+            <Card className="form-card profile-card profile-admin-billing-card">
               <div className="stack-md">
                 <Notice tone="warning" title="Demo / admin billing">
                   Операции ниже обходят реальный платёжный провайдер. Включайте только вместе с{" "}
@@ -512,11 +507,9 @@ export default function MyProfilePage() {
               </div>
             </Card>
           ) : null}
-          </div>
 
           {canPromoteAdmins ? (
-            <div className="profile-grid-full">
-              <Card className="form-card">
+              <Card className="form-card profile-admin-card">
                 <div className="stack-md">
                   <h2>Администрирование</h2>
                   <p className="muted">Назначьте пользователя администратором из списка.</p>
@@ -552,7 +545,6 @@ export default function MyProfilePage() {
                   </div>
                 </div>
               </Card>
-            </div>
           ) : null}
         </div>
       </div>

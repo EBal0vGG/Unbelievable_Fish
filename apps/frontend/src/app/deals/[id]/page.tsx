@@ -153,8 +153,6 @@ export default function DealDetailsPage() {
         </Notice>
       ) : null}
 
-      <DealBillingPanel deal={deal} />
-
       <Card className="timeline-card">
         <div className="deal-timeline">
           {steps.map((step) => (
@@ -166,7 +164,7 @@ export default function DealDetailsPage() {
         </div>
       </Card>
 
-      <div className="info-grid deal-detail-grid">
+      <div className="deal-workflow-grid">
         <Card className="form-card">
           <div className="stack-md">
             <div>
@@ -208,9 +206,11 @@ export default function DealDetailsPage() {
         <Card className="form-card">
           <DealActionPanel deal={deal} confirmations={confirmations} />
         </Card>
+
+        <DealBillingPanel deal={deal} className="deal-billing-card" />
       </div>
 
-      <div className="info-grid">
+      <div className="deal-info-grid">
         <Card className="form-card">
           <div className="stack-md">
             <div>

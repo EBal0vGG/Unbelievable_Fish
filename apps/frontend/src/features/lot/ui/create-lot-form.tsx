@@ -85,7 +85,6 @@ export function CreateLotForm() {
 
   const selectedProductId = lotForm.watch("productId");
   const photoUrl = lotForm.watch("photo");
-  const quantity = Number(lotForm.watch("quantity") || 0);
   const startPrice = Number(lotForm.watch("startPrice") || 0);
   const selectedProduct = ownProducts.find((product) => product.id === selectedProductId);
 
@@ -211,8 +210,9 @@ export function CreateLotForm() {
         <aside className="supply-preview">
           <EntityPhoto src={photoUrl} alt={selectedProduct?.fishName ?? "Фото лота"} className="detail-photo" />
           <div className="preview-total">
-            <span>Стартовая стоимость партии</span>
-            <strong>{formatMoney(quantity * startPrice)}</strong>
+            <span>Стартовая цена лота</span>
+            <strong>{formatMoney(startPrice)}</strong>
+            <p>Покупатель делает ставку за весь лот.</p>
           </div>
           <div className="supply-panel stack-md compact-card">
             <div>
@@ -354,10 +354,14 @@ export function CreateLotForm() {
               <Field className="form-grid-full" label="Фото партии" error={lotForm.formState.errors.photo?.message}>
                 <Input placeholder="https://example.com/fish-lot.jpg" {...lotForm.register("photo")} />
               </Field>
-              <Field label="Количество" error={lotForm.formState.errors.quantity?.message}>
+              <Field label="Объем партии" error={lotForm.formState.errors.quantity?.message}>
                 <Input type="number" step="0.1" {...lotForm.register("quantity")} />
               </Field>
-              <Field label="Стартовая цена" error={lotForm.formState.errors.startPrice?.message}>
+              <Field
+                label="Стартовая цена лота"
+                error={lotForm.formState.errors.startPrice?.message}
+                hint="Покупатель делает ставку за весь лот."
+              >
                 <Input type="number" {...lotForm.register("startPrice")} />
               </Field>
             </div>

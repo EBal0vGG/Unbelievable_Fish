@@ -98,8 +98,7 @@ export type DealActionInput =
   | { type: "prepareContract"; contractNumber?: string; documentUrl?: string }
   | { type: "signContract"; signatureRef: string }
   | { type: "requestPayment"; invoiceNumber: string; dueDate?: string }
-  | { type: "requestShipment" }
-  | { type: "updatePrice"; newPrice: number };
+  | { type: "requestShipment" };
 
 const dealStatuses: DealStatus[] = [
   "pending",
@@ -480,13 +479,6 @@ function actionToRequest(input: DealActionInput): { pathSuffix: string; body?: u
       };
     case "requestShipment":
       return { pathSuffix: "shipment/request" };
-    case "updatePrice":
-      return {
-        pathSuffix: "price",
-        body: {
-          new_price: input.newPrice,
-        },
-      };
   }
 }
 
@@ -545,13 +537,6 @@ function applyLocalDealAction(
       return { ...deal, status: "payment_requested", source: "mock" };
     case "requestShipment":
       return { ...deal, status: "shipment_requested", source: "mock" };
-    case "updatePrice":
-      return {
-        ...deal,
-        unitPrice: input.newPrice,
-        totalAmount: deal.quantity * input.newPrice,
-        source: "mock",
-      };
   }
 }
 

@@ -68,6 +68,9 @@ func TestCreateDealFromAuctionWonOrchestratesSaveAndPublish(t *testing.T) {
 	if deals.lastSaved == nil {
 		t.Fatal("expected deal to be saved")
 	}
+	if deals.lastSaved.UnitPrice() != 120 || deals.lastSaved.CalculateTotal() != 120 {
+		t.Fatalf("expected deal price from auction final price 120, got unit=%d total=%d", deals.lastSaved.UnitPrice(), deals.lastSaved.CalculateTotal())
+	}
 	if len(outbox.saved) == 0 || len(outbox.saved[0]) == 0 {
 		t.Fatal("expected events to be saved to outbox")
 	}
@@ -121,6 +124,9 @@ func TestCreateDealSelectionFromAuctionWonCreatesDealForFirstCandidate(t *testin
 	}
 	if deals.lastSaved == nil || deals.lastSaved.CustomerID() != "buyer-1" {
 		t.Fatalf("expected deal for buyer-1, got %v", deals.lastSaved)
+	}
+	if deals.lastSaved.UnitPrice() != 120 || deals.lastSaved.CalculateTotal() != 120 {
+		t.Fatalf("expected selected deal price from winning bid 120, got unit=%d total=%d", deals.lastSaved.UnitPrice(), deals.lastSaved.CalculateTotal())
 	}
 }
 
@@ -515,10 +521,10 @@ func TestConfirmDealDirectSkipsWinnerSelection(t *testing.T) {
 	item, err := deal.Rehydrate(deal.RehydrateParams{
 		ID:              "deal-direct-1",
 		CustomerID:      "buyer-1",
-		SupplierID:    "sup-1",
-		AuctionID:     "",
-		Quantity:      1,
-		UnitPrice:     100,
+		SupplierID:      "sup-1",
+		AuctionID:       "",
+		Quantity:        1,
+		UnitPrice:       100,
 		Status:          deal.DealStatusPending,
 		TypeName:        deal.DealTypeDirect,
 		CreatedAt:       createdAt,
@@ -663,7 +669,7 @@ func TestRequestDealConfirmationRejectsDuplicatePending(t *testing.T) {
 func TestUpdateDealPriceUsesMetaActor(t *testing.T) {
 	logTest(t)
 	calls := []string{}
-	item := createPendingDeal(t)
+	item := createPendingDirectDeal(t)
 	deals := &dealRepoSpy{calls: &calls, deal: item}
 	confirmations := &confirmationRepoSpy{calls: &calls}
 	outbox := &outboxSpy{calls: &calls}
@@ -678,6 +684,32 @@ func TestUpdateDealPriceUsesMetaActor(t *testing.T) {
 	}
 
 	assertCalls(t, calls, []string{"load_deal", "save_deal", "outbox"})
+}
+
+func TestUpdateDealPriceRejectsAuctionDeal(t *testing.T) {
+	logTest(t)
+	calls := []string{}
+	item := createPendingDeal(t)
+	deals := &dealRepoSpy{calls: &calls, deal: item}
+	outbox := &outboxSpy{calls: &calls}
+	uow := &spyUOW{tx: &spyTx{deals: deals, confirmations: &confirmationRepoSpy{}, projections: &projectionRepoSpy{}, selections: &selectionRepoSpy{}, outbox: outbox}}
+
+	uc, err := NewUpdateDealPrice(uow)
+	if err != nil {
+		t.Fatalf("unexpected constructor error: %v", err)
+	}
+	err = uc.Execute(context.Background(), testMeta(), item.ID(), 130)
+	if !errors.Is(err, deal.ErrAuctionDealPriceImmutable) {
+		t.Fatalf("expected ErrAuctionDealPriceImmutable, got %v", err)
+	}
+
+	assertCalls(t, calls, []string{"load_deal"})
+	if deals.lastSaved != nil {
+		t.Fatal("expected auction deal not to be saved")
+	}
+	if len(outbox.saved) != 0 {
+		t.Fatalf("expected no outbox writes, got %d", len(outbox.saved))
+	}
 }
 
 type dealRepoSpy struct {
@@ -917,6 +949,29 @@ func createPendingDeal(t *testing.T) *deal.Deal {
 	item, _, err := factory.CreateFromProjection(projection, "buyer-test", 120, time.Now())
 	if err != nil {
 		t.Fatalf("factory error: %v", err)
+	}
+	return item
+}
+
+func createPendingDirectDeal(t *testing.T) *deal.Deal {
+	t.Helper()
+
+	item, err := deal.Rehydrate(deal.RehydrateParams{
+		ID:         "deal-direct",
+		CustomerID: "buyer-direct",
+		SupplierID: "seller-direct",
+		Quantity:   1,
+		UnitPrice:  120,
+		Status:     deal.DealStatusPending,
+		TypeName:   deal.DealTypeDirect,
+		CreatedAt:  time.Now(),
+		ProductSnapshot: deal.ProductSnapshot{
+			ProductID: "prod-direct",
+			Name:      "Direct Fish",
+		},
+	})
+	if err != nil {
+		t.Fatalf("rehydrate direct deal: %v", err)
 	}
 	return item
 }

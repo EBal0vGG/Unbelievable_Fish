@@ -7,7 +7,7 @@ import { useAuth } from "@/entities/session/model/auth-context";
 import { ApiError } from "@/shared/api/http-client";
 import { type DealActionInput, runDealAction } from "@/shared/api/deals-service";
 import { getDealParticipantSide, type DealParticipantSide } from "@/shared/lib/access";
-import { toDateTimeLocalValue } from "@/shared/lib/format";
+import { formatMoney, toDateTimeLocalValue } from "@/shared/lib/format";
 import { Button } from "@/shared/ui/button";
 import { Field } from "@/shared/ui/field";
 import { Input } from "@/shared/ui/input";
@@ -189,7 +189,6 @@ export function DealActionPanel({
   const [signatureRef, setSignatureRef] = useState(deal.contract?.signatureRef ?? `SIG-${deal.id.slice(-6).toUpperCase()}`);
   const [invoiceNumber, setInvoiceNumber] = useState(`INV-${deal.id.slice(-6).toUpperCase()}`);
   const [dueDate, setDueDate] = useState(toDateTimeLocalValue(new Date(Date.now() + 5 * 24 * 60 * 60 * 1000)));
-  const [newPrice, setNewPrice] = useState(String(deal.unitPrice));
   const [cancelReason, setCancelReason] = useState("Отмена по соглашению сторон");
   const [confirmationComment, setConfirmationComment] = useState("");
   const [rejectReason, setRejectReason] = useState("Нужна дополнительная проверка");
@@ -220,7 +219,6 @@ export function DealActionPanel({
   const isFinal = deal.status === "completed" || deal.status === "cancelled";
   const isSupplier = side === "supplier";
   const isCustomer = side === "customer";
-  const canUpdatePrice = deal.status === "pending" && isSupplier;
   const canCancel = !isFinal;
   const nextStage = nextConfirmationRequestStage(deal, currentCompanyId);
   const waitingLabel = waitingCounterpartyLabel(deal, currentCompanyId);
@@ -368,6 +366,11 @@ export function DealActionPanel({
             submit({ type: "requestPayment", invoiceNumber, dueDate });
           }}
         >
+          <div className="readonly-amount">
+            <span>Сумма к оплате</span>
+            <strong>{formatMoney(deal.totalAmount)}</strong>
+            <p>Цена сформирована по результатам торгов и не редактируется на этапе оплаты.</p>
+          </div>
           <Field label="Номер инвойса">
             <Input value={invoiceNumber} onChange={(event) => setInvoiceNumber(event.target.value)} />
           </Field>
@@ -389,23 +392,6 @@ export function DealActionPanel({
       {isFinal ? <p className="muted">Для финального статуса доступны только просмотр и аудит.</p> : null}
 
       <div className="side-action-grid">
-        {canUpdatePrice ? (
-          <form
-            className="stack-md"
-            onSubmit={(event) => {
-              event.preventDefault();
-              submit({ type: "updatePrice", newPrice: Number(newPrice) });
-            }}
-          >
-            <Field label="Новая цена">
-              <Input type="number" value={newPrice} onChange={(event) => setNewPrice(event.target.value)} />
-            </Field>
-            <Button disabled={mutation.isPending || !session || Number(newPrice) <= 0} type="submit" variant="secondary">
-              Обновить цену
-            </Button>
-          </form>
-        ) : null}
-
         {canCancel && !pendingConfirmation && (isSupplier || isCustomer) ? (
           <form
             className="stack-md"

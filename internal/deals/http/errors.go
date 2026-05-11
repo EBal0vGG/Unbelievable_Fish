@@ -90,6 +90,8 @@ func MapError(err error) HTTPError {
 		return HTTPError{http.StatusForbidden, "NOT_DEAL_PARTICIPANT", "company is not a deal participant"}
 	case errors.Is(err, deal.ErrConfirmationAlreadyPending):
 		return HTTPError{http.StatusConflict, "CONFIRMATION_ALREADY_PENDING", "confirmation already pending"}
+	case errors.Is(err, deal.ErrAuctionDealPriceImmutable):
+		return HTTPError{http.StatusBadRequest, "DEAL_PRICE_IMMUTABLE", "auction deal price is fixed by the winning bid"}
 	case errors.Is(err, deal.ErrCannotConfirmDeal),
 		errors.Is(err, deal.ErrCannotPrepareContract),
 		errors.Is(err, deal.ErrContractAlreadyPrepared),

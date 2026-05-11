@@ -113,15 +113,16 @@ func (s *spyWinners) Save(ctx context.Context, auctionID AuctionID, winners []Wi
 }
 
 type spyDepositService struct {
-	calls *[]string
-	err   error
+	calls          *[]string
+	err            error
+	lastStartPrice int64
 }
 
 func (s *spyDepositService) ReserveAuctionDeposit(ctx context.Context, companyID, auctionID string, startPrice int64) error {
 	_ = ctx
 	_ = companyID
 	_ = auctionID
-	_ = startPrice
+	s.lastStartPrice = startPrice
 	if s.calls != nil {
 		*s.calls = append(*s.calls, "reserve_deposit")
 	}
@@ -179,6 +180,12 @@ func TestCreateAuctionSavesAggregate(t *testing.T) {
 	}
 	assertCalls(t, calls, []string{"load", "save"})
 	assertCreatedAggregate(t, repo, "lot-1")
+	if repo.lastSaved.StartPrice() != 100 || repo.lastSaved.CurrentPrice() != 100 {
+		t.Fatalf("expected auction to use start price 100, got start=%d current=%d", repo.lastSaved.StartPrice(), repo.lastSaved.CurrentPrice())
+	}
+	if repo.lastSaved.MinBidStep() != 10 {
+		t.Fatalf("expected min bid step 10, got %d", repo.lastSaved.MinBidStep())
+	}
 	if outbox.saveCount != 0 {
 		t.Fatalf("expected no outbox save, got %d", outbox.saveCount)
 	}
@@ -271,6 +278,9 @@ func TestPlaceBidOrchestratesLoadSavePublish(t *testing.T) {
 	}
 	logf(t, "calls=%v bid_saved_amount=%d", calls, bidRepo.lastSaved.Amount())
 	assertCalls(t, calls, []string{"load_for_update", "reserve_deposit", "save_bid", "save", "outbox"})
+	if deposits.lastStartPrice != 100 {
+		t.Fatalf("expected deposit reservation to use auction start price 100, got %d", deposits.lastStartPrice)
+	}
 	assertSavedAggregate(t, repo)
 	assertOutbox(t, outbox, testMeta())
 }
@@ -338,6 +348,13 @@ func TestCloseAuctionOrchestratesLoadSavePublish(t *testing.T) {
 	}
 	logf(t, "calls=%v", calls)
 	assertCalls(t, calls, []string{"load_for_update", "top_bids", "winners", "save", "outbox"})
+	if repo.lastSaved.CurrentPrice() != 100 {
+		t.Fatalf("expected close to keep final price from winning bid 100, got %d", repo.lastSaved.CurrentPrice())
+	}
+	winnerCompanyID, finalPrice, ok := repo.lastSaved.Winner()
+	if !ok || winnerCompanyID != "bidder-1" || finalPrice != 100 {
+		t.Fatalf("expected winning bid to define final price, got winner=%q final=%d ok=%v", winnerCompanyID, finalPrice, ok)
+	}
 	assertSavedAggregate(t, repo)
 	assertOutbox(t, outbox, testMeta())
 }

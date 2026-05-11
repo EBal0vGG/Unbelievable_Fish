@@ -153,19 +153,21 @@ export function PlaceBidForm({
     mutation.mutate(values);
   });
 
+  const amountError = form.formState.errors.amount?.message;
+
   return (
-    <div className="stack-md">
+    <div className="stack-md bid-form-frame">
       {hardBlockingError && form.formState.isSubmitted === false ? (
         <Notice tone="warning" title="Ставка недоступна">
           {hardBlockingError}
         </Notice>
       ) : null}
 
-      <form className="stack-md" onSubmit={onSubmit}>
-        <Field label="Сумма ставки" error={form.formState.errors.amount?.message}>
+      <form className="stack-md bid-form" onSubmit={onSubmit}>
+        <Field label="Сумма ставки" error={amountError}>
           <Input disabled={Boolean(hardBlockingError)} type="number" {...form.register("amount")} />
         </Field>
-        <p className="muted">Минимально допустимая ставка: {minAllowedBid}</p>
+        <p className="muted bid-form-hint">Минимально допустимая ставка: {minAllowedBid}</p>
         <Button disabled={mutation.isPending || Boolean(hardBlockingError)} type="submit">
           {mutation.isPending ? "Отправляем..." : "Сделать ставку"}
         </Button>

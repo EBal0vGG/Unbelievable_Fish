@@ -145,6 +145,19 @@ func TestDeal_RequestPaymentAndMarkAsPaid(t *testing.T) {
 	}
 }
 
+func TestDeal_UpdatePriceRejectsAuctionDeal(t *testing.T) {
+	logTest(t)
+	item := createTestDeal(t)
+
+	_, err := item.UpdatePrice(1500, "seller_789")
+	if !errors.Is(err, ErrAuctionDealPriceImmutable) {
+		t.Fatalf("expected ErrAuctionDealPriceImmutable, got %v", err)
+	}
+	if item.UnitPrice() != 1000 {
+		t.Fatalf("auction final price changed: got %d", item.UnitPrice())
+	}
+}
+
 func TestDeal_Cancel(t *testing.T) {
 	logTest(t)
 

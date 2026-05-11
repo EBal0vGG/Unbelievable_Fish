@@ -522,6 +522,15 @@ func TestCreateLotGeneratesID(t *testing.T) {
 	if stored.ID() != lotID {
 		t.Fatalf("expected stored lot id to match, got %s", stored.ID())
 	}
+	if stored.StartPrice() != 100 {
+		t.Fatalf("expected start price 100, got %d", stored.StartPrice())
+	}
+	if stored.CurPrice() != 100 {
+		t.Fatalf("expected current price to start at 100, got %d", stored.CurPrice())
+	}
+	if stored.Quantity() != 10 {
+		t.Fatalf("expected quantity to remain descriptive 10, got %v", stored.Quantity())
+	}
 	if stored.SellerCompanyID() != "seller-1" {
 		t.Fatalf("expected seller company id from context, got %s", stored.SellerCompanyID())
 	}

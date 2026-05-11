@@ -9,12 +9,14 @@ export function EmptyState({
   actionHref,
   actionLabel,
   framed = true,
+  size = "default",
 }: {
   title: string;
   description: string;
   actionHref?: string;
   actionLabel?: string;
   framed?: boolean;
+  size?: "default" | "compact";
 }) {
   const content = (
     <>
@@ -32,8 +34,8 @@ export function EmptyState({
   );
 
   return framed ? (
-    <Card className="empty-state">{content}</Card>
+    <Card className={`empty-state empty-state-${size}`}>{content}</Card>
   ) : (
-    <div className="empty-state empty-state-inline">{content}</div>
+    <div className={`empty-state empty-state-inline empty-state-${size}`}>{content}</div>
   );
 }

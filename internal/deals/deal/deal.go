@@ -457,6 +457,9 @@ func statusEligibleForBuyerInitiatedDepositForfeit(st DealStatus) bool {
 
 // UpdatePrice - обновляет цену за единицу
 func (d *Deal) UpdatePrice(newPrice int64, updatedBy string) ([]Event, error) {
+	if d.typeName == DealTypeAuction {
+		return nil, ErrAuctionDealPriceImmutable
+	}
 	if !d.canBeModified() {
 		return nil, ErrCannotUpdatePrice
 	}

@@ -141,8 +141,8 @@ export default function AuctionDetailsPage() {
         </Button>
       </div>
 
-      <div className="info-grid">
-        <Card className="form-card auction-visual-card">
+      <div className="auction-detail-layout">
+        <Card className="form-card auction-detail-card auction-lot-card auction-visual-card">
           <EntityPhoto src={lot?.photo} alt={productTitle} className="detail-photo" />
           <div className="stack-md">
             <div>
@@ -163,7 +163,7 @@ export default function AuctionDetailsPage() {
           </div>
         </Card>
 
-        <Card className="form-card">
+        <Card className="form-card auction-detail-card auction-summary-card">
           <div className="stack-md">
             <h2>Сводка аукциона</h2>
             <div className="metric-grid auction-summary-metrics">
@@ -203,51 +203,57 @@ export default function AuctionDetailsPage() {
           </div>
         </Card>
 
-        {showAdminClose || showSellerCancel ? (
-          <Card className="form-card">
-            <div className="stack-md">
-              <h2>Управление торгами</h2>
-              {showAdminClose ? (
-                <div className="stack-sm">
-                  <Notice tone="warning" title="Операция администратора">
-                    Принудительное закрытие обходит ограничения для продавца. Используйте только в demo / support.
-                  </Notice>
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    disabled={closeAuctionMu.isPending}
-                    onClick={() => closeAuctionMu.mutate()}
-                  >
-                    {closeAuctionMu.isPending ? "Закрываем…" : "Закрыть аукцион (admin)"}
-                  </Button>
-                  {closeAuctionMu.error ? (
-                    <p className="muted text-sm">{closeAuctionMu.error.message}</p>
-                  ) : null}
-                </div>
-              ) : null}
-              {showSellerCancel ? (
-                <div className="stack-sm">
-                  <p className="muted text-sm">
-                    Отмена доступна для опубликованного лота без ставок. При наличии ставок обратитесь к администратору.
-                  </p>
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    disabled={cancelAuctionMu.isPending}
-                    onClick={() => cancelAuctionMu.mutate()}
-                  >
-                    {cancelAuctionMu.isPending ? "Отмена…" : "Отменить аукцион"}
-                  </Button>
-                  {cancelAuctionMu.error ? (
-                    <p className="muted text-sm">{cancelAuctionMu.error.message}</p>
-                  ) : null}
-                </div>
-              ) : null}
-            </div>
-          </Card>
-        ) : null}
+        <Card className="form-card auction-detail-card auction-management-card">
+          <div className="stack-md">
+            <h2>Управление торгами</h2>
+            {showAdminClose ? (
+              <div className="stack-sm">
+                <Notice tone="warning" title="Операция администратора">
+                  Принудительное закрытие обходит ограничения для продавца. Используйте только в demo / support.
+                </Notice>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  disabled={closeAuctionMu.isPending}
+                  onClick={() => closeAuctionMu.mutate()}
+                >
+                  {closeAuctionMu.isPending ? "Закрываем..." : "Закрыть аукцион (admin)"}
+                </Button>
+                {closeAuctionMu.error ? (
+                  <p className="muted text-sm">{closeAuctionMu.error.message}</p>
+                ) : null}
+              </div>
+            ) : null}
+            {showSellerCancel ? (
+              <div className="stack-sm">
+                <p className="muted text-sm">
+                  Отмена доступна для опубликованного лота без ставок. При наличии ставок обратитесь к администратору.
+                </p>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  disabled={cancelAuctionMu.isPending}
+                  onClick={() => cancelAuctionMu.mutate()}
+                >
+                  {cancelAuctionMu.isPending ? "Отмена..." : "Отменить аукцион"}
+                </Button>
+                {cancelAuctionMu.error ? (
+                  <p className="muted text-sm">{cancelAuctionMu.error.message}</p>
+                ) : null}
+              </div>
+            ) : null}
+            {!showAdminClose && !showSellerCancel ? (
+              <EmptyState
+                framed={false}
+                size="compact"
+                title="Действий нет"
+                description="Управление появится для продавца или администратора, когда статус торгов позволит выполнить действие."
+              />
+            ) : null}
+          </div>
+        </Card>
 
-        <Card className="form-card">
+        <Card className="form-card auction-detail-card auction-bid-card">
           <div className="stack-md">
             <h2>Сделать ставку</h2>
             <p className="muted">Разместите ставку для участия в торгах по выбранному лоту.</p>
@@ -264,10 +270,8 @@ export default function AuctionDetailsPage() {
             />
           </div>
         </Card>
-      </div>
 
-      <div className="info-grid">
-        <Card className="form-card">
+        <Card className="form-card auction-detail-card auction-product-card">
           <div className="stack-md">
             <h2>Продукт</h2>
             <div>
@@ -306,7 +310,7 @@ export default function AuctionDetailsPage() {
           </div>
         </Card>
 
-        <Card className="form-card">
+        <Card className="form-card auction-detail-card auction-history-card">
           <div className="stack-md">
             <h2>История ставок</h2>
             {bids.length ? (
@@ -333,7 +337,12 @@ export default function AuctionDetailsPage() {
                 </table>
               </div>
             ) : (
-              <p className="muted">Ставок по этому аукциону пока нет.</p>
+              <EmptyState
+                framed={false}
+                size="compact"
+                title="Ставок пока нет"
+                description="Первая ставка появится в истории сразу после успешной отправки."
+              />
             )}
           </div>
         </Card>

@@ -383,48 +383,57 @@ export function MarketOverview() {
       </div>
 
       <SectionCard eyebrow="Live auctions" title="Торговая лента">
-        <div className="data-list auction-feed">
-          {filtered.auctions.slice(0, 5).map((item) => {
-            const lot = lots.find((lotItem) => lotItem.id === item.lotId);
-            const rowTone =
-              item.state === "PUBLISHED"
-                ? "data-row-active"
-                : item.state === "CANCELLED"
-                  ? "data-row-cancelled"
-                  : "data-row-complete";
+        {filtered.auctions.length ? (
+          <div className="data-list auction-feed">
+            {filtered.auctions.slice(0, 5).map((item) => {
+              const lot = lots.find((lotItem) => lotItem.id === item.lotId);
+              const rowTone =
+                item.state === "PUBLISHED"
+                  ? "data-row-active"
+                  : item.state === "CANCELLED"
+                    ? "data-row-cancelled"
+                    : "data-row-complete";
 
-            return (
-              <div className={`data-row auction-row ${rowTone}`} key={item.id}>
-                <div className="auction-thumb">
-                  <span>{lot?.productLabel?.slice(0, 2).toUpperCase() ?? "UF"}</span>
+              return (
+                <div className={`data-row auction-row ${rowTone}`} key={item.id}>
+                  <div className="auction-thumb">
+                    <span>{lot?.productLabel?.slice(0, 2).toUpperCase() ?? "UF"}</span>
+                  </div>
+                  <div className="data-row-main">
+                    <h3>{lot?.productLabel ?? `Аукцион ${shortId(item.id)}`}</h3>
+                    <p>Сессия #{shortId(item.id)} · лот {shortId(item.lotId)}</p>
+                  </div>
+                  <div className="data-cell">
+                    <span>Статус</span>
+                    <strong>
+                      <StatusBadge status={item.state} label={auctionStateLabels[item.state]} />
+                    </strong>
+                  </div>
+                  <div className="data-cell">
+                    <span>Цена</span>
+                    <strong>{formatMoney(item.currentPrice ?? item.finalPrice)}</strong>
+                  </div>
+                  <div className="data-cell">
+                    <span>Завершение</span>
+                    <strong>{formatDateTime(item.endsAt)}</strong>
+                  </div>
+                  <div className="data-actions">
+                    <Link className={buttonStyles({ variant: "secondary", size: "sm" })} href={`/auctions/${item.id}`}>
+                      Открыть
+                    </Link>
+                  </div>
                 </div>
-                <div className="data-row-main">
-                  <h3>{lot?.productLabel ?? `Аукцион ${shortId(item.id)}`}</h3>
-                  <p>Сессия #{shortId(item.id)} · лот {shortId(item.lotId)}</p>
-                </div>
-                <div className="data-cell">
-                  <span>Статус</span>
-                  <strong>
-                    <StatusBadge status={item.state} label={auctionStateLabels[item.state]} />
-                  </strong>
-                </div>
-                <div className="data-cell">
-                  <span>Цена</span>
-                  <strong>{formatMoney(item.currentPrice ?? item.finalPrice)}</strong>
-                </div>
-                <div className="data-cell">
-                  <span>Завершение</span>
-                  <strong>{formatDateTime(item.endsAt)}</strong>
-                </div>
-                <div className="data-actions">
-                  <Link className={buttonStyles({ variant: "secondary", size: "sm" })} href={`/auctions/${item.id}`}>
-                    Открыть
-                  </Link>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        ) : (
+          <EmptyState
+            framed={false}
+            size="compact"
+            title="Торгов пока нет"
+            description="После публикации лотов здесь появятся активные и завершенные аукционы."
+          />
+        )}
       </SectionCard>
     </div>
   );

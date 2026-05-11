@@ -30,12 +30,13 @@ export function formatDateTime(value?: string | null): string {
   return dateFormatter.format(date);
 }
 
-export function shortId(value: string): string {
-  if (value.length <= 14) {
+export function shortId(value: string, head = 6, tail = 4): string {
+  const minLength = head + tail + 4;
+  if (value.length <= minLength) {
     return value;
   }
 
-  return `${value.slice(0, 6)}…${value.slice(-4)}`;
+  return `${value.slice(0, head)}…${value.slice(-tail)}`;
 }
 
 export function toDateTimeLocalValue(value: Date): string {
