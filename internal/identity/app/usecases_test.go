@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -159,6 +160,105 @@ func (p *fakeTokenProvider) Generate(user *identity.User) (string, error) {
 	return "token", nil
 }
 
+type fakeVerificationTokenGenerator struct {
+	nextToken string
+	nextID    string
+}
+
+func (g fakeVerificationTokenGenerator) NewToken() (string, error) {
+	if g.nextToken != "" {
+		return g.nextToken, nil
+	}
+	return "raw-token", nil
+}
+
+func (g fakeVerificationTokenGenerator) HashToken(token string) string {
+	return "hash:" + token
+}
+
+func (g fakeVerificationTokenGenerator) NewTokenID() string {
+	if g.nextID != "" {
+		return g.nextID
+	}
+	return "email-token-1"
+}
+
+type fakeVerificationEmailSender struct {
+	sent []VerificationEmail
+	err  error
+}
+
+func (s *fakeVerificationEmailSender) SendVerificationEmail(ctx context.Context, email VerificationEmail) error {
+	_ = ctx
+	if s.err != nil {
+		return s.err
+	}
+	s.sent = append(s.sent, email)
+	return nil
+}
+
+type fakeEmailVerificationTokenRepo struct {
+	byHash map[string]EmailVerificationToken
+	byID   map[string]string
+}
+
+func newFakeEmailVerificationTokenRepo() *fakeEmailVerificationTokenRepo {
+	return &fakeEmailVerificationTokenRepo{
+		byHash: make(map[string]EmailVerificationToken),
+		byID:   make(map[string]string),
+	}
+}
+
+func (r *fakeEmailVerificationTokenRepo) Save(ctx context.Context, token EmailVerificationToken) error {
+	_ = ctx
+	r.byHash[token.TokenHash] = token
+	r.byID[token.ID] = token.TokenHash
+	return nil
+}
+
+func (r *fakeEmailVerificationTokenRepo) GetByHash(ctx context.Context, tokenHash string) (EmailVerificationToken, error) {
+	_ = ctx
+	token, ok := r.byHash[tokenHash]
+	if !ok {
+		return EmailVerificationToken{}, ErrVerificationTokenInvalid
+	}
+	return token, nil
+}
+
+func (r *fakeEmailVerificationTokenRepo) MarkUsed(ctx context.Context, tokenID string, usedAt time.Time) error {
+	_ = ctx
+	hash := r.byID[tokenID]
+	token := r.byHash[hash]
+	token.UsedAt = &usedAt
+	r.byHash[hash] = token
+	return nil
+}
+
+func (r *fakeEmailVerificationTokenRepo) RevokeActiveForUser(ctx context.Context, userID string, revokedAt time.Time) error {
+	_ = ctx
+	for hash, token := range r.byHash {
+		if token.UserID == userID && token.UsedAt == nil && token.RevokedAt == nil {
+			token.RevokedAt = &revokedAt
+			r.byHash[hash] = token
+		}
+	}
+	return nil
+}
+
+func (r *fakeEmailVerificationTokenRepo) LastSentAtForUser(ctx context.Context, userID string) (time.Time, bool, error) {
+	_ = ctx
+	var latest time.Time
+	for _, token := range r.byHash {
+		if token.UserID == userID && token.UsedAt == nil && token.RevokedAt == nil && token.SentAt.After(latest) {
+			latest = token.SentAt
+		}
+	}
+	if latest.IsZero() {
+		return time.Time{}, false, nil
+	}
+	return latest, true, nil
+}
+
 type fakeIDGenerator struct {
 	companyID string
 	userID    string
@@ -295,11 +395,141 @@ func TestRegisterUserSuccess(t *testing.T) {
 	if stored.PasswordHash() != "hashed-password" {
 		t.Fatalf("expected stored hash, got %q", stored.PasswordHash())
 	}
+	if stored.EmailVerified() {
+		t.Fatal("expected new user email to be unverified")
+	}
 	if stored.TermsVersion() != "2026-04-24" {
 		t.Fatalf("expected stored terms version, got %q", stored.TermsVersion())
 	}
 	if !stored.TermsAcceptedAt().Equal(acceptedAt) {
 		t.Fatalf("expected stored accepted at %v, got %v", acceptedAt, stored.TermsAcceptedAt())
+	}
+}
+
+func TestRegisterUserSendsVerificationEmail(t *testing.T) {
+	companies := newFakeCompanyRepo()
+	company, err := identity.NewCompany("company-1", "Acme", "7707083893", "1027700132195", time.Now())
+	if err != nil {
+		t.Fatalf("unexpected domain error: %v", err)
+	}
+	companies.byID[company.ID()] = company
+	users := newFakeUserRepo()
+	tokens := newFakeEmailVerificationTokenRepo()
+	sender := &fakeVerificationEmailSender{}
+	now := time.Date(2026, time.May, 11, 10, 0, 0, 0, time.UTC)
+	verificationService, err := NewEmailVerificationService(
+		tokens,
+		sender,
+		fakeVerificationTokenGenerator{nextToken: "raw-token", nextID: "email-token-1"},
+		"https://fish.example",
+		24*time.Hour,
+		5*time.Minute,
+		fixedClock{now: now},
+	)
+	if err != nil {
+		t.Fatalf("verification service: %v", err)
+	}
+	uc, err := NewRegisterUser(users, companies, &fakePasswordHasher{hashValue: "hashed"}, fakeIDGenerator{userID: "user-1"}, fixedClock{now: now}, nil, nil)
+	if err != nil {
+		t.Fatalf("unexpected constructor error: %v", err)
+	}
+	uc.WithEmailVerification(verificationService)
+
+	_, err = uc.Execute(context.Background(), RegisterUserCommand{
+		CompanyID:     "company-1",
+		Name:          "Alice",
+		Role:          identity.RoleSeller,
+		Login:         "alice@example.com",
+		Password:      "secret",
+		AcceptedTerms: true,
+		TermsVersion:  "2026-04-24",
+	})
+	if err != nil {
+		t.Fatalf("register user error: %v", err)
+	}
+	if _, ok := tokens.byHash["hash:raw-token"]; !ok {
+		t.Fatal("expected hashed verification token to be saved")
+	}
+	if len(sender.sent) != 1 {
+		t.Fatalf("expected one verification email, got %d", len(sender.sent))
+	}
+	if !strings.Contains(sender.sent[0].VerificationLink, "/verify-email?token=raw-token") {
+		t.Fatalf("expected raw token in email link, got %q", sender.sent[0].VerificationLink)
+	}
+}
+
+func TestRegisterUserLeavesUnverifiedAccountWhenEmailSendFails(t *testing.T) {
+	companies := newFakeCompanyRepo()
+	users := newFakeUserRepo()
+	tokens := newFakeEmailVerificationTokenRepo()
+	sender := &fakeVerificationEmailSender{err: errors.New("smtp unavailable")}
+	now := time.Date(2026, time.May, 11, 10, 0, 0, 0, time.UTC)
+	verificationService, err := NewEmailVerificationService(
+		tokens,
+		sender,
+		fakeVerificationTokenGenerator{nextToken: "raw-token", nextID: "email-token-1"},
+		"https://fish.example",
+		24*time.Hour,
+		5*time.Minute,
+		fixedClock{now: now},
+	)
+	if err != nil {
+		t.Fatalf("verification service: %v", err)
+	}
+	uc, err := NewRegisterUser(users, companies, &fakePasswordHasher{hashValue: "hashed"}, fakeIDGenerator{companyID: "company-auto", userID: "user-1"}, fixedClock{now: now}, nil, nil)
+	if err != nil {
+		t.Fatalf("unexpected constructor error: %v", err)
+	}
+	uc.WithEmailVerification(verificationService)
+
+	_, err = uc.Execute(context.Background(), RegisterUserCommand{
+		Name:          "Alice",
+		Role:          identity.RoleSeller,
+		Login:         "alice@example.com",
+		Password:      "secret",
+		AcceptedTerms: true,
+		TermsVersion:  "2026-04-24",
+	})
+	if err != ErrVerificationEmailSend {
+		t.Fatalf("expected %v, got %v", ErrVerificationEmailSend, err)
+	}
+	user, err := users.GetByLogin(context.Background(), "alice@example.com")
+	if err != nil {
+		t.Fatalf("expected user to remain for resend, got %v", err)
+	}
+	if user.EmailVerified() {
+		t.Fatal("expected user to remain unverified")
+	}
+	token, ok := tokens.byHash["hash:raw-token"]
+	if !ok {
+		t.Fatal("expected verification token record")
+	}
+	if token.RevokedAt == nil {
+		t.Fatal("expected failed email token to be revoked so resend is available")
+	}
+
+	resendSender := &fakeVerificationEmailSender{}
+	resendService, err := NewEmailVerificationService(
+		tokens,
+		resendSender,
+		fakeVerificationTokenGenerator{nextToken: "raw-token-2", nextID: "email-token-2"},
+		"https://fish.example",
+		24*time.Hour,
+		5*time.Minute,
+		fixedClock{now: now.Add(time.Minute)},
+	)
+	if err != nil {
+		t.Fatalf("resend service: %v", err)
+	}
+	resendUC, err := NewResendVerification(users, resendService)
+	if err != nil {
+		t.Fatalf("resend usecase: %v", err)
+	}
+	if _, err := resendUC.Execute(context.Background(), ResendVerificationCommand{Login: "alice@example.com"}); err != nil {
+		t.Fatalf("expected resend after failed email to bypass cooldown, got %v", err)
+	}
+	if len(resendSender.sent) != 1 {
+		t.Fatalf("expected resend email, got %d", len(resendSender.sent))
 	}
 }
 
@@ -570,6 +800,7 @@ func TestLoginSuccess(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected domain error: %v", err)
 	}
+	user.VerifyEmail()
 	users.byID[user.ID()] = user
 	users.byLogin[user.Login()] = user
 
@@ -600,6 +831,122 @@ func TestLoginSuccess(t *testing.T) {
 	}
 	if tokens.lastUser == nil || tokens.lastUser.ID() != "user-1" {
 		t.Fatalf("expected token provider to receive user")
+	}
+}
+
+func TestLoginFailsWhenEmailNotVerified(t *testing.T) {
+	users := newFakeUserRepo()
+	user, err := identity.NewUser("user-1", "company-1", "Alice", identity.RoleSeller, "alice@example.com", "hashed-password")
+	if err != nil {
+		t.Fatalf("unexpected domain error: %v", err)
+	}
+	users.byID[user.ID()] = user
+	users.byLogin[user.Login()] = user
+
+	uc, err := NewLogin(users, &fakePasswordHasher{compareOK: true}, &fakeTokenProvider{token: "token-1"})
+	if err != nil {
+		t.Fatalf("unexpected constructor error: %v", err)
+	}
+	_, err = uc.Execute(context.Background(), LoginCommand{Login: "alice@example.com", Password: "secret"})
+	if err != ErrEmailNotVerified {
+		t.Fatalf("expected %v, got %v", ErrEmailNotVerified, err)
+	}
+}
+
+func TestVerifyEmailSuccessAndCannotReuseToken(t *testing.T) {
+	users := newFakeUserRepo()
+	user, err := identity.NewUser("user-1", "company-1", "Alice", identity.RoleSeller, "alice@example.com", "hash")
+	if err != nil {
+		t.Fatalf("unexpected domain error: %v", err)
+	}
+	users.byID[user.ID()] = user
+	users.byLogin[user.Login()] = user
+	tokens := newFakeEmailVerificationTokenRepo()
+	now := time.Date(2026, time.May, 11, 10, 0, 0, 0, time.UTC)
+	if err := tokens.Save(context.Background(), EmailVerificationToken{
+		ID:        "email-token-1",
+		UserID:    "user-1",
+		TokenHash: "hash:raw-token",
+		ExpiresAt: now.Add(time.Hour),
+		CreatedAt: now,
+		SentAt:    now,
+	}); err != nil {
+		t.Fatalf("save token: %v", err)
+	}
+	uc, err := NewVerifyEmail(users, tokens, fakeVerificationTokenGenerator{}, fixedClock{now: now}, nil)
+	if err != nil {
+		t.Fatalf("unexpected constructor error: %v", err)
+	}
+
+	if _, err := uc.Execute(context.Background(), VerifyEmailCommand{Token: "raw-token"}); err != nil {
+		t.Fatalf("verify email error: %v", err)
+	}
+	verifiedUser, err := users.GetByID(context.Background(), "user-1")
+	if err != nil {
+		t.Fatalf("load user: %v", err)
+	}
+	if !verifiedUser.EmailVerified() {
+		t.Fatal("expected email to be verified")
+	}
+	if _, err := uc.Execute(context.Background(), VerifyEmailCommand{Token: "raw-token"}); err != ErrVerificationTokenUsed {
+		t.Fatalf("expected %v on reuse, got %v", ErrVerificationTokenUsed, err)
+	}
+}
+
+func TestVerifyEmailRejectsInvalidAndExpiredToken(t *testing.T) {
+	users := newFakeUserRepo()
+	tokens := newFakeEmailVerificationTokenRepo()
+	now := time.Date(2026, time.May, 11, 10, 0, 0, 0, time.UTC)
+	uc, err := NewVerifyEmail(users, tokens, fakeVerificationTokenGenerator{}, fixedClock{now: now}, nil)
+	if err != nil {
+		t.Fatalf("unexpected constructor error: %v", err)
+	}
+	if _, err := uc.Execute(context.Background(), VerifyEmailCommand{Token: "missing"}); err != ErrVerificationTokenInvalid {
+		t.Fatalf("expected invalid token error, got %v", err)
+	}
+	if err := tokens.Save(context.Background(), EmailVerificationToken{
+		ID:        "email-token-1",
+		UserID:    "user-1",
+		TokenHash: "hash:expired",
+		ExpiresAt: now.Add(-time.Minute),
+		CreatedAt: now.Add(-time.Hour),
+		SentAt:    now.Add(-time.Hour),
+	}); err != nil {
+		t.Fatalf("save token: %v", err)
+	}
+	if _, err := uc.Execute(context.Background(), VerifyEmailCommand{Token: "expired"}); err != ErrVerificationTokenExpired {
+		t.Fatalf("expected expired token error, got %v", err)
+	}
+}
+
+func TestResendVerificationCreatesNewTokenAndEnforcesCooldown(t *testing.T) {
+	users := newFakeUserRepo()
+	user, err := identity.NewUser("user-1", "company-1", "Alice", identity.RoleSeller, "alice@example.com", "hash")
+	if err != nil {
+		t.Fatalf("unexpected domain error: %v", err)
+	}
+	users.byID[user.ID()] = user
+	users.byLogin[user.Login()] = user
+	tokens := newFakeEmailVerificationTokenRepo()
+	sender := &fakeVerificationEmailSender{}
+	now := time.Date(2026, time.May, 11, 10, 0, 0, 0, time.UTC)
+	service, err := NewEmailVerificationService(tokens, sender, fakeVerificationTokenGenerator{nextToken: "raw-token-2", nextID: "email-token-2"}, "https://fish.example", time.Hour, 5*time.Minute, fixedClock{now: now})
+	if err != nil {
+		t.Fatalf("verification service: %v", err)
+	}
+	uc, err := NewResendVerification(users, service)
+	if err != nil {
+		t.Fatalf("unexpected constructor error: %v", err)
+	}
+
+	if _, err := uc.Execute(context.Background(), ResendVerificationCommand{Login: "alice@example.com"}); err != nil {
+		t.Fatalf("resend error: %v", err)
+	}
+	if len(sender.sent) != 1 {
+		t.Fatalf("expected one email, got %d", len(sender.sent))
+	}
+	if _, err := uc.Execute(context.Background(), ResendVerificationCommand{Login: "alice@example.com"}); err != ErrVerificationCooldown {
+		t.Fatalf("expected cooldown error, got %v", err)
 	}
 }
 

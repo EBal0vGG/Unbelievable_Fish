@@ -56,6 +56,21 @@ services:
       IDENTITY_PORT: "8084"
       IDENTITY_TOKEN_SECRET: dev-secret
       IDENTITY_TOKEN_TTL_MINUTES: "120"
+
+      APP_ENV: ${APP_ENV:-production}
+      APP_PUBLIC_URL: ${APP_PUBLIC_URL:-http://localhost:3000}
+
+      EMAIL_VERIFICATION_TTL_MINUTES: "1440"
+      EMAIL_VERIFICATION_COOLDOWN_MINUTES: "5"
+
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT}
+      SMTP_USER: ${SMTP_USER}
+      SMTP_PASSWORD: ${SMTP_PASSWORD}
+      SMTP_FROM: ${SMTP_FROM}
+      SMTP_USE_TLS: ${SMTP_USE_TLS:-true}
+      SMTP_SECURE: ${SMTP_SECURE:-true}
+      SMTP_TIMEOUT_SECONDS: ${SMTP_TIMEOUT_SECONDS:-10}
     ports:
       - "8084:8084"
     depends_on:
@@ -63,6 +78,13 @@ services:
         condition: service_healthy
       migrate:
         condition: service_completed_successfully
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8084/health >/dev/null 2>&1"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 10s
 
   catalog:
     build:
@@ -216,7 +238,7 @@ services:
       - "3000:3000"
     depends_on:
       identity:
-        condition: service_started
+        condition: service_healthy
       catalog:
         condition: service_started
       trading:

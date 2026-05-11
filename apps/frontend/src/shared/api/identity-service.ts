@@ -39,11 +39,22 @@ interface UserResponse {
   name: string;
   role: UserRole;
   login: string;
+  email_verified?: boolean;
 }
 
 interface LoginResponse {
   token: string;
   user: UserResponse;
+}
+
+interface VerifyEmailResponse {
+  status: string;
+  already_verified?: boolean;
+}
+
+interface ResendVerificationResponse {
+  status: string;
+  already_verified?: boolean;
 }
 
 interface ListUsersResponse {
@@ -81,6 +92,20 @@ export async function login(input: LoginInput): Promise<LoginResponse> {
   });
 }
 
+export async function verifyEmail(token: string): Promise<VerifyEmailResponse> {
+  const params = new URLSearchParams({ token });
+  return apiRequest<VerifyEmailResponse>("identity", `/auth/verify-email?${params.toString()}`, {
+    method: "GET",
+  });
+}
+
+export async function resendVerification(loginValue: string): Promise<ResendVerificationResponse> {
+  return apiRequest<ResendVerificationResponse>("identity", "/auth/resend-verification", {
+    method: "POST",
+    body: { login: loginValue },
+  });
+}
+
 export async function getCurrentUser(session: UserSession): Promise<UserResponse> {
   return apiRequest<UserResponse>("identity", "/users/me", { session });
 }
@@ -112,6 +137,7 @@ export function toUserSession(
     role: user.role,
     name: user.name,
     login: user.login,
+    emailVerified: user.email_verified,
     mode,
     updatedAt: new Date().toISOString(),
   };

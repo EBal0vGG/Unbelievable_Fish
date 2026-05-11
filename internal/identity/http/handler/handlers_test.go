@@ -321,6 +321,7 @@ func TestLoginHandlerSuccess(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected domain error: %v", err)
 	}
+	user.VerifyEmail()
 	users.byID[user.ID()] = user
 	users.byLogin[user.Login()] = user
 

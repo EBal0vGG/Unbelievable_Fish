@@ -96,3 +96,4 @@ docs/project/*/*.typ
 .chain/
 contracts/artifacts/
 contracts/cache/
+.env

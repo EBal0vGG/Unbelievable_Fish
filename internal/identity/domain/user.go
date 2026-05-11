@@ -12,6 +12,7 @@ type User struct {
 	role            Role
 	login           string
 	passwordHash    string
+	emailVerified   bool
 	termsAcceptedAt time.Time
 	termsVersion    string
 }
@@ -77,6 +78,10 @@ func (u *User) PasswordHash() string {
 	return u.passwordHash
 }
 
+func (u *User) EmailVerified() bool {
+	return u.emailVerified
+}
+
 func (u *User) TermsAcceptedAt() time.Time {
 	return u.termsAcceptedAt
 }
@@ -101,4 +106,8 @@ func (u *User) AcceptTerms(version string, acceptedAt time.Time) error {
 
 func (u *User) PromoteToAdmin() {
 	u.role = RoleAdmin
+}
+
+func (u *User) VerifyEmail() {
+	u.emailVerified = true
 }

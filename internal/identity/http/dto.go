@@ -30,6 +30,14 @@ type LoginRequest struct {
 	Password string `json:"password"`
 }
 
+type VerifyEmailRequest struct {
+	Token string `json:"token"`
+}
+
+type ResendVerificationRequest struct {
+	Login string `json:"login"`
+}
+
 type CompanyResponse struct {
 	ID        string                 `json:"id"`
 	Name      string                 `json:"name"`
@@ -40,16 +48,27 @@ type CompanyResponse struct {
 }
 
 type UserResponse struct {
-	ID        string        `json:"id"`
-	CompanyID string        `json:"company_id"`
-	Name      string        `json:"name"`
-	Role      identity.Role `json:"role"`
-	Login     string        `json:"login"`
+	ID            string        `json:"id"`
+	CompanyID     string        `json:"company_id"`
+	Name          string        `json:"name"`
+	Role          identity.Role `json:"role"`
+	Login         string        `json:"login"`
+	EmailVerified bool          `json:"email_verified"`
 }
 
 type LoginResponse struct {
 	Token string       `json:"token"`
 	User  UserResponse `json:"user"`
+}
+
+type VerifyEmailResponse struct {
+	Status          string `json:"status"`
+	AlreadyVerified bool   `json:"already_verified,omitempty"`
+}
+
+type ResendVerificationResponse struct {
+	Status          string `json:"status"`
+	AlreadyVerified bool   `json:"already_verified,omitempty"`
 }
 
 type ErrorResponse struct {
@@ -72,11 +91,12 @@ func NewCompanyResponse(company identityapp.CompanyDTO) CompanyResponse {
 
 func NewUserResponse(user identityapp.UserDTO) UserResponse {
 	return UserResponse{
-		ID:        user.ID,
-		CompanyID: user.CompanyID,
-		Name:      user.Name,
-		Role:      user.Role,
-		Login:     user.Login,
+		ID:            user.ID,
+		CompanyID:     user.CompanyID,
+		Name:          user.Name,
+		Role:          user.Role,
+		Login:         user.Login,
+		EmailVerified: user.EmailVerified,
 	}
 }
 

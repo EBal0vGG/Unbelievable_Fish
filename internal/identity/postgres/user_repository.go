@@ -27,15 +27,17 @@ INSERT INTO identity_users (
     role,
     login,
     password_hash,
+    email_verified,
     terms_accepted_at,
     terms_version
-) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 ON CONFLICT (user_id) DO UPDATE SET
     company_id = EXCLUDED.company_id,
     name = EXCLUDED.name,
     role = EXCLUDED.role,
     login = EXCLUDED.login,
     password_hash = EXCLUDED.password_hash,
+    email_verified = EXCLUDED.email_verified,
     terms_accepted_at = EXCLUDED.terms_accepted_at,
     terms_version = EXCLUDED.terms_version
 `
@@ -61,6 +63,7 @@ ON CONFLICT (user_id) DO UPDATE SET
 		string(user.Role()),
 		user.Login(),
 		user.PasswordHash(),
+		user.EmailVerified(),
 		termsAcceptedAt,
 		termsVersion,
 	)
@@ -69,7 +72,7 @@ ON CONFLICT (user_id) DO UPDATE SET
 
 func (r *UserRepository) GetByID(ctx context.Context, userID string) (*identity.User, error) {
 	const query = `
-SELECT user_id, company_id, name, role, login, password_hash, terms_accepted_at, terms_version
+SELECT user_id, company_id, name, role, login, password_hash, email_verified, terms_accepted_at, terms_version
 FROM identity_users
 WHERE user_id = $1
 `
@@ -78,7 +81,7 @@ WHERE user_id = $1
 
 func (r *UserRepository) GetByLogin(ctx context.Context, login string) (*identity.User, error) {
 	const query = `
-SELECT user_id, company_id, name, role, login, password_hash, terms_accepted_at, terms_version
+SELECT user_id, company_id, name, role, login, password_hash, email_verified, terms_accepted_at, terms_version
 FROM identity_users
 WHERE login = $1
 `
@@ -101,7 +104,7 @@ func (r *UserRepository) ExistsByLogin(ctx context.Context, login string) (bool,
 
 func (r *UserRepository) List(ctx context.Context) ([]*identity.User, error) {
 	const query = `
-SELECT user_id, company_id, name, role, login, password_hash, terms_accepted_at, terms_version
+SELECT user_id, company_id, name, role, login, password_hash, email_verified, terms_accepted_at, terms_version
 FROM identity_users
 ORDER BY user_id
 `
@@ -142,10 +145,11 @@ func scanUser(scanner interface {
 		role            string
 		login           string
 		passwordHash    string
+		emailVerified   bool
 		termsAcceptedAt sql.NullTime
 		termsVersion    sql.NullString
 	)
-	if err := scanner.Scan(&id, &companyID, &name, &role, &login, &passwordHash, &termsAcceptedAt, &termsVersion); err != nil {
+	if err := scanner.Scan(&id, &companyID, &name, &role, &login, &passwordHash, &emailVerified, &termsAcceptedAt, &termsVersion); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, app.ErrUserNotFound
 		}
@@ -154,6 +158,9 @@ func scanUser(scanner interface {
 	user, err := identity.NewUser(id, companyID.String, name, identity.Role(role), login, passwordHash)
 	if err != nil {
 		return nil, err
+	}
+	if emailVerified {
+		user.VerifyEmail()
 	}
 	if termsAcceptedAt.Valid != termsVersion.Valid {
 		if !termsAcceptedAt.Valid {

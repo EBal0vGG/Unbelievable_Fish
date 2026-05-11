@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strconv"
 	"strings"
 	"time"
@@ -12,13 +13,14 @@ import (
 )
 
 type RegisterUser struct {
-	users     UserRepository
-	companies CompanyRepository
-	hasher    PasswordHasher
-	ids       IDGenerator
-	clock     Clock
-	uow       UnitOfWork
-	publisher CompanyCreatedPublisher
+	users             UserRepository
+	companies         CompanyRepository
+	hasher            PasswordHasher
+	ids               IDGenerator
+	clock             Clock
+	uow               UnitOfWork
+	publisher         CompanyCreatedPublisher
+	emailVerification *EmailVerificationService
 }
 
 func NewRegisterUser(
@@ -56,36 +58,49 @@ func NewRegisterUser(
 	}, nil
 }
 
+func (uc *RegisterUser) WithEmailVerification(service *EmailVerificationService) {
+	uc.emailVerification = service
+}
+
 func (uc *RegisterUser) Execute(ctx context.Context, cmd RegisterUserCommand) (UserDTO, error) {
+	slog.InfoContext(ctx, "register_request_started", "component", "identity.register_user")
 	if strings.TrimSpace(cmd.Password) == "" {
+		slog.WarnContext(ctx, "register_request_failed", "component", "identity.register_user", "code", "PASSWORD_REQUIRED")
 		return UserDTO{}, ErrPasswordRequired
 	}
 	if !cmd.AcceptedTerms {
+		slog.WarnContext(ctx, "register_request_failed", "component", "identity.register_user", "code", "TERMS_ACCEPTANCE_REQUIRED")
 		return UserDTO{}, ErrTermsAcceptanceRequired
 	}
 	if strings.TrimSpace(cmd.TermsVersion) == "" {
+		slog.WarnContext(ctx, "register_request_failed", "component", "identity.register_user", "code", "TERMS_VERSION_REQUIRED")
 		return UserDTO{}, ErrTermsVersionRequired
 	}
 	if cmd.Role == identity.RoleAdmin {
+		slog.WarnContext(ctx, "register_request_failed", "component", "identity.register_user", "code", "ADMIN_REGISTRATION_FORBIDDEN")
 		return UserDTO{}, ErrAdminRegistrationForbidden
-	}
-
-	companyID, err := uc.resolveCompanyID(ctx, cmd)
-	if err != nil {
-		return UserDTO{}, err
 	}
 
 	login := strings.ToLower(strings.TrimSpace(cmd.Login))
 	existing, err := uc.users.GetByLogin(ctx, login)
 	if err == nil && existing != nil {
+		slog.WarnContext(ctx, "register_request_failed", "component", "identity.register_user", "code", "LOGIN_ALREADY_USED")
 		return UserDTO{}, ErrLoginAlreadyUsed
 	}
 	if err != nil && !errors.Is(err, ErrUserNotFound) {
+		slog.ErrorContext(ctx, "register_request_failed", "component", "identity.register_user", "error", err)
+		return UserDTO{}, err
+	}
+
+	companyID, newCompany, err := uc.resolveRegistrationCompany(ctx, cmd)
+	if err != nil {
+		slog.ErrorContext(ctx, "register_request_failed", "component", "identity.register_user", "error", err)
 		return UserDTO{}, err
 	}
 
 	passwordHash, err := uc.hasher.Hash(cmd.Password)
 	if err != nil {
+		slog.ErrorContext(ctx, "register_request_failed", "component", "identity.register_user", "error", err)
 		return UserDTO{}, err
 	}
 
@@ -98,47 +113,102 @@ func (uc *RegisterUser) Execute(ctx context.Context, cmd RegisterUserCommand) (U
 		passwordHash,
 	)
 	if err != nil {
+		slog.WarnContext(ctx, "register_request_failed", "component", "identity.register_user", "error", err)
 		return UserDTO{}, err
 	}
 	if err := user.AcceptTerms(cmd.TermsVersion, uc.clock.Now()); err != nil {
+		slog.WarnContext(ctx, "register_request_failed", "component", "identity.register_user", "error", err)
 		return UserDTO{}, err
 	}
-	if err := uc.users.Save(ctx, user); err != nil {
+
+	var verificationEmail VerificationEmail
+	save := func(saveCtx context.Context) error {
+		if newCompany != nil {
+			slog.InfoContext(saveCtx, "company_create_started", "component", "identity.register_user", "company_id", newCompany.ID())
+			if err := uc.companies.Save(saveCtx, newCompany); err != nil {
+				return err
+			}
+			if uc.publisher != nil {
+				if err := uc.publisher.PublishCompanyCreated(saveCtx, newCompany.ID()); err != nil {
+					return err
+				}
+			}
+			slog.InfoContext(saveCtx, "company_create_succeeded", "component", "identity.register_user", "company_id", newCompany.ID())
+		}
+
+		slog.InfoContext(saveCtx, "user_create_started", "component", "identity.register_user", "user_id", user.ID())
+		if err := uc.users.Save(saveCtx, user); err != nil {
+			return err
+		}
+		slog.InfoContext(saveCtx, "user_create_succeeded", "component", "identity.register_user", "user_id", user.ID())
+
+		if uc.emailVerification != nil {
+			slog.InfoContext(saveCtx, "verification_token_create_started", "component", "identity.register_user", "user_id", user.ID())
+			email, err := uc.emailVerification.CreateToken(saveCtx, user)
+			if err != nil {
+				return err
+			}
+			verificationEmail = email
+			slog.InfoContext(saveCtx, "verification_token_create_succeeded", "component", "identity.register_user", "user_id", user.ID())
+		}
+		return nil
+	}
+	if uc.uow != nil {
+		if err := uc.uow.WithinTx(ctx, save); err != nil {
+			slog.ErrorContext(ctx, "register_request_failed", "component", "identity.register_user", "error", err)
+			return UserDTO{}, err
+		}
+	} else if err := save(ctx); err != nil {
+		slog.ErrorContext(ctx, "register_request_failed", "component", "identity.register_user", "error", err)
 		return UserDTO{}, err
 	}
+
+	if uc.emailVerification != nil {
+		slog.InfoContext(ctx, "email_send_started", "component", "identity.register_user", "user_id", user.ID())
+		if err := uc.emailVerification.SendEmail(ctx, user.ID(), verificationEmail); err != nil {
+			slog.ErrorContext(ctx, "email_send_failed", "component", "identity.register_user", "user_id", user.ID(), "error", err)
+			slog.WarnContext(ctx, "register_request_failed", "component", "identity.register_user", "code", "EMAIL_SEND_FAILED", "user_id", user.ID())
+			return UserDTO{}, err
+		}
+		slog.InfoContext(ctx, "email_send_succeeded", "component", "identity.register_user", "user_id", user.ID())
+	}
+	slog.InfoContext(ctx, "register_request_completed", "component", "identity.register_user", "user_id", user.ID())
 	return userDTOFromDomain(user), nil
 }
 
-func (uc *RegisterUser) resolveCompanyID(ctx context.Context, cmd RegisterUserCommand) (string, error) {
+func (uc *RegisterUser) resolveRegistrationCompany(ctx context.Context, cmd RegisterUserCommand) (string, *identity.Company, error) {
 	companyID := strings.TrimSpace(cmd.CompanyID)
 	if companyID != "" {
 		if _, err := uc.companies.GetByID(ctx, companyID); err != nil {
 			if errors.Is(err, ErrCompanyNotFound) {
-				return "", ErrCompanyNotFound
+				return "", nil, ErrCompanyNotFound
 			}
-			return "", err
+			return "", nil, err
 		}
-		return companyID, nil
+		return companyID, nil, nil
 	}
 
 	companyINN := strings.TrimSpace(cmd.CompanyINN)
 	companyOGRN := strings.TrimSpace(cmd.CompanyOGRN)
-	if companyINN == "" || companyOGRN == "" {
-		// No full requisites: create a shell company so the user always has company_id for B2B flows.
-		return uc.ensureDummyCompany(ctx, cmd)
+	if companyINN != "" && companyOGRN != "" {
+		company, err := uc.companies.GetByRequisites(ctx, companyINN, companyOGRN)
+		if err != nil {
+			if errors.Is(err, ErrCompanyNotFound) {
+				return "", nil, ErrCompanyNotFound
+			}
+			return "", nil, err
+		}
+		return company.ID(), nil, nil
 	}
 
-	company, err := uc.companies.GetByRequisites(ctx, companyINN, companyOGRN)
+	company, err := uc.buildDummyCompany(cmd)
 	if err != nil {
-		if errors.Is(err, ErrCompanyNotFound) {
-			return "", ErrCompanyNotFound
-		}
-		return "", err
+		return "", nil, err
 	}
-	return company.ID(), nil
+	return company.ID(), company, nil
 }
 
-func (uc *RegisterUser) ensureDummyCompany(ctx context.Context, cmd RegisterUserCommand) (string, error) {
+func (uc *RegisterUser) buildDummyCompany(cmd RegisterUserCommand) (*identity.Company, error) {
 	login := strings.ToLower(strings.TrimSpace(cmd.Login))
 	if login == "" {
 		login = "anonymous"
@@ -146,25 +216,7 @@ func (uc *RegisterUser) ensureDummyCompany(ctx context.Context, cmd RegisterUser
 	seed := fmt.Sprintf("%d-%s", time.Now().UnixNano(), login)
 	inn, ogrn := buildValidRequisites(seed)
 	companyName := "Индивидуальный учёт (" + login + ")"
-	company, err := identity.NewCompany(uc.ids.NewCompanyID(), companyName, inn, ogrn, uc.clock.Now())
-	if err != nil {
-		return "", err
-	}
-	if uc.uow != nil && uc.publisher != nil {
-		if err := uc.uow.WithinTx(ctx, func(txCtx context.Context) error {
-			if err := uc.companies.Save(txCtx, company); err != nil {
-				return err
-			}
-			return uc.publisher.PublishCompanyCreated(txCtx, company.ID())
-		}); err != nil {
-			return "", err
-		}
-	} else {
-		if err := uc.companies.Save(ctx, company); err != nil {
-			return "", err
-		}
-	}
-	return company.ID(), nil
+	return identity.NewCompany(uc.ids.NewCompanyID(), companyName, inn, ogrn, uc.clock.Now())
 }
 
 func buildValidRequisites(seed string) (string, string) {

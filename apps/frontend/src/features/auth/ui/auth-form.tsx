@@ -9,7 +9,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 
 import { useAuth } from "@/entities/session/model/auth-context";
 import { ApiError } from "@/shared/api/http-client";
-import { registerCompany, registerUser } from "@/shared/api/identity-service";
+import { registerCompany, registerUser, resendVerification } from "@/shared/api/identity-service";
 import { Button, buttonStyles } from "@/shared/ui/button";
 import { Card } from "@/shared/ui/card";
 import { Field } from "@/shared/ui/field";
@@ -54,6 +54,10 @@ export function AuthForm({
   const [authError, setAuthError] = useState<string | null>(null);
   const [createdCompany, setCreatedCompany] = useState<{ id: string; name: string } | null>(null);
   const [companyMessage, setCompanyMessage] = useState<string | null>(null);
+  const [registrationEmail, setRegistrationEmail] = useState<string | null>(null);
+  const [unverifiedLogin, setUnverifiedLogin] = useState<string | null>(null);
+  const [resendMessage, setResendMessage] = useState<string | null>(null);
+  const [isResending, setIsResending] = useState(false);
   const isCompanyRegistered = Boolean(createdCompany);
 
   const loginForm = useForm<LoginValues>({
@@ -84,11 +88,18 @@ export function AuthForm({
 
   const submitLogin = loginForm.handleSubmit(async (values) => {
     setAuthError(null);
+    setResendMessage(null);
+    setUnverifiedLogin(null);
     try {
       await login(values.login, values.password);
       router.push(nextPath);
     } catch (error) {
-      setAuthError(error instanceof ApiError ? error.message : "Не удалось войти в систему.");
+      if (error instanceof ApiError && error.code === "EMAIL_NOT_VERIFIED") {
+        setUnverifiedLogin(values.login);
+        setAuthError("Email не подтвержден. Проверьте почту или отправьте письмо повторно.");
+        return;
+      }
+      setAuthError(error instanceof ApiError ? mapIdentityError(error) : "Не удалось войти в систему.");
     }
   });
 
@@ -99,7 +110,7 @@ export function AuthForm({
       setCreatedCompany({ id: company.id, name: company.name });
       setCompanyMessage(`Компания ${company.name} выбрана. Теперь создайте пользователя.`);
     } catch (error) {
-      setAuthError(error instanceof ApiError ? error.message : "Не удалось зарегистрировать компанию.");
+      setAuthError(error instanceof ApiError ? mapIdentityError(error) : "Не удалось зарегистрировать компанию.");
     }
   });
 
@@ -113,6 +124,7 @@ export function AuthForm({
 
   const submitUser = registerUserForm.handleSubmit(async (values) => {
     setAuthError(null);
+    setResendMessage(null);
     try {
       await registerUser({
         companyId: createdCompany?.id,
@@ -125,12 +137,34 @@ export function AuthForm({
         acceptedTerms: values.acceptedTerms,
         termsVersion: currentTermsVersion,
       });
-      await login(values.login, values.password);
-      router.push(nextPath);
+      setRegistrationEmail(values.login);
     } catch (error) {
-      setAuthError(error instanceof ApiError ? error.message : "Не удалось завершить регистрацию.");
+      if (error instanceof ApiError && error.code === "EMAIL_SEND_FAILED") {
+        setRegistrationEmail(values.login);
+        setAuthError("Аккаунт создан, но письмо подтверждения не удалось отправить. Попробуйте отправить письмо повторно.");
+        return;
+      }
+      setAuthError(error instanceof ApiError ? mapIdentityError(error) : "Не удалось завершить регистрацию.");
     }
   });
+
+  const resend = async (loginValue: string) => {
+    setIsResending(true);
+    setResendMessage(null);
+    setAuthError(null);
+    try {
+      const result = await resendVerification(loginValue);
+      setResendMessage(
+        result.already_verified
+          ? "Email уже подтвержден. Теперь можно войти."
+          : "Письмо подтверждения отправлено повторно.",
+      );
+    } catch (error) {
+      setAuthError(error instanceof ApiError ? mapIdentityError(error) : "Не удалось отправить письмо повторно.");
+    } finally {
+      setIsResending(false);
+    }
+  };
 
   if (mode === "login") {
     return (
@@ -147,6 +181,11 @@ export function AuthForm({
                 {authError}
               </Notice>
             ) : null}
+            {resendMessage ? (
+              <Notice tone="success" title="Письмо подтверждения">
+                {resendMessage}
+              </Notice>
+            ) : null}
 
             <form className="stack-md" onSubmit={submitLogin}>
               <Field label="Логин или email" error={loginForm.formState.errors.login?.message}>
@@ -161,11 +200,51 @@ export function AuthForm({
                 <Button disabled={loginForm.formState.isSubmitting} type="submit">
                   {loginForm.formState.isSubmitting ? "Входим..." : "Войти"}
                 </Button>
+                {unverifiedLogin ? (
+                  <Button disabled={isResending} onClick={() => resend(unverifiedLogin)} type="button" variant="secondary">
+                    {isResending ? "Отправляем..." : "Отправить письмо повторно"}
+                  </Button>
+                ) : null}
                 <Link className={buttonStyles({ variant: "ghost" })} href="/register">
                   Регистрация
                 </Link>
               </div>
             </form>
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
+  if (registrationEmail) {
+    return (
+      <div className="auth-shell">
+        <Card className="auth-card">
+          <div className="stack-lg">
+            <div>
+              <h1>Проверьте почту</h1>
+              <p className="muted">Регистрация почти завершена. Мы отправили письмо для подтверждения email.</p>
+            </div>
+
+            {authError ? (
+              <Notice tone="warning" title="Не удалось отправить письмо">
+                {authError}
+              </Notice>
+            ) : null}
+            {resendMessage ? (
+              <Notice tone="success" title="Письмо подтверждения">
+                {resendMessage}
+              </Notice>
+            ) : null}
+
+            <div className="inline-actions">
+              <Button disabled={isResending} onClick={() => resend(registrationEmail)} type="button">
+                {isResending ? "Отправляем..." : "Отправить письмо повторно"}
+              </Button>
+              <Link className={buttonStyles({ variant: "ghost" })} href="/login">
+                Перейти ко входу
+              </Link>
+            </div>
           </div>
         </Card>
       </div>
@@ -277,7 +356,7 @@ export function AuthForm({
                 }
                 type="submit"
               >
-                {registerUserForm.formState.isSubmitting ? "Создаем..." : "Создать пользователя и войти"}
+                {registerUserForm.formState.isSubmitting ? "Создаем..." : "Создать пользователя"}
               </Button>
               <Link className={buttonStyles({ variant: "ghost" })} href="/login">
                 Назад ко входу
@@ -288,4 +367,27 @@ export function AuthForm({
       </Card>
     </div>
   );
+}
+
+function mapIdentityError(error: ApiError): string {
+  switch (error.code) {
+    case "EMAIL_NOT_VERIFIED":
+      return "Email не подтвержден. Проверьте почту или отправьте письмо повторно.";
+    case "VERIFICATION_COOLDOWN":
+      return "Письмо уже отправлено. Повторная отправка будет доступна через несколько минут.";
+    case "EMAIL_SEND_FAILED":
+      return "Сервис отправки писем временно недоступен. Попробуйте позже.";
+    case "UPSTREAM_TIMEOUT":
+    case "UPSTREAM_UNAVAILABLE":
+      return "Сервис авторизации временно недоступен. Попробуйте еще раз.";
+    case "INVALID_CREDENTIALS":
+      return "Неверный логин или пароль.";
+    case "LOGIN_ALREADY_USED":
+      return "Пользователь с таким email уже зарегистрирован.";
+    default:
+      if (error.status === 0) {
+        return "Сервис авторизации временно недоступен. Попробуйте еще раз.";
+      }
+      return error.message;
+  }
 }

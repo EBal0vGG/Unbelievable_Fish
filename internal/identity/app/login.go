@@ -50,6 +50,9 @@ func (uc *Login) Execute(ctx context.Context, cmd LoginCommand) (LoginResult, er
 	if !ok {
 		return LoginResult{}, ErrInvalidCredentials
 	}
+	if !user.EmailVerified() {
+		return LoginResult{}, ErrEmailNotVerified
+	}
 
 	token, err := uc.tokens.Generate(user)
 	if err != nil {

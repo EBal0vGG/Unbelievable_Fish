@@ -47,6 +47,8 @@ func MapError(err error) HTTPError {
 		return HTTPError{http.StatusConflict, "LOGIN_ALREADY_USED", "login already used"}
 	case errors.Is(err, identityapp.ErrInvalidCredentials):
 		return HTTPError{http.StatusUnauthorized, "INVALID_CREDENTIALS", "invalid credentials"}
+	case errors.Is(err, identityapp.ErrEmailNotVerified):
+		return HTTPError{http.StatusForbidden, "EMAIL_NOT_VERIFIED", "email is not verified"}
 	case errors.Is(err, identityapp.ErrPasswordRequired):
 		return HTTPError{http.StatusBadRequest, "PASSWORD_REQUIRED", err.Error()}
 	case errors.Is(err, identityapp.ErrTermsAcceptanceRequired):
@@ -57,6 +59,18 @@ func MapError(err error) HTTPError {
 		return HTTPError{http.StatusBadRequest, "USER_ID_REQUIRED", err.Error()}
 	case errors.Is(err, identityapp.ErrAdminRegistrationForbidden):
 		return HTTPError{http.StatusForbidden, "ADMIN_REGISTRATION_FORBIDDEN", err.Error()}
+	case errors.Is(err, identityapp.ErrVerificationTokenRequired):
+		return HTTPError{http.StatusBadRequest, "VERIFICATION_TOKEN_REQUIRED", err.Error()}
+	case errors.Is(err, identityapp.ErrVerificationTokenInvalid):
+		return HTTPError{http.StatusBadRequest, "VERIFICATION_TOKEN_INVALID", err.Error()}
+	case errors.Is(err, identityapp.ErrVerificationTokenExpired):
+		return HTTPError{http.StatusGone, "VERIFICATION_TOKEN_EXPIRED", err.Error()}
+	case errors.Is(err, identityapp.ErrVerificationTokenUsed):
+		return HTTPError{http.StatusGone, "VERIFICATION_TOKEN_USED", err.Error()}
+	case errors.Is(err, identityapp.ErrVerificationCooldown):
+		return HTTPError{http.StatusTooManyRequests, "VERIFICATION_COOLDOWN", err.Error()}
+	case errors.Is(err, identityapp.ErrVerificationEmailSend):
+		return HTTPError{http.StatusServiceUnavailable, "EMAIL_SEND_FAILED", err.Error()}
 	case errors.Is(err, identity.ErrEmptyCompanyID):
 		return HTTPError{http.StatusBadRequest, "COMPANY_ID_REQUIRED", err.Error()}
 	case errors.Is(err, identity.ErrEmptyCompanyName):

@@ -47,11 +47,12 @@ type CompanyDTO struct {
 }
 
 type UserDTO struct {
-	ID        string
-	CompanyID string
-	Name      string
-	Role      identity.Role
-	Login     string
+	ID            string
+	CompanyID     string
+	Name          string
+	Role          identity.Role
+	Login         string
+	EmailVerified bool
 }
 
 type LoginResult struct {
@@ -72,10 +73,11 @@ func companyDTOFromDomain(company *identity.Company) CompanyDTO {
 
 func userDTOFromDomain(user *identity.User) UserDTO {
 	return UserDTO{
-		ID:        user.ID(),
-		CompanyID: user.CompanyID(),
-		Name:      user.Name(),
-		Role:      user.Role(),
-		Login:     user.Login(),
+		ID:            user.ID(),
+		CompanyID:     user.CompanyID(),
+		Name:          user.Name(),
+		Role:          user.Role(),
+		Login:         user.Login(),
+		EmailVerified: user.EmailVerified(),
 	}
 }

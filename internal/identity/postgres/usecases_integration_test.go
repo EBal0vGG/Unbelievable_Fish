@@ -117,6 +117,10 @@ func TestIdentityUseCasesWithPostgresRepositories(t *testing.T) {
 	if storedUser.TermsAcceptedAt().IsZero() {
 		t.Fatal("expected stored accepted at to be set")
 	}
+	storedUser.VerifyEmail()
+	if err := userRepo.Save(context.Background(), storedUser); err != nil {
+		t.Fatalf("verify stored user error: %v", err)
+	}
 
 	login, err := identityapp.NewLogin(
 		userRepo,
@@ -258,6 +262,14 @@ func TestRegisterUserWithoutCompany(t *testing.T) {
 	if user.CompanyID != "company-personal-carol" {
 		t.Fatalf("expected shell company id company-personal-carol, got %q", user.CompanyID)
 	}
+	storedUser, err := userRepo.GetByID(context.Background(), user.ID)
+	if err != nil {
+		t.Fatalf("load stored user error: %v", err)
+	}
+	storedUser.VerifyEmail()
+	if err := userRepo.Save(context.Background(), storedUser); err != nil {
+		t.Fatalf("verify stored user error: %v", err)
+	}
 
 	login, err := identityapp.NewLogin(
 		userRepo,
@@ -332,6 +344,14 @@ func TestRegisterUserWithBuyerSellerRole(t *testing.T) {
 	}
 	if user.Role != identity.RoleBuyerSeller {
 		t.Fatalf("expected role %q, got %q", identity.RoleBuyerSeller, user.Role)
+	}
+	storedUser, err := userRepo.GetByID(context.Background(), user.ID)
+	if err != nil {
+		t.Fatalf("load stored user error: %v", err)
+	}
+	storedUser.VerifyEmail()
+	if err := userRepo.Save(context.Background(), storedUser); err != nil {
+		t.Fatalf("verify stored user error: %v", err)
 	}
 
 	login, err := identityapp.NewLogin(

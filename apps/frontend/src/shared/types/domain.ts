@@ -8,6 +8,7 @@ export interface UserSession {
   role: UserRole;
   name: string;
   login: string;
+  emailVerified?: boolean;
   mode: "login" | "register";
   updatedAt: string;
 }

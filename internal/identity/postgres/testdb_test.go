@@ -28,6 +28,7 @@ type integrationUserRecord struct {
 	role            string
 	login           string
 	passwordHash    string
+	emailVerified   bool
 	termsAcceptedAt sql.NullTime
 	termsVersion    sql.NullString
 }
@@ -157,6 +158,7 @@ func (c *integrationConn) QueryContext(_ context.Context, query string, args []d
 			record.role,
 			record.login,
 			record.passwordHash,
+			record.emailVerified,
 			nullTimeValue(record.termsAcceptedAt),
 			nullStringValue(record.termsVersion),
 		}}}, nil
@@ -173,6 +175,7 @@ func (c *integrationConn) QueryContext(_ context.Context, query string, args []d
 					record.role,
 					record.login,
 					record.passwordHash,
+					record.emailVerified,
 					nullTimeValue(record.termsAcceptedAt),
 					nullStringValue(record.termsVersion),
 				}}}, nil
@@ -205,7 +208,7 @@ func (c *integrationConn) execCompanyInsert(args []driver.NamedValue) (driver.Re
 }
 
 func (c *integrationConn) execUserInsert(args []driver.NamedValue) (driver.Result, error) {
-	if len(args) != 8 {
+	if len(args) != 9 {
 		return nil, errors.New("unexpected user args length")
 	}
 
@@ -216,8 +219,9 @@ func (c *integrationConn) execUserInsert(args []driver.NamedValue) (driver.Resul
 		role:            args[3].Value.(string),
 		login:           args[4].Value.(string),
 		passwordHash:    args[5].Value.(string),
-		termsAcceptedAt: namedValueTime(args[6]),
-		termsVersion:    namedValueString(args[7]),
+		emailVerified:   args[6].Value.(bool),
+		termsAcceptedAt: namedValueTime(args[7]),
+		termsVersion:    namedValueString(args[8]),
 	}
 
 	c.store.mu.Lock()

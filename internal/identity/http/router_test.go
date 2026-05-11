@@ -193,6 +193,7 @@ func TestCommandFlowSmoke(t *testing.T) {
 	if userRec.Code != http.StatusAccepted {
 		t.Fatalf("expected register user status %d, got %d", http.StatusAccepted, userRec.Code)
 	}
+	users.byLogin["alice@example.com"].VerifyEmail()
 
 	loginBody, _ := json.Marshal(httpapi.LoginRequest{
 		Login:    "alice@example.com",
@@ -263,6 +264,7 @@ func TestCommandFlowSmokeWithoutCompany(t *testing.T) {
 	if userRec.Code != http.StatusAccepted {
 		t.Fatalf("expected register user status %d, got %d", http.StatusAccepted, userRec.Code)
 	}
+	users.byLogin["bob@example.com"].VerifyEmail()
 
 	loginBody, _ := json.Marshal(httpapi.LoginRequest{
 		Login:    "bob@example.com",
@@ -328,6 +330,7 @@ func TestCommandFlowSmokeBuyerSellerRole(t *testing.T) {
 	if userRec.Code != http.StatusAccepted {
 		t.Fatalf("expected register user status %d, got %d", http.StatusAccepted, userRec.Code)
 	}
+	users.byLogin["dana@example.com"].VerifyEmail()
 
 	loginBody, _ := json.Marshal(httpapi.LoginRequest{
 		Login:    "dana@example.com",
