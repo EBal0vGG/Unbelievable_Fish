@@ -66,10 +66,19 @@ func main() {
 	if err != nil {
 		logging.Fatal(logger, "register_user_usecase_init_failed", "error", err)
 	}
-	registerUserUC.WithEmailVerification(emailVerificationService)
+	emailVerificationEnabled := dbconfig.EnvBool("IDENTITY_EMAIL_VERIFICATION_ENABLED", true)
+	if emailVerificationEnabled {
+		registerUserUC.WithEmailVerification(emailVerificationService)
+	} else {
+		registerUserUC.WithAutoVerifyEmail()
+		logger.Warn("email_verification_disabled", "component", "startup", "env", "IDENTITY_EMAIL_VERIFICATION_ENABLED")
+	}
 	loginUC, err := identityapp.NewLogin(userRepo, passwordHasher, tokenProvider)
 	if err != nil {
 		logging.Fatal(logger, "login_usecase_init_failed", "error", err)
+	}
+	if !emailVerificationEnabled {
+		loginUC.WithSkipEmailVerification()
 	}
 	getCurrentUserUC, err := identityapp.NewGetCurrentUser(userRepo)
 	if err != nil {
@@ -83,13 +92,19 @@ func main() {
 	if err != nil {
 		logging.Fatal(logger, "promote_user_admin_usecase_init_failed", "error", err)
 	}
-	verifyEmailUC, err := identityapp.NewVerifyEmail(userRepo, emailTokenRepo, verificationTokenGenerator, nil, txManager)
-	if err != nil {
-		logging.Fatal(logger, "verify_email_usecase_init_failed", "error", err)
-	}
-	resendVerificationUC, err := identityapp.NewResendVerification(userRepo, emailVerificationService)
-	if err != nil {
-		logging.Fatal(logger, "resend_verification_usecase_init_failed", "error", err)
+	var verifyEmailHandler http.Handler
+	var resendVerificationHandler http.Handler
+	if emailVerificationEnabled {
+		verifyEmailUC, err := identityapp.NewVerifyEmail(userRepo, emailTokenRepo, verificationTokenGenerator, nil, txManager)
+		if err != nil {
+			logging.Fatal(logger, "verify_email_usecase_init_failed", "error", err)
+		}
+		resendVerificationUC, err := identityapp.NewResendVerification(userRepo, emailVerificationService)
+		if err != nil {
+			logging.Fatal(logger, "resend_verification_usecase_init_failed", "error", err)
+		}
+		verifyEmailHandler = handler.NewVerifyEmailHandler(verifyEmailUC)
+		resendVerificationHandler = handler.NewResendVerificationHandler(resendVerificationUC)
 	}
 	authMiddleware := handler.NewAuthMiddleware(tokenProvider)
 
@@ -99,8 +114,8 @@ func main() {
 		ListUsers:          authMiddleware.RequireRole(identity.RoleAdmin, handler.NewListUsersHandler(listUsersUC)),
 		PromoteUserAdmin:   authMiddleware.RequireRole(identity.RoleAdmin, handler.NewPromoteUserAdminHandler(promoteUserAdminUC)),
 		Login:              handler.NewLoginHandler(loginUC),
-		VerifyEmail:        handler.NewVerifyEmailHandler(verifyEmailUC),
-		ResendVerification: handler.NewResendVerificationHandler(resendVerificationUC),
+		VerifyEmail:        verifyEmailHandler,
+		ResendVerification: resendVerificationHandler,
 		GetCurrentUser:     authMiddleware.Wrap(handler.NewGetCurrentUserHandler(getCurrentUserUC)),
 	}, httplog.Middleware(logger))
 

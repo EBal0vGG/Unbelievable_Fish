@@ -21,6 +21,7 @@ type RegisterUser struct {
 	uow               UnitOfWork
 	publisher         CompanyCreatedPublisher
 	emailVerification *EmailVerificationService
+	autoVerifyEmail   bool
 }
 
 func NewRegisterUser(
@@ -60,6 +61,10 @@ func NewRegisterUser(
 
 func (uc *RegisterUser) WithEmailVerification(service *EmailVerificationService) {
 	uc.emailVerification = service
+}
+
+func (uc *RegisterUser) WithAutoVerifyEmail() {
+	uc.autoVerifyEmail = true
 }
 
 func (uc *RegisterUser) Execute(ctx context.Context, cmd RegisterUserCommand) (UserDTO, error) {
@@ -119,6 +124,9 @@ func (uc *RegisterUser) Execute(ctx context.Context, cmd RegisterUserCommand) (U
 	if err := user.AcceptTerms(cmd.TermsVersion, uc.clock.Now()); err != nil {
 		slog.WarnContext(ctx, "register_request_failed", "component", "identity.register_user", "error", err)
 		return UserDTO{}, err
+	}
+	if uc.autoVerifyEmail {
+		user.VerifyEmail()
 	}
 
 	var verificationEmail VerificationEmail

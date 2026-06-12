@@ -55,6 +55,7 @@ export function AuthForm({
   const [createdCompany, setCreatedCompany] = useState<{ id: string; name: string } | null>(null);
   const [companyMessage, setCompanyMessage] = useState<string | null>(null);
   const [registrationEmail, setRegistrationEmail] = useState<string | null>(null);
+  const [registrationVerified, setRegistrationVerified] = useState(false);
   const [unverifiedLogin, setUnverifiedLogin] = useState<string | null>(null);
   const [resendMessage, setResendMessage] = useState<string | null>(null);
   const [isResending, setIsResending] = useState(false);
@@ -126,7 +127,7 @@ export function AuthForm({
     setAuthError(null);
     setResendMessage(null);
     try {
-      await registerUser({
+      const user = await registerUser({
         companyId: createdCompany?.id,
         companyInn: createdCompany ? companyForm.getValues("inn") : undefined,
         companyOgrn: createdCompany ? companyForm.getValues("ogrn") : undefined,
@@ -138,6 +139,7 @@ export function AuthForm({
         termsVersion: currentTermsVersion,
       });
       setRegistrationEmail(values.login);
+      setRegistrationVerified(user.email_verified ?? false);
     } catch (error) {
       if (error instanceof ApiError && error.code === "EMAIL_SEND_FAILED") {
         setRegistrationEmail(values.login);
@@ -210,6 +212,26 @@ export function AuthForm({
                 </Link>
               </div>
             </form>
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
+  if (registrationEmail && registrationVerified) {
+    return (
+      <div className="auth-shell">
+        <Card className="auth-card">
+          <div className="stack-lg">
+            <div>
+              <h1>Регистрация завершена</h1>
+              <p className="muted">Аккаунт создан. Теперь можно войти в систему.</p>
+            </div>
+            <div className="inline-actions">
+              <Link className={buttonStyles({ variant: "primary" })} href="/login">
+                Перейти ко входу
+              </Link>
+            </div>
           </div>
         </Card>
       </div>

@@ -73,6 +73,10 @@ func (r *responseRecorder) Write(data []byte) (int, error) {
 }
 
 func logRequest(logger *slog.Logger, r *http.Request, rec *responseRecorder, duration time.Duration) {
+	if r.URL.Path == "/health" {
+		return
+	}
+
 	args := []any{
 		"component", "http",
 		"method", r.Method,

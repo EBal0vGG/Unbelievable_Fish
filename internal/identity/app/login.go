@@ -7,9 +7,10 @@ import (
 )
 
 type Login struct {
-	users  UserRepository
-	hasher PasswordHasher
-	tokens TokenProvider
+	users                 UserRepository
+	hasher                PasswordHasher
+	tokens                TokenProvider
+	skipEmailVerification bool
 }
 
 func NewLogin(users UserRepository, hasher PasswordHasher, tokens TokenProvider) (*Login, error) {
@@ -27,6 +28,10 @@ func NewLogin(users UserRepository, hasher PasswordHasher, tokens TokenProvider)
 		hasher: hasher,
 		tokens: tokens,
 	}, nil
+}
+
+func (uc *Login) WithSkipEmailVerification() {
+	uc.skipEmailVerification = true
 }
 
 func (uc *Login) Execute(ctx context.Context, cmd LoginCommand) (LoginResult, error) {
@@ -50,7 +55,7 @@ func (uc *Login) Execute(ctx context.Context, cmd LoginCommand) (LoginResult, er
 	if !ok {
 		return LoginResult{}, ErrInvalidCredentials
 	}
-	if !user.EmailVerified() {
+	if !uc.skipEmailVerification && !user.EmailVerified() {
 		return LoginResult{}, ErrEmailNotVerified
 	}
 
